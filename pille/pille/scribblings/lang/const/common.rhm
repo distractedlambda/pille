@@ -1,0 +1,7 @@
+#lang rhombus/static
+
+import:
+  "../common.rhm" open
+
+export:
+  all_from("../common.rhm")

@@ -1,0 +1,52 @@
+#lang rhombus/static/and_meta
+
+import:
+  "constant.rhm" open
+  "enums.rhm" open
+  "llvm_c.rkt" open
+  "module.rhm" open
+  "type.rhm" open
+
+export veneer GlobalValue(this :: satisfying(LLVMIsAGlobalValue)):
+  extends Constant
+
+  constructor ~error
+
+  property parent :: maybe(Module):
+    LLVMGetGlobalParent(this)
+
+  property is_declaration :: Boolean:
+    LLVMIsDeclaration(this)
+
+  property value_type :: Type:
+    LLVMGlobalGetValueType(this)
+
+  property
+  | linkage :: Linkage:
+      LLVMGetLinkage(this) |> decode_linkage
+  | linkage := (value :: Linkage):
+      LLVMSetLinkage(this, encode_linkage(value))
+
+  property
+  | section :: maybe(String):
+      LLVMGetSection(this) ?> String.snapshot
+  | section := (value :: maybe(ReadableString || Symbol)):
+      LLVMSetSection(this, value)
+
+  property
+  | visibility :: Visibility:
+      LLVMGetVisibility(this) |> decode_visibility
+  | visibility := (value :: Visibility):
+      LLVMSetVisibility(this, encode_visibility(value))
+
+  property
+  | dll_storage_class :: DllStorageClass:
+      LLVMGetDLLStorageClass(this) |> decode_dll_storage_class
+  | dll_storage_class := (value :: DllStorageClass):
+      LLVMSetDLLStorageClass(this, encode_dll_storage_class(value))
+
+  property
+  | unnamed_address :: UnnamedAddr:
+      LLVMGetUnnamedAddress(this) |> decode_unnamed_addr
+  | unnamed_address := (value :: UnnamedAddr):
+      LLVMSetUnnamedAddress(this, encode_unnamed_addr(value))

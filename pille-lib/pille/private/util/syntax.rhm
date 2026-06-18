@@ -1,0 +1,104 @@
+#lang rhombus/static/and_meta
+
+meta import:
+  rhombus/static open
+  rhombus/static/meta open
+
+meta:
+  //============================================================================
+  export syntax_class BlockOrTail:
+    kind: ~group
+  | ': $(contents :: Group)'
+  | '$(contents :: Group)'
+
+  export unquote_bind.macro 'block_or_tail $(rhs :: Group) $()':
+    let bot = Symbol.gen(#'bot)
+    '«pattern:
+        kind: ~group
+      | '$('$')($bot :: BlockOrTail)':
+          match_def '$('$')($rhs)' = $(bot).contents»'
+
+  //============================================================================
+  export syntax_class MaybeBlock:
+    kind: ~sequence
+  | ': $(contents :: Multi)'
+  | '': match_def '$(contents :: Multi)' = ''
+
+  export unquote_bind.macro 'maybe_block $(rhs :: Group) $()':
+    let mb = Symbol.gen(#'mb)
+    '«pattern:
+        kind: ~sequence
+      | '$('$')($mb :: MaybeBlock)':
+          match_def '$('$')($rhs)' = $(mb).contents»'
+
+  //============================================================================
+  export syntax_class Parenthesizable:
+    kind: ~sequence
+  | '($contents)'
+  | '$(contents :: Sequence)'
+
+  export unquote_bind.macro 'parenthesizable $(rhs :: Group) $()':
+    let stx = Symbol.gen(#'stx)
+    '«pattern:
+        kind: ~sequence
+      | '$('$')($stx :: Parenthesizable)':
+          match_def '$('$')($rhs)' = $(stx).contents»'
+
+  //============================================================================
+  export syntax_class NonemptySequence:
+    kind: ~sequence
+    fields: «»
+  | '$_ $_ ...'
+
+  //============================================================================
+  export syntax_class NonemptyMulti:
+    kind: ~multi
+  | '$_; $_; ...'
+
+  //============================================================================
+  export syntax_class Option:
+    kind: ~group
+    fields: keyword [tail, ...]
+  | '$(keyword :: Keyword) $tail ...'
+
+  //============================================================================
+  export syntax_class NotOption:
+    kind: ~group
+  | '$hd $tl ...':
+      match_when hd !matches '$(_ :: Keyword)'
+
+  //============================================================================
+  export syntax_class OptionsAndBody:
+    kind: ~multi
+    fields: [option, ...] body
+  | '$(option :: Option); ...
+     $(body_hd :: NotOption)
+     $(body_tl :: Group); ...':
+      field body = '$body_hd; $body_tl; ...'
+
+  //============================================================================
+  export syntax_class BlockOrAlt:
+    kind: ~term
+  | ': $_'
+  | '| $_ | ...'
+
+  export syntax_class SimpleTerm:
+    kind: ~term
+    fields: «»
+  | '$term':
+      match_when term !matches '$(_ :: BlockOrAlt)'
+
+  export syntax_class SimpleSequence:
+    kind: ~sequence
+  | '$(_ :: SimpleTerm) ...'
+
+  export syntax_class SimpleNonemptySequence:
+    kind: ~sequence
+  | '$(_ :: SimpleTerm) $(_ :: SimpleSequence)'
+
+  //============================================================================
+  export fun name_to_uninterned_symbol(name :~ Name) :~ Symbol:
+    name
+      |> Syntax.name_to_symbol
+      |> to_string
+      |> Symbol.uninterned_from_string

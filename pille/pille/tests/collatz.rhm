@@ -1,0 +1,125 @@
+#lang rhombus/static
+
+import:
+  ffi open
+  pille/hosted open
+
+//==============================================================================
+pille.fun collatz_ssa(n :: BinaryInteger) :: type_of(n):
+  #'loop(n, iter = 0 :: type_of(n)):
+    cond
+    | n == 1:
+        iter
+    | n % 2 == 0:
+        continue loop(n div_floor 2, iter + 1)
+    | ~else:
+        continue loop((3*n + 1) div_floor 2, iter + 2)
+
+//==============================================================================
+pille.fun collatz_rec_impl(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
+  cond
+  | n == 1:
+      iter
+  | n % 2 == 0:
+      collatz_rec_impl(n div_floor 2, iter + 1)
+  | ~else:
+      collatz_rec_impl((3*n + 1) div_floor 2, iter + 2)
+
+//==============================================================================
+pille.fun collatz_mut_rec_cond(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
+  cond
+  | n == 1:
+      iter
+  | n % 2 == 0:
+      collatz_mut_rec_even(n, iter)
+  | ~else:
+      collatz_mut_rec_odd(n, iter)
+
+pille.fun collatz_mut_rec_even(n :: UInt(_), iter :: UInt(_)):
+  collatz_mut_rec_cond(n div_floor 2, iter + 1)
+
+pille.fun collatz_mut_rec_odd(n :: UInt(_), iter :: UInt(_)):
+  collatz_mut_rec_cond((3*n + 1) div_floor 2, iter + 2)
+
+//==============================================================================
+fun collatz_oracle(n :: PosInt) :~ Nat:
+  recur loop(n :~ PosInt = n, iter :~ Nat = 0):
+    cond
+    | n == 1:
+        iter
+    | n rem 2 == 0:
+        loop(n div 2, iter + 1)
+    | ~else:
+        loop((3*n + 1) div 2, iter + 2)
+
+check:
+  collatz_oracle(1) ~is 0
+  collatz_oracle(97) ~is 118
+  collatz_oracle(6171) ~is 261
+
+//==============================================================================
+fun collatz_ssa(n :: PosInt):
+  pille(n :: UInt(64)):
+    collatz_ssa(n)
+
+check:
+  collatz_ssa(1) ~is collatz_oracle(1)
+  collatz_ssa(42) ~is collatz_oracle(42)
+  collatz_ssa(97) ~is collatz_oracle(97)
+  collatz_ssa(30569) ~is collatz_oracle(30569)
+
+//==============================================================================
+fun collatz_var(n :: PosInt):
+  pille(n :: UInt(64)):
+    var n = n
+    var iter :: type_of(n) = 0
+    while n != 1:
+      if n % 2 == 0
+      | n := n div_floor 2
+        iter := iter + 1
+      | n := (3*n + 1) div_floor 2
+        iter := iter + 2
+    iter
+
+check:
+  collatz_var(1) ~is collatz_oracle(1)
+  collatz_var(42) ~is collatz_oracle(42)
+  collatz_var(97) ~is collatz_oracle(97)
+  collatz_var(30569) ~is collatz_oracle(30569)
+
+//==============================================================================
+fun collatz_rec(n :: PosInt):
+  pille(n :: UInt(64)):
+    collatz_rec_impl(n, 0 :: UInt(64))
+
+check:
+  collatz_rec(1) ~is collatz_oracle(1)
+  collatz_rec(42) ~is collatz_oracle(42)
+  collatz_rec(97) ~is collatz_oracle(97)
+  collatz_rec(30569) ~is collatz_oracle(30569)
+
+//==============================================================================
+fun collatz_mut_rec(n :: PosInt):
+  pille(n :: UInt(64)):
+    collatz_mut_rec_cond(n, 0 :: UInt(64))
+
+check:
+  collatz_mut_rec(1) ~is collatz_oracle(1)
+  collatz_mut_rec(42) ~is collatz_oracle(42)
+  collatz_mut_rec(97) ~is collatz_oracle(97)
+  collatz_mut_rec(30569) ~is collatz_oracle(30569)
+
+//==============================================================================
+let max_n = 128
+check:
+  let results = new uint32_t[max_n]
+  pille(results :: PtrMut(UInt(32)), max_n :: UInt(32)):
+    var n :: UInt(32) = 1
+    while n ≤ max_n:
+      results[n - 1] := collatz_ssa(n)
+      n := n + 1
+  for List(i in 0..max_n):
+    mem results[i]
+  ~is:
+    for List(n in 1..=max_n):
+      collatz_oracle(n)

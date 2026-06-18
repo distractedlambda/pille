@@ -1,0 +1,111 @@
+#lang rhombus/static/and_meta
+
+import:
+  "const_annot.rhm" open
+  "const_bind.rhm" open
+  pille/concretize open
+
+meta import:
+  rhombus/static/meta open
+
+meta export only_space namespace:
+  const_annot_meta
+
+//==============================================================================
+export const_annot.macro '#%parens($child)':
+  child
+
+meta fun const_annot_meta.encapsulate(stx :: Group) :~ Term:
+  '($stx)'.relocate_span([stx])
+
+//==============================================================================
+// Dummy binding for AfterInfixParsed usage
+export const_annot.macro '$lhs :: $_ ...':
+  ~weaker_than: ~other
+  ~associativity: ~none
+  ~op_stx: op
+  syntax_meta.error(op)
+
+//==============================================================================
+// Dummy binding for AfterInfixParsed usage
+export const_annot.macro '$lhs is_a $_ ...':
+  ~order: equivalence
+  ~associativity: ~none
+  ~op_stx: op
+  syntax_meta.error(op)
+
+//==============================================================================
+export const_annot.macro '#%rhombus($(ann :: annot_meta.Parsed))':
+  let (pred, _) = annot_meta.unpack_predicate(ann)
+  const_annot_meta.pack_rhombus_predicate(pred)
+
+//==============================================================================
+defn.macro 'rhombus_annots:
+              $(pille_name :: Name): $(rhombus_ann :: Group)
+              ...':
+  '«const_annot.macro '$pille_name':
+      '#%rhombus($rhombus_ann)'
+    ...»'
+
+export rhombus_annots:
+  alignment: satisfying(is_alignment)
+  any: Any
+  boolean: Boolean
+  comparable: Comparable
+  function: Function
+  int: Int
+  integral: Integral
+  nat: Nat
+  neg_int: NegInt
+  neg_real: NegReal
+  nonneg_real: NonnegReal
+  number: Number
+  pos_int: PosInt
+  pos_real: PosReal
+  rational: Rational
+  real: Real
+  string: String
+  type: Type
+
+fun is_alignment(n):
+  guard.let n :: Int.in(0..0xFFFF_FFFF) = n | #false
+  n == (1 bits.(<<) (bits.length(n) - 1))
+
+//==============================================================================
+export const_annot.macro '$lhs && $rhs':
+  ~order: logical_conjunction
+  let lhs_pred = const_annot_meta.unpack_rhombus_predicate(lhs)
+  let rhs_pred = const_annot_meta.unpack_rhombus_predicate(rhs)
+  const_annot_meta.pack_rhombus_predicate('make_conjunction($lhs_pred, $rhs_pred)')
+
+fun make_conjunction(lhs_pred, rhs_pred):
+  fun(target):
+    lhs_pred(target) && rhs_pred(target)
+
+//==============================================================================
+export const_annot.macro '$lhs || $rhs':
+  ~order: logical_disjunction
+  let lhs_pred = const_annot_meta.unpack_rhombus_predicate(lhs)
+  let rhs_pred = const_annot_meta.unpack_rhombus_predicate(rhs)
+  const_annot_meta.pack_rhombus_predicate('make_disjunction($lhs_pred, $rhs_pred)')
+
+fun make_disjunction(lhs_pred, rhs_pred):
+  fun(target):
+    lhs_pred(target) || rhs_pred(target)
+
+//==============================================================================
+export const_annot.macro 'matching($(pat :: const_bind_meta.Parsed))':
+  const_annot_meta.pack_rhombus_predicate(
+    'fun(target):
+       guard_matching(
+         fun():
+           $(const_bind_meta.compile(
+               pat,
+               'target',
+               '#true')))')
+
+fun guard_matching(thunk):
+  try:
+    thunk()
+    ~catch exn :: Exn.Fail.Concretize.Recoverable:
+      #false

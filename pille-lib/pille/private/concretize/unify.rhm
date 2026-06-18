@@ -1,0 +1,21 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  "type_fwd.rhm" open
+
+export annot.def Rule:
+  (_Type, _Type) -> maybe(_Type)
+
+export annot.def Rules:
+  [Function.assume_of(Rule), ...]
+
+Parameter.def current_rules :~ List:
+  []
+
+export fun add_rule(rule :: Rule) :: Void:
+  let lst = current_rules()
+  current_rules(List.cons(rule, lst))
+
+export fun snapshot_rules() :~ Rules:
+  current_rules()

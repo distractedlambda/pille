@@ -1,0 +1,12 @@
+#lang rhombus/static/and_meta
+
+export defn.sequence_macro 'defer $body ...
+                            $tail
+                            ...':
+  values(
+    'try:
+       block:
+         $tail
+         ...
+       ~finally $body ...',
+    '')

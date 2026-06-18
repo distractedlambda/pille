@@ -1,0 +1,57 @@
+#lang rhombus/static/and_meta
+
+import:
+  scribble/spacer
+
+export spacer.bridge ::(~left: left, self, tail, ctx, esc):
+  ~in: #'#{pille/const_bind} #'#{pille/const_expr}
+  let tail_adj = spacer.adjust_sequence(tail, #'#{pille/const_annot}, esc)
+  '$left $self $tail_adj'
+
+export spacer.bridge const(self, tail, ctx, esc):
+  ~in: #'#{pille/expr}
+  match tail
+  | '($exp)':
+      let exp_adj = spacer.adjust_group(exp, #'#{pille/const_expr}, esc)
+      let tail_adj = '($exp_adj)'.relocate(tail)
+      '$self $tail_adj'
+  | _:
+      '$self $tail'
+
+export spacer.bridge type_of(self, tail, ctx, esc):
+  ~in: #'#{pille/const_expr}
+  match tail
+  | '($exp)':
+      let exp_adj = spacer.adjust_group(exp, #'#{pille/expr}, esc)
+      let tail_adj = '($exp_adj)'.relocate(tail)
+      '$self $tail_adj'
+  | _:
+      '$self $tail'
+
+export spacer.bridge .$(~left: left, self, tail, ctx, esc):
+  ~in: #'#{pille/expr}
+  match tail
+  | '$(id :: Identifier) $tl ...':
+      let id_adj = spacer.adjust_term(id, #'#{pille/special_name}, esc)
+      '$left $self $id_adj $tl ...'
+  | _:
+      '$left $self $tail'
+
+export spacer.bridge $(self, tail, ctx, esc):
+  ~in: #'#{pille/expr}
+  match tail
+  | '$(id :: Identifier) $tl ...':
+      let id_adj = spacer.adjust_term(id, #'#{pille/special_name}, esc)
+      '$self $id_adj $tl ...'
+  | _:
+      '$self $tail'
+
+export spacer.bridge equal_to(self, tail, ctx, esc):
+  ~in: #'#{pille/const_bind}
+  match tail
+  | '($cexp)':
+      let cexp_adj = spacer.adjust_group(cexp, #'#{pille/const_expr}, esc)
+      let cexp_adj = '($cexp_adj)'.relocate(tail)
+      '$self $cexp_adj'
+  | _:
+      '$self $tail'

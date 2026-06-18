@@ -1,0 +1,61 @@
+#lang rhombus/static/and_meta
+
+import:
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "const_ns.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "local_defn.rhm" open
+  pille/concretize open
+
+export only_space namespace:
+  const
+
+//==============================================================================
+pille_expr.macro 'const.match $(target :: const_expr_meta.Parsed)
+                  | $(hd_bind :: const_bind_meta.Parsed): $hd_body
+                  | $(tl_bind :: const_bind_meta.Parsed): $tl_body
+                  | ...':
+  let [bind, ...] = [hd_bind, tl_bind, ...]
+  let [body, ...] = [hd_body, tl_body, ...]
+  pille_expr_meta.pack_concretize(
+    'concretize_const_match(
+       $(const_expr_meta.unpack_rhombus_expr(target)),
+       [fun(tgt):
+          $(const_bind_meta.compile(
+              bind,
+              'tgt',
+              'fun():
+                 pille_expr.concretize(
+                   $(local_defn_meta.encapsulate_body(body)))')),
+        ...])')
+
+fun concretize_const_match(target, cases :~ List):
+  try ~escape_as ret:
+    let exns = for List (case in cases):
+      try ~escape_as continue:
+        let concretize_body = try:
+          case(target)
+          ~catch exn :: Exn.Fail.Concretize.Recoverable:
+            continue(exn)
+        ret(concretize_body())
+    error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "no matching case",
+      error.cause(each exns),
+      ...)
+
+//==============================================================================
+const_expr.macro 'const.assert($(test :: const_expr_meta.Parsed))':
+  const_expr_meta.pack_rhombus_expr(
+    'const_assert(
+       $(const_expr_meta.unpack_rhombus_expr(test)),
+       $(test.to_source_string()))')
+
+pille_expr.macro 'const.assert($test)':
+  'const(const.assert($test))'
+
+fun const_assert(test, test_string):
+  test || error(~exn: Exn.Fail.Concretize,
+                @str{const assertion failure: '@test_string'})

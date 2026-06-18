@@ -1,0 +1,22 @@
+#lang rhombus/static/and_meta
+
+import:
+  "expr.rhm" open
+
+export:
+  labeled_expr
+
+//==============================================================================
+space.transform labeled_expr:
+  space_path pille/labeled_expr
+  macro_definer macro: ~label_id
+  meta_namespace labeled_expr_meta:
+    reflection space
+    parse_syntax_class Parsed(label_id)
+
+//==============================================================================
+export pille_expr.macro '#'$(label_id :: Identifier) $tail ...':
+  ~all_stx: stx
+  let label_id = syntax_meta.flip_introduce(label_id)
+  let '$(tail_p :: labeled_expr_meta.Parsed(label_id))' = '$tail ...'
+  tail_p

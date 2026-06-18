@@ -1,0 +1,6 @@
+#lang rhombus/static
+
+export class Artifact(
+  data :: ImmutableBytes,
+  dependencies :: [Symbol, ...],
+)

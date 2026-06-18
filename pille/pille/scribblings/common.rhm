@@ -1,0 +1,97 @@
+#lang rhombus/static/and_meta
+
+import:
+  rhombus/scribble/manual
+
+export def llvm_version:
+  "21.1.x"
+
+// A hack to typeset alts as an alternative:
+export manual.rhombus_typeset 'Z':
+  'manual.hspace(1)'
+
+export def shrubbery_doc:
+  ModulePath'lib("shrubbery/scribblings/shrubbery.scrbl")'
+
+export expr.macro 'shrubbery_tech($arg, ...)':
+  'manual.tech(~doc: shrubbery_doc, $arg, ...)'
+
+export def rhm_doc:
+  ModulePath'lib("rhombus/scribblings/main/rhombus.scrbl")'
+
+export def rhm_guide_doc:
+  ModulePath'lib("rhombus/scribblings/guide/rhombus-guide.scrbl")'
+
+export expr.macro 'rhm_guide_tech($arg, ...)':
+  'manual.tech(~doc: rhm_guide_doc, $arg, ...)'
+
+export def rhm_ref_doc:
+  ModulePath'lib("rhombus/scribblings/reference/rhombus-reference.scrbl")'
+
+export expr.macro 'rhm_ref_tech($arg, ...)':
+  'manual.tech(~doc: rhm_ref_doc, $arg, ...)'
+
+export def rhm_meta_doc:
+  ModulePath'lib("rhombus/scribblings/meta/rhombus-meta.scrbl")'
+
+export expr.macro 'rhm_meta_tech($arg, ...)':
+  'manual.tech(~doc: rhm_meta_doc, $arg, ...)'
+
+export def rhm_model_doc:
+  ModulePath'lib("rhombus/scribblings/model/rhombus-model.scrbl")'
+
+export expr.macro 'rhm_model_tech($arg, ...)':
+  'manual.tech(~doc: rhm_model_doc, $arg, ...)'
+
+export def language_tech:
+  @rhm_guide_tech{language}
+
+export def space_tech:
+  @rhm_meta_tech{space}
+
+export def phase_level_tech:
+  @rhm_model_tech{phase level}
+
+export def group_tech:
+  @shrubbery_tech{group}
+
+export fun parsing_tech(pre_content = ["parsing"]):
+  manual.tech(~key: "parsing", pre_content)
+
+export fun coercion_tech(pre_content = ["coercion"]):
+  manual.tech(~key: "coercion", pre_content)
+
+export fun unification_tech(pre_content = ["unification"]):
+  manual.tech(~key: "unification", pre_content)
+
+export def llvm_project:
+  @manual.hyperlink("https://llvm.org"){LLVM}
+
+export def ziglang:
+  @manual.hyperlink("https://ziglang.org"){Zig}
+
+export def wikipedia_simd:
+  @manual.hyperlink("https://en.wikipedia.org/wiki/Single_instruction,_multiple_data"){SIMD}
+
+export def wikipedia_twos_complement:
+  @manual.hyperlink("https://en.wikipedia.org/wiki/Two%27s_complement"){two's-complement}
+
+defn.macro 'rhombus_shorthands:
+              $(name :: IdentifierName) $(space :: Group)
+              ...':
+  '«expr.macro '$name($('$')form)':
+      'manual.rhombus($('$')form, $space)'
+    ...»'
+
+export rhombus_shorthands:
+  pille_const_annot ~at pille/const_annot
+  pille_const_bind ~at pille/const_bind
+  pille_const_expr ~at pille/const_expr
+  pille_expr ~at pille/expr
+  pille_global_defn ~defn
+  pille_labeled_expr ~at pille/labeled_expr
+  pille_local_defn ~at pille/local_defn
+  pille_special_name ~at pille/special_name
+  rhm_decl ~decl
+  rhm_defn ~defn
+  rhm_expr ~expr

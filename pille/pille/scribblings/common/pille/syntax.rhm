@@ -1,0 +1,368 @@
+#lang rhombus/static/and_meta
+
+import:
+  rhombus/scribble/manual
+  scribble/doc_meta open
+  meta:
+    rhombus/rx open
+    rhombus/static/meta open
+
+meta:
+  //============================================================================
+  export syntax_class NonemptySequence:
+    kind: ~sequence
+  | '$_ $_ ...'
+
+  //============================================================================
+  export syntax_class MaybeBlock:
+    kind: ~sequence
+  | ': $_'
+  | ''
+
+  //============================================================================
+  export syntax_class Option:
+    kind: ~group
+  | '$(_ :: Keyword) $_ ...'
+
+  //============================================================================
+  export syntax_class BlockOrAlt:
+    kind: ~term
+  | ': $_'
+  | '| $_ | ...'
+
+  export syntax_class SimpleTerm:
+    kind: ~term
+    fields: «»
+  | '$term':
+      match_when term !matches '$(_ :: BlockOrAlt)'
+
+  export syntax_class SimpleSequence:
+    kind: ~sequence
+  | '$(_ :: SimpleTerm) ...'
+
+  export syntax_class SimpleNonemptySequence:
+    kind: ~sequence
+  | '$(_ :: SimpleTerm) $(_ :: SimpleSequence)'
+
+  //============================================================================
+  export syntax_class ResAnnot:
+    kind: ~sequence
+    fields: op annot
+  | '$('::' && op) $(annot :: SimpleNonemptySequence)'
+
+  export syntax_class MaybeResAnnot:
+    kind: ~sequence
+    fields:
+      op :~ maybe(Operator)
+      annot :~ maybe(Group)
+      present :~ Boolean
+  | '$(_ :: ResAnnot: open)':
+      field present = #true
+  | '':
+      field op = #false
+      field annot = #false
+      field present = #false
+
+  export fun typeset_res_annot('$(stx :: ResAnnot)'):
+    '$(typeset_expr(stx.op)) $(typeset_const_expr(stx.annot))'
+
+  export fun typeset_maybe_res_annot(stx):
+    if stx matches ''
+    | ''
+    | typeset_res_annot(stx)
+
+  //============================================================================
+  export syntax_class MemberName:
+    kind: ~sequence
+  | '$('$') $(_ :: Identifier)'
+  | '$(_ :: Identifier)'
+
+  export syntax_class DotMemberName:
+    kind: ~sequence
+  | '. $(_ :: MemberName)'
+  | '.$ $(_ :: Identifier)'
+
+  export fun typeset_member_name(stx):
+    match stx
+    | '$('$' && dollar_op) $(name :: Identifier)':
+        '$(typeset_expr(dollar_op)) $(typeset_special_name(name))'
+    | '$(name :: Identifier)':
+        name
+
+  export fun typeset_dot_member_name(stx):
+    match stx
+    | '$('.' && dot_op) $(mn :: MemberName)':
+        '$(typeset_expr(dot_op)) $(typeset_member_name(mn))'
+    | '$('.$' && dot_dollar_op) $(name :: Identifier)':
+        '$(typeset_expr(dot_dollar_op)) $(typeset_special_name(name))'
+
+  //============================================================================
+  export syntax_class Args:
+    kind: ~term
+  | '($arg, ...)'
+
+  export syntax_class Receiver:
+    kind: ~term
+  | '($arg)'
+
+  export fun arg_metavars(stx) :~ [Identifier, ...]:
+    let '$('inout' || '') $(stx :: Sequence)' = stx
+    match stx
+    | 'const $(cb :: Group)':
+        const_bind_metavars(cb)
+    | '$(name :: Identifier) :: $(type :: Group)':
+        [name, &const_bind_metavars(type)]
+    | '$(name :: Identifier)':
+        [name]
+    | _:
+        []
+
+  export fun typeset_arg(stx):
+    match stx
+    | '$('inout' && inout) $(tl :: Sequence)':
+        '$(typeset_expr(inout)) $(typeset_arg_no_inout(tl))'
+          .relocate_group(stx)
+    | _:
+        typeset_arg_no_inout(stx)
+
+  fun typeset_arg_no_inout(stx):
+    match stx
+    | '$('const' && const) $(cb :: Group)':
+        '$(typeset_expr(const)) $(typeset_const_bind(cb))'
+          .relocate_group(stx)
+    | '$(name :: Identifier) $('::' && annot_op) $(type :: Group)':
+        '$name $(typeset_expr(annot_op)) $(typeset_const_bind(type))'
+          .relocate_group(stx)
+    | _:
+        stx
+
+  export fun args_metavars('$(stx :: Args)') :~ [Identifier, ...]:
+    List.append(arg_metavars(stx.arg), ...)
+
+  export fun typeset_args('$(stx :: Args)'):
+    '($(typeset_arg(stx.arg)), ...)'.relocate(stx)
+
+  export fun receiver_metavars('$(stx :: Receiver)') :~ [Identifier, ...]:
+    arg_metavars(stx.arg)
+
+  export fun typeset_receiver('$(stx :: Receiver)'):
+    '($(typeset_arg(stx.arg)))'.relocate(stx)
+
+  //============================================================================
+  export syntax_class ConstArgs:
+    kind: ~term
+  | '($arg, ...)'
+
+  export fun const_args_metavars('$(stx :: ConstArgs)') :~ [Identifier, ...]:
+    List.append(const_bind_metavars(stx.arg), ...)
+
+  export fun typeset_const_args('$(stx :: ConstArgs)'):
+    '($(typeset_const_bind(stx.arg)), ...)'.relocate(stx)
+
+  //============================================================================
+  export syntax_class MaybeConstArgs:
+    kind: ~sequence
+    fields: args :~ maybe(Syntax.matched_of(ConstArgs))
+  | '$(args :: ConstArgs)'
+  | '': field args = #false
+
+  export fun maybe_const_args_metavars('$(stx :: MaybeConstArgs)') :~ [Identifier, ...]:
+    (stx.args ?> const_args_metavars) || []
+
+  export fun typeset_maybe_const_args('$(stx :: MaybeConstArgs)'):
+    (stx.args ?> typeset_const_args) || stx
+
+  //============================================================================
+  export syntax_class NameNotAnnotOp:
+    kind: ~sequence
+    fields: «»
+  | '$(name :: Name)':
+      match_when name !matches '::'
+
+  export syntax_class OperandTerm:
+    kind: ~term
+    fields: «»
+  | '$term':
+      match_when term !is_a Operator
+
+  export fun operand_metavars(stx) :~ [Identifier, ...]:
+    match stx
+    | '$(id :: Identifier)':
+        [id]
+    | '($arg)':
+        arg_metavars(arg)
+
+  export fun typeset_operand(stx):
+    match stx
+    | '($arg)':
+        typeset_args(stx)
+    | _:
+        stx
+
+  export syntax_class OperatorPat:
+    kind: ~sequence
+    fields:
+      op_name :~ Name
+      kind :~ Symbol
+      lhs :~ maybe(Term)
+      rhs :~ maybe(Term)
+      [operand :~ Term, ...]
+  | '$(op_name :: NameNotAnnotOp) $(rhs :: OperandTerm)':
+      field kind = #'prefix
+      field lhs = #false
+      field [operand, ...] = [rhs]
+  | '$(lhs :: OperandTerm) $(op_name :: NameNotAnnotOp) $(rhs :: OperandTerm)':
+      field kind = #'infix
+      field [operand, ...] = [lhs, rhs]
+  | '$(lhs :: OperandTerm) $(op_name :: NameNotAnnotOp)':
+      field kind = #'postfix
+      field rhs = #false
+      field [operand, ...] = [lhs]
+
+  export syntax_class OperatorPatMaybeParens:
+    kind: ~sequence
+    fields:
+      op_name :~ Name
+      kind :~ Symbol
+      lhs :~ maybe(Term)
+      rhs :~ maybe(Term)
+      [operand :~ Term, ...]
+      pat_in_parens :~ Boolean
+  | '($(_ :: OperatorPat: open))':
+      field pat_in_parens = #true
+  | '$(_ :: OperatorPat: open)':
+      field pat_in_parens = #false
+
+  export syntax_class OperatorCase:
+    kind: ~group
+  | '$(pat :: OperatorPatMaybeParens: open) $(res_annot :: MaybeResAnnot) $(block :: MaybeBlock)'
+
+  //============================================================================
+  export fun metavariable_list_extractor(f :: Syntax -> [Identifier, ...]):
+    fun(stx, space, vars):
+      for fold(vars = vars) (id in f(stx)):
+        doc_meta.add_metavariable(vars, id)
+
+  //============================================================================
+  export fun const_bind_metavars(stx :: Syntax) :~ [Identifier, ...]:
+    match stx
+    | '($grp) $tl ...':
+        const_bind_metavars(grp) ++ const_bind_metavars('$tl ...')
+    | '$(_ :: Name) ($grp, ...) $tl ...':
+        List.append(const_bind_metavars(grp), ..., const_bind_metavars('$tl ...'))
+    | '$(id :: Identifier) $tl ...' when to_string(id.unwrap()) matches rx'"_"* unicode.Ll .*':
+        [id] ++ const_bind_metavars('$tl ...')
+    | ':: $_ ...':
+        []
+    | '$_ $tl ...':
+        const_bind_metavars('$tl ...')
+    | '':
+        []
+
+  export fun where_bind_metavars(stx :: Group) :~ [Identifier, ...]:
+    match stx
+    | '$bind ... = $_ ...':
+        const_bind_metavars('$bind ...')
+    | '$bind ...: $_':
+        const_bind_metavars('$bind ...')
+
+  export fun option_metavars(stx :: Group) :~ [Identifier, ...]:
+    match stx
+    | '~where: $wb; ...':
+        List.append(where_bind_metavars(wb), ...)
+    | '~where $wb ...':
+        where_bind_metavars('$wb ...')
+    | '$(_ :: Option)':
+        []
+
+  export fun block_metavars(stx :: Block) :~ [Identifier, ...]:
+    let ': $(option :: Option); ...; $_; ...' = stx
+    List.append(option_metavars(option), ...)
+
+  export fun optional_block_metavars(stx :: Syntax) :~ [Identifier, ...]:
+    match stx
+    | ': $(block :: Block)':
+        block_metavars(block)
+    | '':
+        []
+
+  //============================================================================
+  export fun typeset_name(name, space, subst):
+    name |> doc_meta.extract_name(_, space) |> subst
+
+  //============================================================================
+  export fun typeset_in_space(stx :: Syntax, space :: Group) :~ Syntax:
+    match stx
+    | '': ''
+    | _: '#,$('(manual.rhombus($stx, $space))'.relocate_span([stx]))'
+
+  defn.macro 'in_space_typesetters:
+                $(name :: IdentifierName) $(space :: Group)
+                ...':
+    'fun $name(stx :~ Syntax) :~ Syntax:
+       typeset_in_space(stx, '$space')
+     ...'
+
+  export in_space_typesetters:
+    typeset_const_annot ~at pille/const_annot
+    typeset_const_bind ~at pille/const_bind
+    typeset_const_expr ~at pille/const_expr
+    typeset_expr ~at pille/expr
+    typeset_global_defn ~defn
+    typeset_local_defn ~at pille/local_defn
+    typeset_operator_order ~operator_order
+    typeset_special_name ~at pille/special_name
+
+  //============================================================================
+  export fun typeset_where_bind(stx :: Group) :~ Group:
+    let ts :~ Syntax = match stx
+    | '$(lhs :: SimpleNonemptySequence) $('=' && eq_op) $(rhs :: NonemptySequence)':
+        let lhs_ts = typeset_const_bind(lhs)
+        let eq_op_ts = typeset_const_expr(eq_op)
+        let rhs_ts = typeset_const_expr(rhs)
+        '$lhs_ts $eq_op_ts $rhs_ts'
+    | '$(lhs :: Group): $(rhs :: Group)':
+        let lhs_ts = typeset_const_bind(lhs)
+        let rhs_ts = typeset_const_expr(rhs)
+        '$lhs: $rhs'
+    ts.relocate_group(stx)
+
+  export fun typeset_option(stx :: Group) :~ Group:
+    let '$(kw :: Keyword) $(tl :: Sequence)' = stx
+    try ~escape_as esc:
+      let tl_ts :~ Syntax = match kw.unwrap()
+      | #'~when:
+          match tl
+          | ': $test; ...':
+              ': $(typeset_const_expr(test)); ...'.relocate(tl)
+          | _:
+              typeset_const_expr(tl)
+      | #'~where:
+          match tl
+          | ': $wb; ...':
+              ': $(typeset_where_bind(wb)); ...'.relocate(tl)
+          | _:
+              typeset_where_bind(tl)
+      | #'~order:
+          match tl
+          | ': $(order :: Name)':
+              ': $(typeset_operator_order(order))'.relocate(tl)
+          | _:
+              typeset_operator_order(tl)
+      | _:
+          esc(stx)
+      '$kw $tl_ts'.relocate_group(stx)
+
+  export fun typeset_block(
+    ~typeset_body: typeset_body :: Group -> Group: fun(stx): stx,
+    stx :: Block,
+  ):
+    let ': $(option :: Option); ...; $body; ...' = stx
+    ': $(typeset_option(option)); ...; $(typeset_body(body).relocate_group(body)); ...'.relocate(stx)
+
+  export fun typeset_optional_block(~typeset_body = fun(stx): stx, stx :: Syntax):
+    match stx
+    | ': $(block :: Block)':
+        typeset_block(~typeset_body, block)
+    | '':
+        ''

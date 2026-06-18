@@ -1,0 +1,10 @@
+#lang pille/private/kernel
+
+method (tup :: τ && AnyTuple).$index_read(const idx :: nat) :: TupleElement(τ, idx):
+  prim.tuple_get(tup, idx)
+
+method (inout tup :: τ && AnyTuple).$index_write(
+  const idx :: nat,
+  elem :: equal_to(TupleElement(τ, idx)),
+) :: Void:
+  tup := prim.tuple_set(tup, idx, elem)

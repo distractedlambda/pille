@@ -1,0 +1,229 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "coerce.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "label.rhm" open
+  "labeled_expr.rhm" open
+  "local_defn.rhm" open
+  "local_defn_forms.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+  rhombus/delay open
+
+//==============================================================================
+meta:
+  syntax_class BlockArg:
+    kind: ~group
+    fields: name init
+  | '$(name :: Identifier) $(op :: pille_expr_meta.EqualsOp) $(init_ :: pille_expr_meta.Parsed)':
+      field init:
+        syntax_meta.track_origin(
+          init_,
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: pille_expr_meta.space)
+  | '$(name :: Identifier)':
+      match_def '$(init :: pille_expr_meta.Parsed)' = name
+
+export labeled_expr.macro '#%parens ($(arg :: BlockArg), ...): $body':
+  ~label_id: lbl
+  let lbl = syntax_meta.flip_introduce(lbl)
+  let lbl_sym = name_to_uninterned_symbol(lbl)
+  let [arg_sym, ...] = [name_to_uninterned_symbol(arg.name), ...]
+  let [arg_init_concr_id, ...] = [Syntax.make_temp_id(arg.name), ...]
+  let [arg_ref_concr_id, ...] = [Syntax.make_temp_id(arg.name), ...]
+  pille_expr_meta.pack_concretize(
+    '«block:
+        let $arg_init_concr_id = $(pille_expr_meta.unpack_concretize(arg.init))
+        ...
+        let $arg_ref_concr_id = concretize_let_ref(#'$arg_sym, Expr.type($arg_init_concr_id))
+        ...
+        concretize_labeled_block(
+          #'$lbl_sym,
+          [#'$arg_sym, ...],
+          [$arg_init_concr_id, ...],
+          fun(concretize_break, concretize_continue):
+            pille_expr.macro '($arg.name)':
+              '$(pille_expr_meta.pack_concretize(arg_ref_concr_id))'
+            ...
+            label.bridge $lbl:
+              ['concretize_break',
+               'concretize_continue',
+               $(Function.count(arg, ...))]
+            pille_expr.concretize(
+              $(local_defn_meta.encapsulate_body(body))))»')
+
+export labeled_expr.macro '#%block: $body':
+  ~label_id: lbl
+  let lbl = syntax_meta.flip_introduce(lbl)
+  '#'$lbl (): $body'
+
+fun concretize_labeled_block(
+  name :~ Symbol,
+  arg_names :~ [Symbol, ...],
+  arg_inits :~ [Expr, ...],
+  concretize_body :~ Function,
+):
+  let break_keys = MutableList[]
+  let break_types = MutableList[]
+
+  fun concretize_break(arg :~ Expr):
+    let key = Symbol.gen(to_string(name) ++ ".break_key")
+    break_keys.add(key)
+    break_types.add(arg.type)
+    Expr.Rvalue(
+      ~type:
+        NeverType(),
+      ~lower:
+        let arg_low = arg.lower_rvalue
+        fun(env :~ Map):
+          arg_low(env) |> env[key])
+
+  fun concretize_continue(arg :~ Expr, ...):
+    let [arg_low, ...] = [arg.lower_rvalue, ...]
+    let [arg_coe, ...] = [resolve_coercer(arg.type, (each arg_inits).type), ...]
+    Expr.Rvalue(
+      ~type:
+        NeverType(),
+      ~lower:
+        fun(env :~ Map):
+          let arg_vals = [arg_coe(arg_low(env)), ...]
+
+          let builder = lowering.builder()
+          let src_bb = builder.insertion_block
+          let target_bb :~ llvm.BasicBlock = env[name]
+
+          builder.create_br(target_bb)
+
+          for (arg_val in arg_vals.filter(~keep: (_)), instr in target_bb.instructions):
+            llvm.PhiNode.add_incoming(instr, arg_val, src_bb)
+
+          lowering.signal_termination())
+
+  let body :~ Expr = concretize_body(concretize_break, concretize_continue)
+  let break_keys = break_keys.snapshot()
+  let break_types :~ [Type, ...] = break_types.snapshot()
+  let result_type = body.type.unify(&break_types)
+  let body_coe = resolve_coercer(body.type, result_type)
+  let break_coes = [resolve_coercer(each break_types, result_type), ...]
+
+  Expr.Rvalue(
+    ~type:
+      result_type,
+    ~lower:
+      let [arg_init_low, ...] = [(each arg_inits).lower_rvalue, ...]
+      let body_low = body.lower_rvalue
+      fun(env :~ Map):
+        let arg_init_vals = [lowering.name(arg_init_low(env), each arg_names), ...]
+
+        let builder = lowering.builder()
+        let fn = builder.function!!
+
+        let entry_bb = fn.basic_blocks.add(to_string(name) ++ ".entry")
+        let exit_bb = delay: fn.basic_blocks.add(to_string(name) ++ ".exit")
+        let exit_vals = MutableList[]
+
+        let entry_pred_bb = builder.insertion_block
+        builder.create_br(entry_bb)
+        builder.position_at_end(entry_bb)
+
+        // Create entry PHIs, put them in the env
+        let env = for fold(env :~ Map = env):
+          each:
+            arg_name in arg_names
+            arg_init_val in arg_init_vals
+          cond
+          | arg_init_val:
+              let phi = builder.create_phi(~name: arg_name, llvm.Value.type(arg_init_val))
+              phi.add_incoming(arg_init_val, entry_pred_bb)
+              env ++ {arg_name: phi}
+          | ~else:
+              env ++ {arg_name: #false}
+
+        // Add continue label to the env
+        let env = env ++ {name: entry_bb}
+
+        // Add break handlers to the env
+        let env = for fold(env :~ Map = env):
+          each:
+            break_key in break_keys
+            break_coe in break_coes
+          env ++ {
+            break_key:
+              fun(break_val):
+                let break_val = break_coe(break_val)
+                when break_val | exit_vals.add([break_val, builder.insertion_block])
+                builder.create_br(exit_bb.force())
+                lowering.signal_termination()}
+
+        // Lower body
+        lowering.handle_termination(
+          ~terminated:
+            fun():
+              #void,
+          ~unterminated:
+            fun(res_val):
+              when res_val | exit_vals.add([res_val, builder.insertion_block])
+              builder.create_br(exit_bb.force()),
+          fun():
+            body_low(env) |> body_coe)
+
+        guard exit_bb.is_forced()
+        | lowering.signal_termination()
+
+        builder.position_at_end(exit_bb.force())
+        match exit_vals.snapshot()
+        | []:
+            #false
+        | [[res_val, _]]:
+            res_val
+        | [[hd_res_val, hd_pred_bb], [tl_res_val, tl_pred_bb], ...]:
+            let phi = builder.create_phi(llvm.Value.type(hd_res_val))
+            Function.pass(
+              phi.add_incoming(hd_res_val, hd_pred_bb),
+              phi.add_incoming(tl_res_val, tl_pred_bb),
+              ...)
+            phi)
+
+//==============================================================================
+meta:
+  syntax_class MaybeContinueArgs:
+    kind: ~sequence
+    fields: [arg :~ pille_expr_meta.Packed, ...]
+  | '($(arg :: pille_expr_meta.Parsed), ...)'
+  | '': field [arg, ...] = []
+
+export pille_expr.macro 'continue $(target :: label_meta.Resolve) $(_ :: MaybeContinueArgs: open)':
+  ~all_stx: stx
+  let arg_count = Function.count(arg, ...)
+  guard target.arity == arg_count
+  | syntax_meta.error(
+      @str{'continue' arity mismatch;
+            target block expects @target.arity arguments, but is being given @arg_count},
+      stx)
+  pille_expr_meta.pack_concretize(
+    '$(target.continue_id)(
+       $(pille_expr_meta.unpack_concretize(arg)),
+       ...)')
+
+//==============================================================================
+meta:
+  syntax_class BreakValue:
+    kind: ~sequence
+    fields: parsed
+    root_swap: parsed sequence
+  | '($(parsed :: pille_expr_meta.Parsed))'
+  | ': $body':
+      match_def '$(parsed :: pille_expr_meta.Parsed)':
+        local_defn_meta.encapsulate_body(body)
+  | '':
+      match_def '$(parsed :: pille_expr_meta.Parsed)':
+        '#void'
+
+export pille_expr.macro 'break $(target :: label_meta.Resolve) $(value :: BreakValue)':
+  pille_expr_meta.pack_concretize(
+    '$(target.break_id)($(pille_expr_meta.unpack_concretize(value)))')

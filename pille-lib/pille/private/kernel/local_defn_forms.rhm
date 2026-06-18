@@ -1,0 +1,157 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "local_defn.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+export only_space namespace:
+  pille_expr
+
+//==============================================================================
+meta:
+  syntax_class BindingSpec:
+    kind: ~group
+    fields: name init
+  | '$(name_ :: Identifier) $(eo :: pille_expr_meta.EqualsOp) $(init :: pille_expr_meta.Parsed)':
+      field name = syntax_meta.track_origin(
+        name_,
+        ~add: syntax_meta.flip_introduce(eo),
+        ~space: expr_meta.space)
+
+  | '$(name :: Identifier): $init_body':
+      match_def '$(init :: pille_expr_meta.Parsed)':
+        local_defn_meta.encapsulate_body(init_body)
+
+  | '$(name_ :: Identifier) \
+     $(ann_op :: pille_expr_meta.AnnotOp) $type ... \
+     $(eo :: pille_expr_meta.EqualsOp) $(unann_init :: Group)':
+      field name = syntax_meta.track_origin(
+        name_,
+        ~add: syntax_meta.flip_introduce(eo),
+        ~space: expr_meta.space)
+      match_def '$(init :: pille_expr_meta.Parsed)':
+        '$(pille_expr_meta.encapsulate(unann_init)) $ann_op $type ...'
+
+  | '$(name :: Identifier) \
+     $(ann_op :: pille_expr_meta.AnnotOp) $type ... \
+     : $unann_init':
+      match_def '$(init :: pille_expr_meta.Parsed)':
+        '$(local_defn_meta.encapsulate_body(unann_init)) $ann_op $type ...'
+
+//==============================================================================
+export local_defn.block_macro 'let $(_ :: BindingSpec: open)
+                               $(tl :: NonemptyMulti)':
+  let name_sym = name_to_uninterned_symbol(name)
+  pille_expr_meta.pack_concretize(
+    'block:
+       let init_concr = $(pille_expr_meta.unpack_concretize(init))
+       let ref_concr = concretize_let_ref(#'$name_sym, Expr.type(init_concr))
+       concretize_let(
+         #'$name_sym,
+         init_concr,
+         block:
+           pille_expr.macro '($name)':
+             '$(pille_expr_meta.pack_concretize('ref_concr'))'
+           pille_expr.concretize(
+             $(local_defn_meta.encapsulate_body(tl))))')
+
+export fun concretize_let_ref(bound_name, type :~ Type):
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      if type.repr is_a Repr.Erased
+      | fun(_): #false
+      | fun(env :~ Map): env[bound_name])
+
+fun concretize_let(bound_name, bound_expr :~ Expr, body :~ Expr):
+  let (bound_expr_type, bound_expr_low) = bound_expr.unpack_rvalue()
+  let (body_type, body_low) = body.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      body_type,
+    ~lower:
+      fun(env :~ Map):
+        let bound_val = bound_expr_low(env)
+        lowering.name(bound_val, bound_name)
+        let env = env ++ {bound_name: bound_val}
+        body_low(env))
+
+//==============================================================================
+export local_defn.block_macro 'var $(_ :: BindingSpec: open)
+                               $(tl :: NonemptyMulti)':
+  let name_sym = name_to_uninterned_symbol(name)
+  pille_expr_meta.pack_concretize(
+    'block:
+       let init_concr = $(pille_expr_meta.unpack_concretize(init))
+       let ref_concr = concretize_var_ref(#'$name_sym, Expr.type(init_concr))
+       concretize_var(
+         #'$name_sym,
+         init_concr,
+         block:
+           pille_expr.macro '($name)':
+             '$(pille_expr_meta.pack_concretize('ref_concr'))'
+           pille_expr.concretize(
+             $(local_defn_meta.encapsulate_body(tl))))')
+
+fun concretize_var(name, init :~ Expr, body :~ Expr):
+  let (init_type, init_low) = init.unpack_rvalue()
+  let (body_type, body_low) = body.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      body_type,
+    ~lower:
+      fun(env :: Map):
+        guard.let init_val!! = init_low(env)
+        | body_low(env)
+
+        let builder = lowering.builder()
+        let current_bb = builder.insertion_block!!
+
+        let entry_bb = current_bb.parent!!.basic_blocks.first
+        builder.position_at_start(entry_bb)
+        let alloca_inst = builder.create_alloca(
+          ~name: to_string(name) ++ ".alloca",
+          init_val.type)
+
+        builder.position_at_end(current_bb)
+        builder.create_store(
+          ~alignment: alloca_inst.alignment,
+          init_val,
+          alloca_inst)
+
+        let env = env ++ {name: alloca_inst}
+        body_low(env))
+
+export fun concretize_var_ref(name, type :~ Type):
+  match type.repr
+  | _ :: Repr.Erased:
+      Expr.Lvalue(
+        ~type,
+        ~lower_coordinates: fun(_): #false,
+        ~lower_read: fun(_): #false,
+        ~lower_write: fun(_, _): #void)
+  | repr :: Repr.Sized:
+      Expr.Lvalue(
+        ~type,
+        ~lower_coordinates:
+          fun(env :: Map):
+            env[name],
+        ~lower_read:
+          fun(alloca_inst :: llvm.AllocaInst):
+            let builder = lowering.builder()
+            builder.create_load(
+              ~name: name,
+              ~alignment: alloca_inst.alignment,
+              repr.llvm_type(builder.context),
+              alloca_inst),
+        ~lower_write:
+          fun(alloca_inst :: llvm.AllocaInst, new_val):
+            lowering.builder().create_store(
+              ~alignment: alloca_inst.alignment,
+              new_val,
+              alloca_inst))

@@ -1,0 +1,25 @@
+#lang rhombus/static
+
+import:
+  "../util/env.rhm" open
+  rhombus/delay open
+
+//==============================================================================
+export enum UbPolicy
+| check
+| suppress
+| allow
+
+def UbPolicy.from_env :: Delay.assume_of(UbPolicy) = delay:
+  ~sync
+  match getenv("PILLE_UB_POLICY") ?> Symbol.from_string
+  | #false:
+      UbPolicy.check
+  | policy :: UbPolicy:
+      policy
+  | policy:
+      error(
+        @str{unrecognized undefined behavior policy "@to_string(policy)"},
+        ~details:
+          [@str{from environment variable PILLE_UB_POLICY},
+           @str{the available policies are "check", "suppress", and "allow"}])

@@ -1,0 +1,212 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_annot.rhm" open
+  "const_annot_forms.rhm" open
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "expr.rhm" open
+  pille/concretize open
+
+//==============================================================================
+meta:
+  import:
+    rhombus/static/meta open
+
+  export:
+    only_space namespace:
+      const_expr_meta
+
+  fun const_expr_meta.encapsulate(stx :: Group) :: Term:
+    '($stx)'.relocate_span([stx])
+
+  syntax_class const_expr_meta.AnnotOp:
+    kind: ~sequence
+  | '$(bound_as const_expr_meta.space: '::')'
+
+  syntax_class const_expr_meta.EqualsOp:
+    kind: ~sequence
+  | '$(bound_as const_expr_meta.space: '=')'
+
+//==============================================================================
+export const_expr.macro '$lhs = $rhs':
+  ~weaker_than: ~other
+  ~associativity: ~none
+  ~op_stx: op
+  syntax_meta.error("not a constant-expression operator", op)
+
+//==============================================================================
+export const_expr.macro '#%parens($child)':
+  child
+
+//==============================================================================
+export const_expr.macro '#%literal $(value :: const_expr_meta.Literal)':
+  const_expr_meta.pack_rhombus_expr('#%literal $value')
+
+//==============================================================================
+meta:
+  syntax_class ArgToRhombus:
+    kind: ~group
+    fields: rhombus_binding value_expr
+  | '$(rhombus_binding :: NonemptySequence) $(bound_as expr_meta.space: '=') $(value_expr :: const_expr_meta.Parsed)'
+  | '$(rhombus_binding :: NonemptySequence): $(value_expr :: const_expr_meta.Parsed)'
+  | '$(id :: Identifier)':
+      field rhombus_binding = id
+      match_def '$(value_expr :: const_expr_meta.Parsed)' = id
+
+  syntax_class ArgsToRhombus:
+    kind: ~sequence
+    fields: [arg :~ Syntax.matched_of(ArgToRhombus), ...]
+  | '($(arg :: ArgToRhombus), ...)'
+  | '': field [arg, ...] = []
+
+  syntax_class RhombusExpr:
+    kind: ~sequence
+    fields: normalized
+    root_swap: normalized sequence
+  | '($normalized)'
+  | ': $(body :: NonemptyMulti)':
+      field normalized = 'block: $body'
+
+export const_expr.macro '#%rhombus $(_ :: ArgsToRhombus: open) $(body :: RhombusExpr)':
+  const_expr_meta.pack_rhombus_expr(
+    'block:
+       let ($arg.rhombus_binding, ...):
+         values($(const_expr_meta.unpack_rhombus_expr(arg.value_expr)), ...)
+       $body')
+
+//==============================================================================
+export const_expr.macro '$lhs :: $(rhs :: const_annot_meta.AfterInfixParsed('::')) $()':
+  ~weaker_than: ~other
+  ~associativity: ~none
+  ~op_stx: op
+  ~all_stx: stx
+  values(
+    const_expr_meta
+      .pack_rhombus_expr(
+        'check_annot(
+           $(const_expr_meta.unpack_rhombus_expr(lhs)),
+           $(const_annot_meta.unpack_rhombus_predicate(rhs)),
+           $(stx.srcloc()),
+           $(rhs.to_source_string()))')
+      .relocate_span([lhs, op, rhs]),
+    '$rhs.tail ...')
+
+meta fun const_expr_meta.pack_implicitly_annotated(
+  exp :: const_expr_meta.Packed,
+  ann :: const_annot_meta.Packed,
+) :~ const_expr_meta.Packed:
+  const_expr_meta
+    .pack_rhombus_expr(
+      'check_annot(
+         $(const_expr_meta.unpack_rhombus_expr(exp)),
+         $(const_annot_meta.unpack_rhombus_predicate(ann)),
+         $(exp.srcloc()),
+         $(ann.to_source_string()))')
+    .relocate(exp)
+
+fun check_annot(val, pred, srcloc, annot_str):
+  unless pred(val)
+  | error(
+      ~srcloc,
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      error.annot_msg(),
+      error.val(val),
+      error.annot(annot_str))
+  val
+
+//==============================================================================
+export const_expr.macro '$lhs is_a $(rhs :: const_annot_meta.AfterInfixParsed('is_a')) $()':
+  ~order: equivalence
+  ~associativity: ~none
+  ~op_stx: op
+  values(
+    const_expr_meta
+      .pack_rhombus_expr(
+        'is_a(
+           $(const_expr_meta.unpack_rhombus_expr(lhs)),
+           $(const_annot_meta.unpack_rhombus_predicate(rhs)))')
+      .relocate_span([lhs, op, rhs]),
+    '$rhs.tail ...')
+
+fun is_a(val, pred) :: Any.to_boolean:
+  pred(val)
+
+//==============================================================================
+meta def function_const_annot:
+  const_annot_meta.parse('function')
+
+export const_expr.macro '$lhs #%call ($(arg :: const_expr_meta.Parsed), ...)':
+  ~stronger_than: ~other
+  ~associativity: ~left
+  const_expr_meta.pack_rhombus_expr(
+    'call_impl(
+       $(const_expr_meta.pack_implicitly_annotated(lhs, function_const_annot)
+           |> const_expr_meta.unpack_rhombus_expr),
+       [$(const_expr_meta.unpack_rhombus_expr(arg)),
+        ...])')
+
+fun call_impl(f :~ Function, args :~ List):
+  let (arities, _, _) = f.arity()
+  guard arities bits.(?) args.length()
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "wrong number of arguments in call")
+  f(&args)
+
+//==============================================================================
+export const_expr.macro '$lhs && $rhs':
+  ~order: logical_conjunction
+  const_expr_meta.pack_rhombus_expr(
+    '$(const_expr_meta.unpack_rhombus_expr(lhs))
+       && $(const_expr_meta.unpack_rhombus_expr(rhs))')
+
+//==============================================================================
+export const_expr.macro '$lhs || $rhs':
+  ~order: logical_disjunction
+  const_expr_meta.pack_rhombus_expr(
+    '$(const_expr_meta.unpack_rhombus_expr(lhs))
+       || $(const_expr_meta.unpack_rhombus_expr(rhs))')
+
+//==============================================================================
+export const_expr.macro 'if $(test :: const_expr_meta.Parsed)
+                         | $(then :: const_expr_meta.Parsed)
+                         | $(else :: const_expr_meta.Parsed)':
+  const_expr_meta.pack_rhombus_expr(
+    'if $(const_expr_meta.unpack_rhombus_expr(test))
+     | $(const_expr_meta.unpack_rhombus_expr(then))
+     | $(const_expr_meta.unpack_rhombus_expr(else))')
+
+//==============================================================================
+export const_expr.macro 'any($(arg :: const_expr_meta.Parsed), ...)':
+  const_expr_meta.pack_rhombus_expr(
+    'any($(const_expr_meta.unpack_rhombus_expr(arg)),
+         ...)')
+
+//==============================================================================
+export const_expr.macro 'all($(arg :: const_expr_meta.Parsed), ...)':
+  const_expr_meta.pack_rhombus_expr(
+    'all($(const_expr_meta.unpack_rhombus_expr(arg)),
+         ...)')
+
+//==============================================================================
+export const_expr.macro 'type_of($(exp :: pille_expr_meta.Parsed))':
+  const_expr_meta.pack_rhombus_expr(
+    'Expr.type($(pille_expr_meta.unpack_concretize(exp)))')
+
+//==============================================================================
+export const_expr.macro '$lhs matches $(pat :: const_bind_meta.AfterInfixParsed('matches')) $()':
+  ~order: equivalence
+  ~associativity: ~none
+  ~op_stx: op
+  values(
+    '($lhs is_a matching($pat))'.relocate_span([lhs, op, pat]),
+    '$pat.tail ...')
+
+// Dummy binding for AfterInfixParsed
+const_bind.macro '$lhs matches $rhs':
+  ~all_stx: stx
+  ~stronger_than: ~other
+  ~associativity: ~none
+  syntax_meta.error(stx)

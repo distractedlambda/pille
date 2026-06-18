@@ -1,0 +1,53 @@
+#lang rhombus/static/and_meta
+
+import:
+  "function.rhm" open
+  "llvm_c.rkt" open
+
+export annot.delayed_declare _Instruction
+
+export veneer BasicBlock(this :: satisfying(#{LLVMBasicBlockRef?})):
+  export:
+    Instructions
+
+  property name :: String:
+    LLVMGetBasicBlockName(this) |> String.snapshot
+
+  property parent :: maybe(Function):
+    LLVMGetBasicBlockParent(this)
+
+  property next :: maybe(BasicBlock):
+    LLVMGetNextBasicBlock(this)
+
+  property previous :: maybe(BasicBlock):
+    LLVMGetPreviousBasicBlock(this)
+
+  veneer Instructions(this :: satisfying(#{LLVMBasicBlockRef?})):
+    constructor ~error
+
+    property first :: maybe(_Instruction):
+      LLVMGetFirstInstruction(this)
+
+    property last :: maybe(_Instruction):
+      LLVMGetLastInstruction(this)
+
+    sequence '$inst: $self':
+      '(~outer_binds:
+          self = $self,
+        ~recur_binds:
+          cur = LLVMGetFirstInstruction(self),
+        ~head_guard:
+          cur,
+        ~inner_binds:
+          $inst = cur,
+        ~recur_args:
+          (LLVMGetNextInstruction(cur)))'
+
+    static_info:
+      '(($statinfo_meta.index_result_key,
+         $(annot_meta.parse_to_packed_statinfo('_Instruction'))))'
+
+  property instructions :: Instructions:
+    this
+
+annot.delayed_complete _BasicBlock: BasicBlock

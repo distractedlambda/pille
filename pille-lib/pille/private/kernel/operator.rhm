@@ -1,0 +1,79 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/operator.rhm" open
+  "const_bind.rhm" open
+  "const_bind_forms.rhm" open // need `_` binding
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "fun.rhm" open
+
+meta:
+  syntax_class OperandSpec:
+    kind: ~term
+    fields: as_arg
+  | '$(id :: Identifier)':
+      field as_arg = id
+  | '($as_arg)'
+
+  fun is_annot_op(op):
+    op matches '$(_ :: pille_expr_meta.AnnotOp)'
+
+export defn.macro 'pille_operator $(spec :: GenericOperatorSpec(is_annot_op))':
+  let macro_cases = MutableList[]
+  let fun_defns = MutableList[]
+
+  when Function.count(spec.prefix, ...) != 0
+  | macro_cases.add(
+      '«'($spec.op_name) $('$')rhs':
+          $(spec.prefix_precedence_option); ...
+          'prefix_impl($('$')rhs)'»')
+
+    let '$(rhs :: OperandSpec) ...' = '$spec.prefix.rhs ...'
+
+    fun_defns.add(
+      'pille_fun prefix_impl:
+         ~name: $spec.op_name
+       | ($rhs.as_arg) $spec.prefix.res_annot:
+           $spec.prefix.options.other_option; ...
+           $spec.prefix.body
+       | ...')
+
+  when Function.count(spec.infix, ...) != 0
+  | macro_cases.add(
+      '«'$('$')lhs ($spec.op_name) $('$')rhs':
+          $(spec.infix_precedence_option); ...
+          'infix_impl($('$')lhs, $('$')rhs)'»')
+
+    let '$(lhs :: OperandSpec) ...' = '$spec.infix.lhs ...'
+    let '$(rhs :: OperandSpec) ...' = '$spec.infix.rhs ...'
+
+    fun_defns.add(
+      'pille_fun infix_impl:
+         ~name: $spec.op_name
+       | ($lhs.as_arg, $rhs.as_arg) $spec.infix.res_annot:
+           $spec.infix.options.other_option; ...
+           $spec.infix.body
+       | ...')
+
+  when Function.count(spec.postfix, ...) != 0
+  | macro_cases.add(
+      '«'$('$')lhs ($spec.op_name)':
+          $(spec.postfix_precedence_option); ...
+          'postfix_impl($('$')lhs)'»')
+
+    let '$(lhs :: OperandSpec) ...' = '$spec.postfix.lhs ...'
+
+    fun_defns.add(
+      'pille_fun postfix_impl:
+         ~name: $spec.op_name
+       | ($lhs.as_arg) $spec.postfix.res_annot:
+           $spec.postfix.options.other_option; ...
+           $spec.postfix.body
+       | ...')
+
+  'pille_expr.macro:
+   | $(each macro_cases.snapshot())
+   | ...
+
+   $(each fun_defns.snapshot()); ...'

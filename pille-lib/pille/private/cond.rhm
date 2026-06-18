@@ -1,0 +1,45 @@
+#lang pille/private/kernel
+
+import:
+  "const_ops.rhm" open
+
+//==============================================================================
+export expr.macro 'when $(test :: Group)
+                   | $(body :: Multi)':
+  'if $test | $body | #void'
+
+//==============================================================================
+export expr.macro 'unless $(test :: Group)
+                   | $(body :: Multi)':
+  'if $test | #void | $body'
+
+//==============================================================================
+export expr.macro
+| 'cond | ~else: $else_body':
+    local_defn_meta.encapsulate_body(else_body)
+| 'cond | $(test :: Group): $body':
+    ~op_stx: op
+    'if $test
+     | $body
+     | const.error($(@str{'@to_string(op.name_to_symbol())' form is not exhaustive}))'
+| 'cond | $(test :: Group): $body | $tl | ...':
+    ~op_stx: op
+    'if $test
+     | $body
+     | $op
+       | $tl
+       | ...'
+
+//==============================================================================
+export expr.macro '$lhs && $rhs':
+  ~order: logical_conjunction
+  'block:
+     let lhs_v = $lhs
+     if lhs_v | $rhs | lhs_v'
+
+//==============================================================================
+export expr.macro '$lhs || $rhs':
+  ~order: logical_disjunction
+  'block:
+     let lhs_v = $lhs
+     if lhs_v | lhs_v | $rhs'

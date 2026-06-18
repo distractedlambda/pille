@@ -1,0 +1,59 @@
+#lang rhombus/static/and_meta
+
+import:
+  "expr.rhm" open
+
+export only_space namespace:
+  meta: pille_expr_meta
+
+//==============================================================================
+space.transform _special_name:
+  space_path pille/special_name
+  bridge_definer bridge
+  meta_namespace _special_name_meta:
+    reflection space
+
+export namespace special_name
+
+export alias 'special_name':
+  ~only_space space
+  '_special_name'
+
+//==============================================================================
+export pille_expr.macro '($) $rhs':
+  ~stronger_than: ~other
+  ~op_stx: op
+  syntax_meta.error(op)
+
+meta syntax_class pille_expr_meta.DollarOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: '$')'
+
+//==============================================================================
+defn.macro 'special_name.def $(name :: Identifier)':
+  '«def symbol:
+      Symbol.uninterned_from_string($("$" ++ to_string(name.name_to_symbol())))
+
+    _special_name.bridge $name:
+      'symbol'»'
+
+//==============================================================================
+expr.macro 'special_name.symbol($(name :: Identifier))':
+  syntax_meta.value(name, _special_name_meta.space)
+    |> syntax_meta.track_origin(
+      _,
+      ~add: syntax_meta.flip_introduce(name),
+      ~space: _special_name_meta.space)
+
+//==============================================================================
+bind.macro 'special_name.symbol($(name :: Identifier))':
+  's when s === special_name.symbol($name)'
+
+//==============================================================================
+export special_name.def call
+export special_name.def coerce_to
+export special_name.def from_rhombus
+export special_name.def index_read
+export special_name.def index_write
+export special_name.def new
+export special_name.def to_rhombus

@@ -1,0 +1,102 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../const_expr.rhm" open
+  "../core_types.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+//==============================================================================
+export pille_expr.macro 'load($(type :: const_expr_meta.Parsed),
+                              $(align :: const_expr_meta.Parsed),
+                              $(ptr :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_load(
+       $(const_expr_meta.unpack_rhombus_expr(type)),
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(ptr)))')
+
+fun concretize_load(type :~ Type, align, ptr :~ Expr):
+  let type_repr = type.repr
+  let (ptr_type, ptr_low) = ptr.unpack_rvalue()
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      if type_repr is_a Repr.Sized
+      | fun(env):
+          let builder = lowering.builder()
+          let ptr_val = ptr_low(env)
+          builder.create_load(
+            ~alignment: align,
+            type_repr.llvm_type(builder.context),
+            ptr_val)
+      | fun(env):
+          ptr_low(env)
+          #false)
+
+//==============================================================================
+export pille_expr.macro 'store($(align :: const_expr_meta.Parsed),
+                               $(ptr :: pille_expr_meta.Parsed),
+                               $(val :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_store(
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(ptr)),
+       $(pille_expr_meta.unpack_concretize(val)))')
+
+fun concretize_store(align, ptr :~ Expr, val :~ Expr):
+  let (ptr_type, ptr_low) = ptr.unpack_rvalue()
+  let (val_type, val_low) = val.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      VoidType(),
+    ~lower:
+      fun(env):
+        let ptr_val = ptr_low(env)
+        let val_val = val_low(env)
+        val_val ?> lowering.builder().create_store(~alignment: align, _, ptr_val)
+        #false)
+
+//==============================================================================
+export pille_expr.macro 'ptradd \
+                         $(term_option_sequence
+                           | '~inbounds':
+                               field inbounds = #true
+                           | '~nusw':
+                               field nusw = #true
+                           | '~nuw':
+                               field nuw = #true) \
+                         ($(ptr :: pille_expr_meta.Parsed),
+                          $(offset :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_ptradd(
+       $inbounds,
+       $nusw,
+       $nuw,
+       $(pille_expr_meta.unpack_concretize(ptr)),
+       $(pille_expr_meta.unpack_concretize(offset)))')
+
+fun concretize_ptradd(inbounds, nusw, nuw, ptr :~ Expr, offset :~ Expr):
+  let (ptr_type, ptr_low) = ptr.unpack_rvalue()
+  let (offset_type, offset_low) = offset.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      ptr_type,
+    ~lower:
+      // avoid capturing `this`
+      let inbounds = inbounds
+      let nusw = nusw
+      let nuw = nuw
+      fun(env):
+        let builder = lowering.builder()
+        let ptr_val = ptr_low(env)
+        let offset_val = offset_low(env)
+        builder.create_gep(
+          ~inbounds,
+          ~nusw,
+          ~nuw,
+          builder.int_type(8),
+          ptr_val,
+          [offset_val]))

@@ -1,0 +1,45 @@
+#lang rhombus/static/and_meta
+
+import:
+  pille/concretize open
+
+meta import:
+  "../util/annot.rhm" open
+
+export:
+  pille_expr
+  meta:
+    pille_expr_meta
+
+space.enforest pille_expr:
+  space_path pille/expr
+  macro_definer macro
+  meta_namespace pille_expr_meta:
+    reflection space
+    description "expression"
+    operator_description "operator"
+
+    parse_syntax_class Parsed
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
+
+    private parsed_packer _pack
+    private parsed_unpacker _unpack
+
+    fun is_packed(stx):
+      _unpack(stx, fun(_): #false)
+
+    export annot.def Packed:
+      Term && satisfying(is_packed)
+
+    export fun pack_concretize(rhm_expr :: Group) :~ Packed:
+      _pack(expr_meta.pack_expr(rhm_expr))
+
+    export fun unpack_concretize(packed :: Packed) :~ Term:
+      _unpack(packed)
+
+  export:
+    concretize
+
+  expr.macro 'concretize($(pexp :: pille_expr_meta.Parsed))':
+    pille_expr_meta.unpack_concretize(pexp)

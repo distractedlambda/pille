@@ -1,0 +1,127 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "const_expr_forms.rhm" open
+  "const_ns.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "when_where.rhm" open
+  pille/concretize open
+  rhombus/delay open
+
+export:
+  only_space namespace:
+    const
+
+//==============================================================================
+meta:
+  syntax_class MaybeResAnnot:
+    kind: ~sequence
+  | '$(_ :: const_expr_meta.AnnotOp) $(_ :: SimpleNonemptySequence)'
+  | ''
+
+  syntax_class CaseOptionKw:
+    kind: ~term
+  | '~when'
+  | '~where'
+
+  fun split_combined_options(combined) :~ values(Syntax, Syntax):
+    match combined
+    | '': values('', '')
+    | '$hd; $tl; ...':
+        let (common_opts, case_opts) = split_combined_options('$tl; ...')
+        match hd
+        | '$(_ :: CaseOptionKw) $_ ...':
+            values(common_opts, '$hd; $case_opts')
+        | _:
+            values('$hd; $common_opts', case_opts)
+
+  syntax_class CommonOptions:
+    kind: ~multi
+    fields:
+      display_name :~ maybe(Name)
+      omit_const_bind :~ Boolean
+  | '$(group_option_sequence
+       | '~name $(block_or_tail display_name :: Name)'
+       | '~omit_const_bind':
+           field omit_const_bind = #true)'
+
+  syntax_class Spec:
+    kind: ~group
+    fields:
+      name
+      display_name :~ maybe(Name)
+      omit_const_bind :~ Boolean
+      [case, ...]
+  | '$(name :: IdentifierName) $sig ...:
+       $opt; ...
+       $(body :: Group)':
+      def (common_opts_, case_opts) = split_combined_options('$opt; ...')
+      match_def '$(_ :: CommonOptions: open)' = common_opts_
+      field [case, ...] = ['$sig ...: $case_opts; $body']
+  | '$(name :: IdentifierName) $(maybe_block _ :: CommonOptions: open)
+     | $(hd_case :: Group)
+     | $(tl_case :: Group)
+     | ...':
+      field [case, ...] = [hd_case, tl_case, ...]
+
+defn.macro 'const.fun $(spec :: Spec)':
+  '«def impl = block:
+      make_const_fun(
+        #'$((spec.display_name || spec.name).name_to_symbol()),
+        [compile_case($spec.case), ...])
+
+    const_expr.macro '($spec.name)':
+      '$(const_expr_meta.pack_rhombus_expr('impl'))'
+
+    $(if spec.omit_const_bind
+      | ''
+      | '«const_bind.macro '($spec.name)':
+            '$(const_bind_meta.pack_equal_to('impl'))'»')
+
+    pille_expr.macro '($spec.name)':
+      '$(pille_expr_meta.pack_const_rhombus_expr('impl'))'»'
+
+fun make_const_fun(name, cases :~ List):
+  fun impl(&args):
+    try ~escape_as ret:
+      let exns = for fold(exns :~ List = []):
+        each [case_arity, case_binder] in cases
+        guard case_arity bits.(?) args.length() | exns
+        try ~escape_as continue:
+          let case_thunk = try:
+            case_binder(args)
+            ~catch exn :: Exn.Fail.Concretize.Recoverable:
+              continue(exns.add(exn))
+          ret(case_thunk())
+      error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "no matching case for call",
+        error.cause(each exns),
+        ...)
+
+  let arity = for fold(arity = 0):
+    each [case_arity, _] in cases
+    arity bits.or case_arity
+
+  impl.reduce_arity(arity, [], [], ~name)
+
+expr.macro 'compile_case(($(arg :: const_bind_meta.Parsed), ...) $(res_annot :: MaybeResAnnot):
+                           $(ww :: WhenWhereOption); ...
+                           $(body :: Group))':
+  let arity_bit = 1 bits.(<<) Function.count(arg, ...)
+  let [arg_id, ...] = [Syntax.make_temp_id(arg), ...]
+  let args_extractor = 'fun([$arg_id, ...]): values($arg_id, ...)'
+  let args_binding = const_bind_meta.pack_decomposition(args_extractor, [arg, ...])
+  let case_binding = const_bind_meta.pack_conjunction([args_binding, ww, ...])
+  let annotated_body = '$(const_expr_meta.encapsulate(body)) $res_annot'
+  let body_thunk = 'fun(): $(const_expr_meta.as_rhombus_expr(annotated_body))'
+  '[$arity_bit,
+    fun(args):
+      $(const_bind_meta.compile(
+          case_binding,
+          'args',
+          body_thunk))]'

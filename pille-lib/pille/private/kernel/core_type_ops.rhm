@@ -1,0 +1,51 @@
+#lang rhombus/static/and_meta
+
+import:
+  "const_annot_forms.rhm" open
+  "const_bind_forms.rhm" open
+  "const_expr_forms.rhm" open
+  "const_fun.rhm" open
+  "core_types.rhm" open
+  "special_name.rhm" open
+  pille/concretize open
+
+//==============================================================================
+// Const(f :: function).$call(arg :: Const(v), ...)
+method.define(
+  special_name.symbol(call),
+  fun(receiver_type, arg_types :~ [Type, ...]):
+    guard.let ConstType(f :: Function) = receiver_type | #false
+    let [arg, ...]:
+      for List (arg_type in arg_types, arg_idx in 0..):
+        guard.let ConstType(arg) = arg_type
+        | error(
+            ~exn: Exn.Fail.Concretize.Recoverable,
+            "argument to Const function must have Const type",
+            error.val(~label: "callee type", receiver_type),
+            error.val(~label: "argument index", arg_idx),
+            error.val(~label: "argument type", arg_type))
+        arg
+    let result = f(arg, ...)
+    method.Concretized(
+      ~result_type:
+        ConstType(result),
+      ~lower_call:
+        fun([], [#false, ...]):
+          [#false]))
+
+//==============================================================================
+export const.fun tuple_length(α && AnyTuple):
+  #%rhombus(α):
+    TupleType.elements(α).length()
+
+//==============================================================================
+export const.fun TupleElement(α && AnyTuple, idx :: nat):
+  #%rhombus(α, idx):
+    let TupleType(element_types) = α
+    guard idx < element_types.length()
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "tuple element index out of bounds",
+        error.val(~label: "tuple type", α),
+        error.val(~label: "index", idx))
+    element_types[idx]

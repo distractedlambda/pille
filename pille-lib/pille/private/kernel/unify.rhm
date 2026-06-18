@@ -1,0 +1,33 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "when_where.rhm" open
+  pille/concretize open
+  rhombus/delay open
+
+meta:
+  syntax_class Spec:
+    kind: ~group
+    fields:
+      fst_type
+      snd_type
+      [ww, ...]
+      body
+  | '($(fst_type :: const_bind_meta.Parsed),
+      $(snd_type :: const_bind_meta.Parsed)): $(oab :: OptionsAndBody)':
+      match_def '$(ww :: WhenWhereOption); ...' = '$oab.option; ...'
+      match_def '$(body :: Group)' = oab.body
+
+export defn.macro 'unify $(spec :: Spec)':
+  'unify.add_rule(
+     fun(fst_type, snd_type):
+       $(const_bind_meta.compile(
+           const_bind_meta.pack_conjunction(
+             [const_bind_meta.pack_parallel_bindings(
+                [spec.fst_type, spec.snd_type]),
+              spec.ww, ...]),
+           '[fst_type, snd_type]',
+           const_expr_meta.as_rhombus_expr(spec.body))))'

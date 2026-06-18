@@ -1,0 +1,268 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../concretize/method.rhm"
+  "../concretize/unify.rhm"
+  "../util/defer.rhm" open
+  "../util/readable_string_or_symbol.rhm" open
+  "artifact.rhm" open
+  "llvm_init.rhm" as ~none
+  "sizer.rhm" open
+  "target.rhm" open
+  "ub_policy.rhm" open
+  lib("ffi/unsafe.rkt") as ffi
+  pille/llvm
+  rhombus/delay open
+  rhombus/rx open
+
+//==============================================================================
+export class Profile(
+  target :: Target,
+  code_gen_opt_level :: llvm.CodeGenOptLevel,
+  reloc_mode :: llvm.RelocMode,
+  code_model :: llvm.CodeModel,
+  ub_policy :: UbPolicy,
+  llvm_target :: llvm.Target,
+  llvm_data_layout_string :: String,
+  sizer :: Sizer,
+  methods :: method.Table,
+  unification_rules :: unify.Rules,
+):
+  export:
+    current
+    default
+    jit_default
+    require_current
+
+  internal _Profile
+
+  //============================================================================
+  constructor(
+    ~target:
+      target :: Target:
+        Target.host.force(),
+    ~code_gen_opt_level:
+      code_gen_opt_level :: llvm.CodeGenOptLevel:
+        llvm.CodeGenOptLevel.default,
+    ~reloc_mode:
+      reloc_mode :: llvm.RelocMode:
+        llvm.RelocMode.default,
+    ~code_model:
+      code_model :: llvm.CodeModel:
+        llvm.CodeModel.default,
+    ~ub_policy:
+      ub_policy :: UbPolicy:
+        UbPolicy.from_env.force(),
+    ~methods:
+      methods :: method.Table:
+        method.snapshot_defined(),
+    ~unification_rules:
+      unification_rules :: unify.Rules:
+        unify.snapshot_rules(),
+  ):
+    let llvm_target:
+      llvm.Target.for_triple(target.triple) || error(
+        "could not determine LLVM target for triple",
+        error.val(~label: "triple", target.triple))
+
+    let llvm_data_layout_string:
+      let tm:
+        llvm_target.create_target_machine(
+          ~triple: target.triple,
+          ~cpu: target.cpu,
+          ~features: target.features.to_list(#true),
+          ~code_gen_opt_level,
+          ~reloc_mode,
+          ~code_model) || error("failed to create LLVM target machine")
+      defer tm.dispose()
+      let dl = tm.create_data_layout()
+      defer dl.dispose()
+      dl.to_string()
+
+    let sizer = Sizer(llvm_data_layout_string)
+
+    super(
+      target,
+      code_gen_opt_level,
+      reloc_mode,
+      code_model,
+      ub_policy,
+      llvm_target,
+      llvm_data_layout_string,
+      sizer,
+      methods,
+      unification_rules)
+
+  //============================================================================
+  private immutable codegen_log :: Logger:
+    Logger(~topic: #'pille_codegen)
+
+  //============================================================================
+  method create_llvm_target_machine() :: llvm.TargetMachine:
+    llvm_target.create_target_machine(
+      ~triple: target.triple,
+      ~cpu: target.cpu,
+      ~features: target.features.to_list(#true),
+      ~code_gen_opt_level,
+      ~reloc_mode,
+      ~code_model)
+      || error("failed to create LLVM target machine")
+
+  //============================================================================
+  private immutable native_symbols_to_names :: MutableMap.by(===):
+    MutableMap.by(===){}
+
+  private immutable name_suffixes :: MutableMap:
+    MutableMap{}
+
+  method gen_native_symbol(name :: ReadableStringOrSymbol.to_string) :: Symbol:
+    let idx = native_symbols_to_names.length()
+    let sym = @str{pille.@idx} |> Symbol.from_string
+    let suffix = name_suffixes.get(name, 0)
+    name_suffixes[name] := suffix + 1
+    native_symbols_to_names[sym] := @str{@name#@suffix}
+    sym
+
+  private method demangle_native_symbol(sym :: ReadableStringOrSymbol.to_symbol) :: String:
+    native_symbols_to_names.maybe[sym] || sym
+
+  private method format_llvm_ir(ir :: ReadableString) :: String:
+    let lines = ir.split(rx'newline+')
+
+    let defn_line = lines.find_index(String.starts_with(_, "define ")) || 0
+    let defn_end_line = lines.find_index(String.starts_with(_, "}")) || lines.length() - 1
+    let lines = lines.sublist(defn_line..=defn_end_line)
+
+    let lines = lines.map(String.append("|  ", _))
+    let ir = String.join(lines, "\n")
+
+    rx'"@" ($_: "pille." digit+)'.replace_all(ir, _) <| fun(orig, native_sym):
+      guard.let name!! = native_symbols_to_names.maybe[Symbol.from_string(native_sym)] | orig
+      @str{@"@""@name"}
+
+  //============================================================================
+  private immutable unlinked_fn_bitcodes :: MutableMap.by(===):
+    MutableMap.by(===){}
+
+  private method unlinked_fn_bitcode(sym :: Symbol) :: Artifact:
+    unlinked_fn_bitcodes[sym] |> Delay.force
+
+  //============================================================================
+  private immutable incremental_fn_objects :: MutableMap.by(===):
+    MutableMap.by(===){}
+
+  method incremental_function_object(sym :: Symbol) :: Artifact:
+    incremental_fn_objects[sym] |> Delay.force
+
+  //============================================================================
+  method define_function(
+    sym :: Symbol,
+    lower_type :: llvm.Context -> llvm.Type,
+    lower_body :: llvm.Function -> Any,
+  ) :: Void:
+    codegen_log.debug(@str{defining "@demangle_native_symbol(sym)"})
+
+    unlinked_fn_bitcodes[sym] := delay:
+      let llvm_context = llvm.Context()
+
+      let llvm_module = llvm.Module(llvm_context, sym)
+      llvm_module.set_data_layout_string(llvm_data_layout_string)
+
+      let llvm_fn = llvm_module.functions.add(sym, lower_type(llvm_context))
+      llvm_fn.visibility := llvm.Visibility.hidden
+      lower_body(llvm_fn)
+
+      codegen_log.debug(
+        @str{lowered "@demangle_native_symbol(sym)":
+             @format_llvm_ir(llvm_module.to_ir())})
+
+      // TODO: early simplification
+
+      // TODO: collect extern global vars too
+      let deps = for List (fn in llvm_module.functions):
+        keep_when fn.is_declaration
+        let name = fn.name
+        keep_when name.starts_with("pille.")
+        Symbol.from_string(name)
+
+      llvm_module.verify()
+      let bc = llvm_module.to_bitcode()
+
+      llvm_context.dispose()
+      Artifact(bc, deps)
+
+    incremental_fn_objects[sym] := delay:
+      let Artifact(root_bitcode, root_deps) = unlinked_fn_bitcode(sym)
+
+      let llvm_context = llvm.Context()
+      let llvm_module = llvm.Module.from_bitcode(llvm_context, root_bitcode)!!
+
+      let linked_deps = MutableSet{sym}
+      recur link_deps(deps :~ List = root_deps):
+        for (dep in deps):
+          skip_when dep in linked_deps
+          linked_deps.add(dep)
+
+          let Artifact(dep_bitcode, dep_deps) = unlinked_fn_bitcode(dep)
+
+          let dep_module = llvm.Module.from_bitcode(llvm_context, dep_bitcode)!!
+          dep_module.functions.find(dep)!!.linkage := llvm.Linkage.available_externally
+          llvm_module.link_in(dep_module)
+
+          // FIXME: why does linking order matter like this?
+          link_deps(dep_deps)
+
+      llvm_module.verify()
+
+      let obj:
+        let tm = create_llvm_target_machine()
+        defer tm.dispose()
+        llvm_module.run_passes(~target_machine: tm, ["default<O3>"])
+        llvm_module.compile(tm)
+
+      codegen_log.debug(
+        @str{incrementally compiled "@demangle_native_symbol(sym)":
+             @format_llvm_ir(llvm_module.to_ir())})
+
+      let deps = for List (fn in llvm_module.functions):
+        keep_when fn.is_declaration || fn.linkage == llvm.Linkage.available_externally
+        let name = fn.name
+        keep_when name.starts_with("pille.")
+        Symbol.from_string(name)
+
+      llvm_context.dispose()
+      Artifact(obj, deps)
+
+  //============================================================================
+  private immutable deferred_concretizations :: MutableList:
+    MutableList[]
+
+  method defer_concretization(thunk :: () -> ~any):
+    deferred_concretizations.add(thunk)
+
+  method force_deferred_concretization():
+    guard deferred_concretizations.length() != 0 | #void
+    let first = deferred_concretizations[0]
+    deferred_concretizations.drop(1)
+    first()
+    force_deferred_concretization()
+
+  //============================================================================
+  Parameter.def current :: maybe(Profile):
+    #false
+
+  fun require_current() :: Profile:
+    current() || error("no active Pille profile")
+
+  //============================================================================
+  def default :: Delay.assume_of(Profile):
+    delay:
+      ~sync
+      Profile()
+
+  def jit_default :: Delay.assume_of(Profile):
+    delay:
+      ~sync
+      Profile(
+        ~code_gen_opt_level: llvm.CodeGenOptLevel.aggressive,
+        ~code_model: llvm.CodeModel.jit_default)

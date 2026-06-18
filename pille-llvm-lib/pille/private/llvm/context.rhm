@@ -1,0 +1,11 @@
+#lang rhombus/static/and_meta
+
+import:
+  "llvm_c.rkt" open
+
+export veneer Context(this :: satisfying(#{LLVMContextRef?})):
+  constructor():
+    LLVMContextCreate()
+
+  method dispose() :: Void:
+    LLVMContextDispose(this)

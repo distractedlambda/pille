@@ -1,0 +1,187 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/profile.rhm" open
+  "../util/annot.rhm" open
+  "../util/equatable_by_identity.rhm" open
+  "caches.rhm"
+  "exn.rhm" open
+  "method.rhm"
+  "repr.rhm" open
+  "type_fwd.rhm" open
+  "unify.rhm"
+  ffi open
+  pille/llvm
+
+//==============================================================================
+export class Type():
+  export:
+    PilleFromRhombusReadLowerer
+    PilleToRhombusWriteLowerer
+    RhombusFromPilleReader
+    RhombusInteropSpec
+    RhombusToPilleWriter
+
+  //============================================================================
+  nonfinal
+
+  //============================================================================
+  equatable_by_identity
+
+  //============================================================================
+  final property repr :~ Repr:
+    caches.unkeyed.get_or_compute(
+      ~get_cache: fun(): cached_repr,
+      ~set_cache: (cached_repr := _),
+      fun(): compute_repr())
+
+  abstract protected method compute_repr() :: Repr
+
+  private field cached_repr = caches.unkeyed.init()
+
+  //============================================================================
+  final method unify :~ Type
+  | unify():
+      this
+  | unify(other :: _Type):
+      guard !(this === other) | this
+      // FIXME: this caching logic should probably be factored out somehow, but
+      // it doesn't neatly fit into the pattern used elsewhere in this file
+      // (since it involves two caches that must be kept in sync)
+      match this.unification_cache.get(other, #false)
+      | #false:
+          this.unification_cache[other] := #'in_progress
+          other.unification_cache[this] := #'in_progress
+          let unified = try:
+            this.compute_bidirectional_unification_with(other)
+            ~catch
+            | exn :: Exn.Fail.Concretize.Recoverable:
+                this.unification_cache[other] := exn
+                other.unification_cache[this] := exn
+                throw exn
+            | exn:
+                this.unification_cache.remove(other)
+                other.unification_cache.remove(this)
+                throw exn
+          this.unification_cache[other] := unified
+          other.unification_cache[this] := unified
+          unified
+      | #'in_progress:
+          error(
+            ~exn: Exn.Fail.Concretize,
+            "circular dependency in type unification",
+            error.vals(~label: "types", [this, other]))
+      | unified :: Type:
+          unified
+      | exn:
+          throw exn
+  | unify(hd, tl, ...):
+      unify(hd).unify(tl, ...)
+
+  private method compute_unidirectional_unification_with(
+    other :~ Type,
+  ) :~ Type || [Exn.Fail.Concretize.Recoverable, ...]:
+    let profile = Profile.require_current()
+    try ~escape_as esc:
+      for List (rule in profile.unification_rules):
+        keep_let exn!! = try:
+          rule(this, other) ?> esc
+          ~catch exn :: Exn.Fail.Concretize.Recoverable: exn
+        exn
+
+  private method compute_bidirectional_unification_with(other :~ Type) :~ Type:
+    try ~escape_as esc:
+      match this.compute_unidirectional_unification_with(other)
+      | fwd_type :: Type:
+          match other.compute_unidirectional_unification_with(this)
+          | rev_type :: Type:
+              if fwd_type === rev_type
+              | fwd_type
+              | error(
+                  ~exn: Exn.Fail.Concretize.Recoverable,
+                  "type unification is ambiguous",
+                  error.vals(~label: "types", [this, other]),
+                  error.val(~label: "forward unification", fwd_type),
+                  error.val(~label: "reverse unification", rev_type))
+          | _:
+              fwd_type
+      | [fwd_exn, ...]:
+          match other.compute_unidirectional_unification_with(this)
+          | rev_type :: Type:
+              rev_type
+          | [rev_exn, ...]:
+              error(
+                ~exn: Exn.Fail.Concretize.Recoverable,
+                "types could not be unified",
+                error.vals(~label: "types", [this, other]),
+                error.cause(fwd_exn), ...,
+                error.cause(rev_exn), ...)
+
+  private immutable unification_cache :~ WeakMutableMap.by(===):
+    WeakMutableMap.by(===){}
+
+  //============================================================================
+  final method concretized_method(selector :: Any, arg_types :: [Type, ...]) :~ method.Concretized:
+    caches.keyed.get_or_compute(
+      ~get_cache: fun(): method_cache,
+      ~set_cache: (method_cache := _),
+      Pair(selector, arg_types),
+      fun(Pair(selector, arg_types)):
+        let profile = Profile.require_current()
+        let candidates = profile.methods.maybe[selector] || []
+        try ~escape_as esc:
+          let exns = for fold(exns :~ List = []) (candidate in candidates):
+            try:
+              candidate(this, arg_types) ?> esc
+              exns
+              ~catch exn :: Exn.Fail.Concretize.Recoverable:
+                exns ++ [exn]
+          error(
+            ~exn: Exn.Fail.Concretize.Recoverable,
+            "no matching method",
+            error.val(~label: "receiver type", this),
+            error.val(~label: "selector", selector),
+            error.vals(~label: "argument types", arg_types),
+            error.cause(each exns),
+            ...))
+
+  private field method_cache = caches.keyed.init()
+
+  //============================================================================
+  annot.def RhombusToPilleWriter:
+    (frame :: ptr_t, offset :: Nat, value :: Any) -> ~any
+
+  annot.def PilleFromRhombusReadLowerer:
+    (ptr :: llvm.Value) -> maybe(llvm.Value)
+
+  annot.def PilleToRhombusWriteLowerer:
+    (ptr :: llvm.Value, value :: maybe(llvm.Value)) -> ~any
+
+  annot.def RhombusFromPilleReader:
+    (frame :: ptr_t, offset :: Nat) -> Any
+
+  class RhombusInteropSpec(
+    ~byte_size: byte_size :: Nat,
+    ~write_from_rhombus: write_from_rhombus :: Function.assume_of(RhombusToPilleWriter),
+    ~read_from_pille: read_from_pille :: PilleFromRhombusReadLowerer,
+    ~write_from_pille: write_from_pille :: PilleToRhombusWriteLowerer,
+    ~read_from_rhombus: read_from_rhombus :: Function.assume_of(RhombusFromPilleReader),
+  )
+
+  final property rhombus_interop :~ RhombusInteropSpec:
+    caches.unkeyed.get_or_compute(
+      ~get_cache: fun(): cached_rhombus_interop,
+      ~set_cache: (cached_rhombus_interop := _),
+      fun(): compute_rhombus_interop())
+
+  protected method compute_rhombus_interop() :: RhombusInteropSpec:
+    error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "Rhombus interop unsupported",
+      error.val(~label: "type", this))
+
+  private field cached_rhombus_interop = caches.unkeyed.init()
+
+//==============================================================================
+annot.delayed_complete _Type:
+  Type

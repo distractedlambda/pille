@@ -1,0 +1,40 @@
+#lang rhombus/static/and_meta
+
+import:
+  "labels.rhm" open
+  rhombus/scribble/manual
+
+export manual.nonterminal:
+  arg_expr: expr expr ~space
+  body: block ~at pille/expr
+  callee_expr: expr expr ~space
+  const_annot: const_annot ~space
+  const_bind: const_bind ~space
+  const_expr: const_expr ~space
+  const_literal: #%literal ~at pille/const_expr
+  defined_name: rhm_meta.defn.macro ~defn
+  dot_member_name: method ~defn
+  expr: expr ~space
+  global_defn: global_defn ~space
+  id: rhm.block
+  id_name: namespace ~defn
+  id_or_op_name: namespace ~defn
+  label_arg: #%parens ~at pille/labeled_expr
+  label_id: #' ~at pille/expr
+  labeled_expr: #' ~at pille/expr
+  lhs_expr: expr expr ~space
+  local_defn: local_defn ~space
+  macro_patterns: rhm_meta.expr.macro ~defn
+  maybe_res_type: method ~defn
+  member_name: method ~defn
+  op_name: namespace ~defn
+  pattern: rhm.#%quotes
+  prefix_macro_pattern: rhm_meta.defn.macro ~defn
+  receiver: method ~defn
+  rhombus_annot: rhm.(::) annot
+  rhombus_bind: rhm.def bind ~defn
+  rhombus_body: rhm.block body
+  rhombus_expr: rhm.block expr
+  rhs_expr: expr expr ~space
+  special_name_id: special_name.def ~defn
+  when_where_option: method ~defn

@@ -1,0 +1,47 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../const_expr.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+defn.macro 'cast_ops:
+              $op_name $builder_method_name
+              ...':
+  let [concretize_fn_name, ...] = [Syntax.make_temp_id(op_name), ...]
+  '«pille_expr.macro '$op_name($('$')(src :: pille_expr_meta.Parsed),
+                               ~to: $('$')(dst_type :: const_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        '$concretize_fn_name(
+           $('$')(pille_expr_meta.unpack_concretize(src)),
+           $('$')(const_expr_meta.unpack_rhombus_expr(dst_type)))')
+    ...
+
+    fun $concretize_fn_name(src, dst_type):
+      concretize_cast_op(src, dst_type, llvm.Builder. $builder_method_name)
+    ...»'
+
+fun concretize_cast_op(src :~ Expr, dst_type :~ Type, builder_fn):
+  let (src_type, src_low) = src.unpack_rvalue()
+  let dst_repr = dst_type.repr
+  Expr.Rvalue(
+    ~type:
+      dst_type,
+    ~lower:
+      fun(env):
+        let src_val = src_low(env)
+        let builder = lowering.builder()
+        let dst_llvm_type = dst_repr.llvm_type(builder.context)
+        builder_fn(builder, src_val, dst_llvm_type))
+
+export cast_ops:
+  inttoptr create_inttoptr
+  ptrtoint create_ptrtoint
+  sext create_sext
+  trunc create_trunc
+  trunc_nsw create_trunc_nsw
+  trunc_nuw create_trunc_nuw
+  zext create_zext
+  zext_nneg create_zext_nneg

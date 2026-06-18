@@ -1,0 +1,87 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/interned.rhm" open
+  pille/llvm
+
+//==============================================================================
+export only_space annot expr namespace: Repr
+class Repr():
+  nonfinal
+
+  internal _Repr
+
+  constructor ~error
+
+  final method llvm_type(
+    context :: llvm.Context,
+    rec :: Repr -> llvm.Type = make_default_rec(context),
+  ) :: llvm.Type:
+    llvm_type_(context, rec)
+
+  abstract protected method llvm_type_(
+    context :: llvm.Context,
+    rec :: Repr -> llvm.Type,
+  ) :: llvm.Type
+
+  fun make_default_rec(ctx :~ llvm.Context):
+    fun rec(repr :~ _Repr):
+      repr.llvm_type_(ctx, rec)
+    rec
+
+class Repr.Erased():
+  extends Repr
+  nonfinal
+  constructor ~error
+
+class Repr.Void():
+  extends Repr.Erased
+  interned()()
+  override llvm_type_(ctx, _):
+    llvm.VoidType(ctx)
+
+class Repr.Never():
+  extends Repr.Erased
+  interned()()
+  override llvm_type_(ctx, _):
+    llvm.VoidType(ctx)
+
+class Repr.Sized():
+  extends Repr
+  nonfinal
+  constructor ~error
+
+class Repr.Scalar():
+  extends Repr.Sized
+  nonfinal
+  constructor ~error
+
+class Repr.Bits(width :: PosInt):
+  extends Repr.Scalar
+  interned()(width)
+  override llvm_type_(ctx, _):
+    llvm.IntType(ctx, width)
+
+class Repr.Pointer(address_space :: Nat):
+  extends Repr.Scalar
+  interned()(address_space)
+  override llvm_type_(ctx, _):
+    llvm.PointerType(ctx, ~address_space)
+
+class Repr.Simd(element :: Repr.Scalar, length :: PosInt):
+  extends Repr.Sized
+  interned()(element, length)
+  override llvm_type_(ctx, rec):
+    llvm.VectorType(rec(element), length)
+
+class Repr.Array(element :: Repr.Sized, length :: Int.in(2..)):
+  extends Repr.Sized
+  interned()(element, length)
+  override llvm_type_(ctx, rec):
+    llvm.ArrayType(rec(element), length)
+
+class Repr.Tuple(elements :: [Repr.Sized, Repr.Sized, Repr.Sized, ...]):
+  extends Repr.Sized
+  interned()(elements)
+  override llvm_type_(ctx, rec):
+    llvm.StructType(ctx, [rec(each elements), ...])

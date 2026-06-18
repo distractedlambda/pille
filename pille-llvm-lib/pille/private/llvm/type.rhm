@@ -1,0 +1,198 @@
+#lang rhombus/static/and_meta
+
+import:
+  "context.rhm" open
+  "enums.rhm" open
+  "llvm_c.rkt" open
+
+//==============================================================================
+export annot.delayed_declare _Constant
+
+//==============================================================================
+export veneer Type(this :: satisfying(#{LLVMTypeRef?})):
+  constructor ~error
+
+  export alias 'Kind': 'TypeKind'
+
+  property kind :: Kind:
+    LLVMGetTypeKind(this) |> decode_type_kind
+
+  property context :: Context:
+    LLVMGetTypeContext(this)
+
+  method to_string() :: String:
+    LLVMPrintTypeToString(this) |> String.snapshot
+
+//==============================================================================
+fun is_void_type(type :: Type):
+  type.kind matches Type.Kind.void
+
+export veneer VoidType(this :: satisfying(is_void_type)):
+  extends Type
+  constructor(context :: Context):
+    LLVMVoidTypeInContext(context)
+
+//==============================================================================
+fun is_label_type(type :: Type):
+  type.kind matches Type.Kind.label
+
+export veneer LabelType(this :: satisfying(is_label_type)):
+  extends Type
+  constructor(context :: Context):
+    LLVMLabelTypeInContext(context)
+
+//==============================================================================
+fun is_token_type(type :: Type):
+  type.kind matches Type.Kind.token
+
+export veneer TokenType(this :: satisfying(is_token_type)):
+  extends Type
+  constructor(context :: Context):
+    LLVMTokenTypeInContext(context)
+
+//==============================================================================
+fun is_metadata_type(type :: Type):
+  type.kind matches Type.Kind.metadata
+
+export veneer MetadataType(this :: satisfying(is_metadata_type)):
+  extends Type
+  constructor(context :: Context):
+    LLVMMetadataTypeInContext(context)
+
+//==============================================================================
+export veneer SizedType(this :: satisfying(LLVMTypeIsSized)):
+  extends Type
+
+  constructor ~error
+
+  property null_value :: _Constant:
+    LLVMConstNull(this)
+
+//==============================================================================
+fun is_int_type(type :: Type):
+  type.kind matches Type.Kind.integer
+
+export veneer IntType(this :: satisfying(is_int_type)):
+  extends SizedType
+
+  constructor(context :: Context, width :: PosInt):
+    LLVMIntTypeInContext(context, width)
+
+  property width :: PosInt:
+    LLVMGetIntTypeWidth(this)
+
+//==============================================================================
+fun is_half_type(type :: Type):
+  type.kind matches Type.Kind.half
+
+export veneer HalfType(this :: satisfying(is_half_type)):
+  extends SizedType
+
+  constructor(context :: Context):
+    LLVMHalfTypeInContext(context)
+
+//==============================================================================
+fun is_float_type(type :: Type):
+  type.kind matches Type.Kind.float
+
+export veneer FloatType(this :: satisfying(is_float_type)):
+  extends SizedType
+
+  constructor(context :: Context):
+    LLVMFloatTypeInContext(context)
+
+//==============================================================================
+fun is_double_type(type :: Type):
+  type.kind matches Type.Kind.double
+
+export veneer DoubleType(this :: satisfying(is_double_type)):
+  extends SizedType
+
+  constructor(context :: Context):
+    LLVMDoubleTypeInContext(context)
+
+//==============================================================================
+fun is_function_type(type :: Type):
+  type.kind matches Type.Kind.function
+
+export veneer FunctionType(this :: satisfying(is_function_type)):
+  extends Type
+
+  constructor(return_type :: Type,
+              param_types :: Listable.to_list && [Type, ...],
+              ~is_var_arg: is_var_arg :: Any = #false):
+    LLVMFunctionType(return_type, param_types, is_var_arg)
+
+  property is_var_arg :: Boolean:
+    LLVMIsFunctionVarArg(this)
+
+  property return_type :: Type:
+    LLVMGetReturnType(this)
+
+  property param_types :: [Type, ...]:
+    LLVMGetParamTypes(this)
+
+//==============================================================================
+fun is_struct_type(type :: Type):
+  type.kind matches Type.Kind.struct
+
+export veneer StructType(this :: satisfying(is_struct_type)):
+  extends SizedType
+
+  constructor(
+    context :: Context,
+    element_types :: Listable.to_list && [SizedType, ...],
+    ~packed: packed :: Any = #false,
+  ):
+    LLVMStructTypeInContext(context, element_types, packed)
+
+  property is_packed :: Boolean:
+    LLVMIsPackedStruct(this)
+
+  property element_types :: [SizedType, ...]:
+    LLVMGetStructElementTypes(this)
+
+//==============================================================================
+fun is_array_type(type :: Type):
+  type.kind matches Type.Kind.array
+
+export veneer ArrayType(this :: satisfying(is_array_type)):
+  extends SizedType
+
+  constructor(element_type :: SizedType, length :: NonnegInt):
+    LLVMArrayType2(element_type, length)
+
+  property element_type :: SizedType:
+    LLVMGetElementType(this)
+
+  property length :: NonnegInt:
+    LLVMGetArrayLength2(this)
+
+//==============================================================================
+fun is_pointer_type(type :: Type):
+  type.kind matches Type.Kind.pointer
+
+export veneer PointerType(this :: satisfying(is_pointer_type)):
+  extends SizedType
+
+  constructor(context :: Context, ~address_space: address_space :: NonnegInt = 0):
+    LLVMPointerTypeInContext(context, address_space)
+
+  property address_space :: NonnegInt:
+    LLVMGetPointerAddressSpace(this)
+
+//==============================================================================
+fun is_vector_type(type :: Type):
+  type.kind matches Type.Kind.vector
+
+export veneer VectorType(this :: satisfying(is_vector_type)):
+  extends SizedType
+
+  constructor(element_type :: Type, length :: PosInt):
+    LLVMVectorType(element_type, length)
+
+  property element_type :: SizedType:
+    LLVMGetElementType(this)
+
+  property length :: PosInt:
+    LLVMGetVectorSize(this)

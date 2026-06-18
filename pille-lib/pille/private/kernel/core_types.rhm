@@ -1,0 +1,407 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/per_profile.rhm" open
+  "../runtime/profile.rhm" open
+  "../util/assert.rhm" open
+  "const_expr.rhm" open
+  "special_name.rhm" open
+  ffi open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+//==============================================================================
+class_clause.macro 'singleton_ctor':
+  'def instances = PerProfile()
+   constructor():
+     instances.get_or_init(_) <| fun():
+       super()()'
+
+class_clause.macro 'nonsingleton_ctor($(arg_id :: Identifier), ...)':
+  'def instance_maps = PerProfile()
+   constructor($arg_id, ...):
+     let instance_map = instance_maps.get_or_init(MutableMap)
+     let key:
+       $(match [arg_id, ...]
+         | [id]: id
+         | [fst_id, snd_id]: 'Pair($fst_id, $snd_id)'
+         | [id, ...]: '[$id, ...]')
+     instance_map.get(key, _) <| fun():
+       let instance = super()($arg_id, ...)
+       instance_map[key] := instance
+       instance'
+
+//==============================================================================
+export class VoidType():
+  extends Type
+
+  singleton_ctor
+
+  override compute_repr():
+    Repr.Void()
+
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: 0,
+      ~write_from_rhombus:
+        fun(_, _, _ :: Void): #void,
+      ~read_from_pille:
+        fun(_): #false,
+      ~write_from_pille:
+        fun(_, #false): #void,
+      ~read_from_rhombus:
+        fun(_, _): #void)
+
+  private implements Printable
+  private override describe(_, _):
+    "Void"
+
+//==============================================================================
+export class NeverType():
+  extends Type
+
+  singleton_ctor
+
+  override compute_repr():
+    Repr.Never()
+
+  private implements Printable
+  private override describe(_, _):
+    "Never"
+
+//==============================================================================
+export class BooleanType():
+  extends Type
+
+  singleton_ctor
+
+  override compute_repr():
+    Repr.Bits(1)
+
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: 1,
+      ~write_from_rhombus:
+        fun(frame :~ ptr_t, offset :~ Nat, value :: Boolean):
+          mem *(cast (uint8_t*) ~offset(offset) frame)
+            := (if value | 1 | 0),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          let byte = builder.create_load(~alignment: 1, builder.int_type(8), ptr)
+          builder.create_trunc(byte, builder.int_type(1)),
+      ~write_from_pille:
+        fun(ptr, bit):
+          let builder = lowering.builder()
+          let byte = builder.create_zext(bit, builder.int_type(8))
+          builder.create_store(~alignment: 1, byte, ptr),
+      ~read_from_rhombus:
+        fun(frame :~ ptr_t, offset :~ Nat):
+          mem *(cast (uint8_t*) ~offset(offset) frame) != 0)
+
+  private implements Printable
+  private override describe(_, _):
+    "Boolean"
+
+//==============================================================================
+export class IntType(width :: PosInt):
+  extends Type
+
+  nonsingleton_ctor(width)
+
+  override compute_repr():
+    Repr.Bits(width)
+
+  override compute_rhombus_interop():
+    let width = this.width // avoid capturing `this`
+    let min_val = -(2**(width - 1))
+    let max_val = 2**(width - 1) - 1
+    let num_bytes = (width + 7) div 8
+
+    // FIXME: don't assume little-endian
+    Type.RhombusInteropSpec(
+      ~byte_size: num_bytes,
+      ~write_from_rhombus:
+        fun(frame, offset, val :: Int.in(min_val..=max_val)):
+          write_rhombus_int_bytes(frame, offset, val, num_bytes),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          builder.create_load(~alignment: 1, builder.int_type(width), ptr),
+      ~write_from_pille:
+        fun(ptr, val):
+          lowering.builder().create_store(~alignment: 1, val, ptr),
+      ~read_from_rhombus:
+        fun(frame, offset):
+          let unsigned = read_rhombus_int_bytes(frame, offset, num_bytes)
+          cond
+          | unsigned bits.(?) (num_bytes*8 - 1):
+              unsigned bits.or (-1 bits.(<<) (num_bytes*8))
+          | ~else:
+              unsigned)
+
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list("Int(", [rec(width)], ")")
+
+//==============================================================================
+export class UIntType(width :: PosInt):
+  extends Type
+
+  nonsingleton_ctor(width)
+
+  override compute_repr():
+    Repr.Bits(width)
+
+  override compute_rhombus_interop():
+    let width = this.width // avoid capturing `this`
+    let max_val = 2**width - 1
+    let num_bytes = (width + 7) div 8
+
+    // FIXME: don't assume little-endian
+    Type.RhombusInteropSpec(
+      ~byte_size: num_bytes,
+      ~write_from_rhombus:
+        fun(frame, offset, val :: Int.in(0..=max_val)):
+          write_rhombus_int_bytes(frame, offset, val, num_bytes),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          builder.create_load(~alignment: 1, builder.int_type(width), ptr),
+      ~write_from_pille:
+        fun(ptr, val):
+          lowering.builder().create_store(~alignment: 1, val, ptr),
+      ~read_from_rhombus:
+        fun(frame, offset):
+          read_rhombus_int_bytes(frame, offset, num_bytes))
+
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list("UInt(", [rec(width)], ")")
+
+//==============================================================================
+export class ConstType(value :: Any):
+  extends Type
+
+  nonsingleton_ctor(value)
+
+  override compute_repr():
+    Repr.Void()
+
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: 0,
+      ~write_from_rhombus:
+        fun(_, _, rhombus_value):
+          unless rhombus_value == value
+          | error(
+              "runtime Rhombus value does not match Pille constant",
+              error.val(~label: "expected value", value),
+              error.val(~label: "actual value", rhombus_value)),
+      ~read_from_pille:
+        fun(_): #void,
+      ~write_from_pille:
+        fun(_, _): #void,
+      ~read_from_rhombus:
+        fun(_, _): value)
+
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list("Const(", [rec(value)], ")")
+
+//==============================================================================
+export class TupleType(elements :: [Type, ...]):
+  extends Type
+
+  //============================================================================
+  nonsingleton_ctor(elements)
+
+  //============================================================================
+  private property repr_and_slots :~ [Repr, [lowering.packing.Slot, ...]]:
+    caches.unkeyed.get_or_compute(
+      ~get_cache: fun(): cached_repr_and_slots,
+      ~set_cache: (cached_repr_and_slots := _),
+      fun():
+        let (repr, slots) = lowering.packing.layout([(each elements).repr, ...])
+        [repr, slots])
+
+  property slots :~ [lowering.packing.Slot, ...]:
+    repr_and_slots[1]
+
+  private field cached_repr_and_slots = caches.unkeyed.init()
+
+  //============================================================================
+  override compute_repr():
+    let [repr, _] = repr_and_slots
+    repr
+
+  //============================================================================
+  override compute_rhombus_interop():
+    let length = elements.length()
+    let slots = this.slots // avoid capturing `this`
+    let element_interops = [(each elements).rhombus_interop, ...]
+    let ([element_offset, ...], byte_size):
+      for fold(offsets :~ List = [], byte_size :~ Nat = 0):
+        each interop in element_interops
+        values(offsets ++ [byte_size], byte_size + interop.byte_size)
+    let [write_element_from_rhombus, ...] = [(each element_interops).write_from_rhombus, ...]
+    let [read_element_from_pille, ...] = [(each element_interops).read_from_pille, ...]
+    let [write_element_from_pille, ...] = [(each element_interops).write_from_pille, ...]
+    let [read_element_from_rhombus, ...] = [(each element_interops).read_from_rhombus, ...]
+    Type.RhombusInteropSpec(
+      ~byte_size,
+      ~write_from_rhombus:
+        fun(frame, offset, [element_val, ...] :: Listable.to_list):
+          guard Function.count(element_val, ...) == length
+          | error(
+              "wrong number of tuple elements",
+              error.val(~label: "expected count", length),
+              error.vals(~label: "received", [element_val, ...]))
+          Function.pass(
+            write_element_from_rhombus(
+              frame,
+              offset + element_offset,
+              element_val),
+            ...),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          let int8_type = builder.int_type(8)
+          let intptr_type = builder.intptr_type()
+          lowering.packing.pack(
+            [read_element_from_pille(
+               builder.create_gep(
+                 ~inbounds: #true,
+                 ~nuw: #true,
+                 int8_type,
+                 ptr,
+                 [llvm.ConstantInt(intptr_type, element_offset)])),
+             ...]),
+      ~write_from_pille:
+        fun(ptr, val):
+          let builder = lowering.builder()
+          let int8_type = builder.int_type(8)
+          let intptr_type = builder.intptr_type()
+          Function.pass(
+            write_element_from_pille(
+              builder.create_gep(
+                ~inbounds: #true,
+                ~nuw: #true,
+                int8_type,
+                ptr,
+                [llvm.ConstantInt(intptr_type, element_offset)]),
+              lowering.packing.get(val, each slots)),
+            ...),
+      ~read_from_rhombus:
+        fun(frame, offset):
+          [read_element_from_rhombus(
+             frame,
+             offset + element_offset),
+           ...])
+
+  //============================================================================
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list("Tuple(", [rec(each elements), ...], ")")
+
+//==============================================================================
+export class SimdType(element :: Type, length :: PosInt):
+  extends Type
+
+  //============================================================================
+  fun lower_get(vec :: maybe(llvm.Value), idx :: Nat) :: maybe(llvm.Value):
+    guard.let vec!! = vec
+    | #false // erased repr, so erased element
+
+    if vec.type is_a llvm.VectorType
+    | lowering.builder().create_extract_element(vec, idx)
+    | assert(idx == 0)
+      vec
+
+  fun lower_set(vec :: maybe(llvm.Value), idx :: Nat, elem :: maybe(llvm.Value)) :: maybe(llvm.Value):
+    guard.let vec!! = vec
+    | assert(!elem)
+      #false // erased repr
+
+    if vec.type is_a llvm.VectorType
+    | lowering.builder().create_insert_element(vec, elem, idx)
+    | assert(idx == 0)
+      assert(vec.type == elem?.type)
+      elem
+
+  fun lower_new :: maybe(llvm.Value)
+  | lower_new([#false, ...]):
+      #false
+  | lower_new([elem :: llvm.Value]):
+      elem
+  | lower_new(elems :: [llvm.Value, llvm.Value, ...]):
+      lowering.builder().create_vector(elems)
+
+  //============================================================================
+  nonsingleton_ctor(element, length)
+
+  //============================================================================
+  override compute_repr():
+    match element.repr
+    | er :: Repr.Erased:
+        er
+    | er :: Repr.Scalar:
+        match length
+        | 1: er
+        | _: Repr.Simd(er, length)
+    | er:
+        error(
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "Simd element type must have erased or scalar repr",
+          error.val(~label: "element type", element),
+          error.val(~label: "element repr", er))
+
+  //============================================================================
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list("Simd(", [rec(element), rec(length)], ")")
+
+//==============================================================================
+export class RawPtrType():
+  extends Type
+
+  singleton_ctor
+
+  //============================================================================
+  override compute_repr():
+    Repr.Pointer(0)
+
+  //============================================================================
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: sizeof(ptr_t),
+      ~write_from_rhombus:
+        fun(frame :~ ptr_t, offset :~ Nat, value :~ ptr_t):
+          mem *(cast (ptr_t*) ~offset(offset) frame) := value,
+      ~read_from_pille:
+        fun(slot_ptr):
+          let builder = lowering.builder()
+          builder.create_load(~alignment: 1, builder.ptr_type(), slot_ptr),
+      ~write_from_pille:
+        fun(slot_ptr, val):
+          let builder = lowering.builder()
+          builder.create_store(~alignment: 1, val, slot_ptr),
+      ~read_from_rhombus:
+        fun(frame :~ ptr_t, offset :~ Nat):
+          mem *(cast (ptr_t*) ~offset(offset) frame))
+
+  //============================================================================
+  private implements Printable
+  private override describe(_, _):
+    "RawPtr"
+
+//==============================================================================
+fun write_rhombus_int_bytes(frame :~ ptr_t, offset :~ Nat, val :~ Int, num_bytes :~ Nat):
+  for (i in 0..num_bytes):
+    mem *(cast (uint8_t*) ~offset(offset + i) frame) := bits.field(val, i*8, (i+1)*8)
+
+fun read_rhombus_int_bytes(frame :~ ptr_t, offset :~ Nat, num_bytes :~ Nat):
+  for fold (acc :~ Nat = 0) (i in 0..num_bytes):
+    let byte = mem *(cast (uint8_t*) ~offset(offset + i) frame)
+    acc bits.or (byte bits.(<<) (i*8))

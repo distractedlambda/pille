@@ -1,0 +1,51 @@
+#lang rhombus/static/and_meta
+
+meta import:
+  "../util/annot.rhm" open
+
+export:
+  const_annot
+  meta: const_annot_meta
+
+//==============================================================================
+space.enforest const_annot:
+  space_path pille/const_annot
+  macro_definer macro
+  meta_namespace const_annot_meta:
+    export:
+      Packed
+      pack_rhombus_predicate
+      parse
+      unpack_rhombus_predicate
+
+    reflection space
+    description "const annotation"
+    operator_description "const annotation operator"
+
+    parse_syntax_class Parsed
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
+
+    private parsed_packer _pack
+    private parsed_unpacker _unpack
+
+    fun is_packed(stx):
+      _unpack(stx, fun(_): #false)
+
+    annot.def Packed:
+      Term && satisfying(is_packed)
+
+    fun pack_rhombus_predicate(pred_expr :: Group) :~ Packed:
+      _pack(expr_meta.pack_expr(pred_expr))
+
+    fun unpack_rhombus_predicate(packed :: Packed) :~ Term:
+      _unpack(packed)
+
+    fun parse('$(parsed :: Parsed)') :~ Packed:
+      parsed
+
+  export:
+    predicate
+
+  expr.macro 'predicate($(ann :: const_annot_meta.Parsed))':
+    const_annot_meta.unpack_rhombus_predicate(ann)

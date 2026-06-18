@@ -1,0 +1,204 @@
+#lang pille/private/kernel
+
+import:
+  "cond.rhm" open
+  "const_ops.rhm" open
+  "generic_ops.rhm" open
+  "int.rhm" open
+  "panic.rhm" open
+  "type_traits.rhm" open
+
+//==============================================================================
+fun check_align(ptr :: RawPtr, const align :: alignment) :: Void:
+  unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
+  | panic()
+
+//==============================================================================
+method (ptr :: RawPtr).load(const α :: type) :: α:
+  ptr.load(α, alignof(α))
+
+//==============================================================================
+method (ptr :: RawPtr).load(const α :: type, const align :: alignment) :: α:
+  // FIXME: null check, other related stuff
+  cond
+  | ub.allowed:
+      prim.load(α, align, ptr)
+  | ub.suppressed:
+      prim.load(α, 1, ptr)
+  | ub.checked:
+      check_align(ptr, align)
+      prim.load(α, align, ptr)
+
+//==============================================================================
+method (ptr :: RawPtr).store(value :: α) :: Void:
+  ptr.store(value, alignof(α))
+
+//==============================================================================
+method (ptr :: RawPtr).store(value :: α, const align :: alignment) :: Void:
+  cond
+  | ub.allowed:
+      prim.store(align, ptr, value)
+  | ub.suppressed:
+      prim.store(1, ptr, value)
+  | ub.checked:
+      check_align(ptr, align)
+      prim.store(align, ptr, value)
+
+//==============================================================================
+method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
+  let offset = offset.cast_exact() :: NativeInt
+  cond
+  | ub.allowed:
+      prim.ptradd ~inbounds (ptr, offset)
+  | ub.suppressed:
+      prim.ptradd(ptr, offset)
+  | ub.checked:
+      let new = prim.ptradd(ptr, offset)
+      if (offset > 0 && new ≤ ptr) || (offset < 0 && new ≥ ptr)
+      | panic()
+      | new
+
+method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
+  let offset = offset.cast_exact() :: NativeUInt
+  cond
+  | ub.allowed:
+      prim.ptradd ~inbounds ~nuw (ptr, offset)
+  | ub.suppressed:
+      prim.ptradd(ptr, offset)
+  | ub.checked:
+      let new = prim.ptradd(ptr, offset)
+      if new < ptr
+      | panic()
+      | new
+
+method (ptr :: RawPtr).$add(const offset :: int) :: RawPtr:
+  cond
+  | offset == 0:
+      ptr
+  | offset > 0:
+      ptr + (offset :: NativeUInt)
+  | offset < 0:
+      ptr + (offset :: NativeInt)
+
+//==============================================================================
+method (ptr :: RawPtr).$sub(amount :: BinaryInteger) :: RawPtr:
+  ptr + (-(amount.cast_exact() :: NativeInt))
+
+method (ptr :: RawPtr).$sub(const amount :: int) :: RawPtr:
+  ptr + (-amount)
+
+//==============================================================================
+method (ptr :: RawPtr).$eq(other :: RawPtr) :: Boolean:
+  prim.icmp_eq(ptr, other)
+
+method (ptr :: RawPtr).$ne(other :: RawPtr) :: Boolean:
+  prim.icmp_ne(ptr, other)
+
+method (ptr :: RawPtr).$lt(other :: RawPtr) :: Boolean:
+  prim.icmp_ult(ptr, other)
+
+method (ptr :: RawPtr).$le(other :: RawPtr) :: Boolean:
+  prim.icmp_ule(ptr, other)
+
+method (ptr :: RawPtr).$gt(other :: RawPtr) :: Boolean:
+  prim.icmp_ugt(ptr, other)
+
+method (ptr :: RawPtr).$ge(other :: RawPtr) :: Boolean:
+  prim.icmp_uge(ptr, other)
+
+//==============================================================================
+special_name.def ptr_raw
+
+// FIXME: hide $new?
+export struct Ptr(α :: type):
+  $ptr_raw :: RawPtr
+
+// FIXME: hide $new?
+export struct PtrMut(α :: type):
+  $ptr_raw :: RawPtr
+
+//==============================================================================
+export const_bind.macro 'PtrTo($α)':
+  '(φ && (Ptr(_) || PtrMut(_))) where:
+     $(const_bind_meta.encapsulate(α)) = PtrTarget(φ)'
+
+const.fun PtrTarget
+| (Ptr(α)): α
+| (PtrMut(α)): α
+
+//==============================================================================
+coercion (p :: PtrMut(α)) :: φ && Ptr(α):
+  φ{p.$ptr_raw}
+
+unify(PtrMut(α), Ptr(α)): Ptr(α)
+
+//==============================================================================
+method (const φ && PtrTo(α)).from_raw(raw :: RawPtr):
+  when ub.checked | check_align(raw, alignof(α))
+  φ{raw}
+
+//==============================================================================
+property (ptr :: PtrTo(_)).raw :: RawPtr:
+  ptr.$ptr_raw
+
+property (inout ptr :: φ && PtrTo(_)).raw := (new_raw :: RawPtr):
+  ptr := φ.from_raw(new_raw)
+
+//==============================================================================
+method (ptr :: PtrTo(_)).$to_rhombus():
+  ptr.raw
+
+method (const φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
+  φ.from_raw(raw)
+
+//==============================================================================
+method (ptr :: φ && PtrTo(α)).$add(offset :: UInt(_)) :: φ:
+  let offset = offset.cast_exact() :: NativeUInt
+  φ{ptr.raw + offset*strideof(α)}
+
+method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
+  let offset = offset.cast_exact() :: NativeInt
+  φ{ptr.raw + offset*strideof(α)}
+
+method (ptr :: φ && PtrTo(α)).$add(const offset :: int) :: φ:
+  φ{ptr.raw + offset*strideof(α)}
+
+//==============================================================================
+method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:
+  ptr + (-(amount.cast_exact() :: NativeInt))
+
+method (ptr :: φ && PtrTo(α)).$sub(const amount :: int) :: φ:
+  ptr + (-amount)
+
+//==============================================================================
+method (ptr :: φ && PtrTo(α)).$eq(other :: φ) :: Boolean:
+  ptr.raw == other.raw
+
+method (ptr :: φ && PtrTo(α)).$ne(other :: φ) :: Boolean:
+  ptr.raw != other.raw
+
+method (ptr :: φ && PtrTo(α)).$lt(other :: φ) :: Boolean:
+  ptr.raw < other.raw
+
+method (ptr :: φ && PtrTo(α)).$le(other :: φ) :: Boolean:
+  ptr.raw ≤ other.raw
+
+method (ptr :: φ && PtrTo(α)).$gt(other :: φ) :: Boolean:
+  ptr.raw > other.raw
+
+method (ptr :: φ && PtrTo(α)).$ge(other :: φ) :: Boolean:
+  ptr.raw ≥ other.raw
+
+//==============================================================================
+method (ptr :: PtrTo(α)).$index_read() :: α:
+  prim.load(α, if ub.suppressed | 1 | alignof(α), ptr)
+
+method (ptr :: PtrTo(α)).$index_read(idx :: Integral) :: α:
+  (ptr + idx)[]
+
+//==============================================================================
+method (ptr :: PtrMut(α)).$index_write(value :: α) :: Void:
+  prim.store(if ub.suppressed | 1 | alignof(α), ptr, value)
+
+method (ptr :: PtrMut(α)).$index_write(idx :: Integral, value :: α) :: Void:
+  (ptr + idx)[] := value

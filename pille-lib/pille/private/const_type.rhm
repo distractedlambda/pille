@@ -1,0 +1,74 @@
+#lang pille/private/kernel
+
+import:
+  "const_ops.rhm" open
+  "generic_ops.rhm" open
+
+method (const v1).$add(const v2) :: Const(v1 + v2):
+  const(v1 + v2)
+
+method (const v1).$sub(const v2) :: Const(v1 - v2):
+  const(v1 - v2)
+
+method (const v).$neg() :: Const(-v):
+  const(-v)
+
+method (const v1).$mul(const v2) :: Const(v1 * v2):
+  const(v1 * v2)
+
+method (const v1).$div(const v2) :: Const(v1 / v2):
+  const(v1 / v2)
+
+method (const v1).$div_trunc(const v2) :: Const(v1 div_trunc v2):
+  const(v1 div_trunc v2)
+
+method (const v1).$div_floor(const v2) :: Const(v1 div_floor v2):
+  const(v1 div_floor v2)
+
+method (const v1).$div_ceil(const v2) :: Const(v1 div_ceil v2):
+  const(v1 div_ceil v2)
+
+method (const v1).$div_floor(const v2) :: Const(v1 div_floor v2):
+  const(v1 div_floor v2)
+
+method (const v1).$rem(const v2) :: Const(v1 % v2):
+  const(v1 % v2)
+
+method (const v1).$rem_trunc(const v2) :: Const(v1 rem_trunc v2):
+  const(v1 rem_trunc v2)
+
+method (const v1).$rem_floor(const v2) :: Const(v1 rem_floor v2):
+  const(v1 rem_floor v2)
+
+method (const v1).$rem_ceil(const v2) :: Const(v1 rem_ceil v2):
+  const(v1 rem_ceil v2)
+
+method (const v).$not() :: Const(¬v):
+  const(¬v)
+
+method (const v1).$and(const v2) :: Const(v1 ∧ v2):
+  const(v1 ∧ v2)
+
+method (const v1).$or(const v2) :: Const(v1 ∨ v2):
+  const(v1 ∨ v2)
+
+method (const v1).$xor(const v2) :: Const(v1 ⊻ v2):
+  const(v1 ⊻ v2)
+
+method (const v1).$eq(const v2) :: Const(v1 == v2):
+  const(v1 == v2)
+
+method (const v1).$ne(const v2) :: Const(v1 != v2):
+  const(v1 != v2)
+
+method (const v1).$lt(const v2) :: Const(v1 < v2):
+  const(v1 < v2)
+
+method (const v1).$gt(const v2) :: Const(v1 > v2):
+  const(v1 > v2)
+
+method (const v1).$le(const v2) :: Const(v1 ≤ v2):
+  const(v1 ≤ v2)
+
+method (const v1).$ge(const v2) :: Const(v1 ≥ v2):
+  const(v1 ≥ v2)

@@ -1,0 +1,71 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+check:
+  pille: 0 :: Int(8)
+  ~is 0
+
+check:
+  pille: #void
+  ~is #void
+
+check:
+  pille: #false :: Boolean
+  ~is #false
+
+check:
+  pille: #true :: Boolean
+  ~is #true
+
+check:
+  pille: 42 :: Int(8)
+  ~is 42
+
+check:
+  pille: -89 :: Int(8)
+  ~is -89
+
+check:
+  pille: -89 :: UInt(8)
+  ~throws "incompatible types"
+
+check:
+  pille: 127 :: UInt(7)
+  ~is 127
+
+check:
+  pille: 128 :: UInt(7)
+  ~throws "incompatible types"
+
+check:
+  pille: 127 :: Int(8)
+  ~is 127
+
+check:
+  pille: 128 :: Int(8)
+  ~throws "incompatible types"
+
+check:
+  pille: -128 :: Int(8)
+  ~is -128
+
+check:
+  pille: -129 :: Int(8)
+  ~throws "incompatible types"
+
+check:
+  pille(c :: Boolean = #true):
+    if c | 7 | 8
+  ~is 7
+
+check:
+  pille(c :: Boolean = #true):
+    if c | #false | #true
+  ~is #false
+
+check:
+  pille(c :: Boolean = #true):
+    if c | #false | 7
+  ~throws "types could not be unified"

@@ -1,0 +1,225 @@
+#lang rhombus/static
+
+import:
+  "private/concretize/repr.rhm" open
+  "private/concretize/type.rhm" open
+  "private/runtime/profile.rhm" open
+  "private/util/assert.rhm" open
+  "private/util/defer.rhm" open
+  pille/llvm
+
+//==============================================================================
+Parameter.def current_builder :: maybe(llvm.Builder):
+  #false
+
+export fun builder() :: llvm.Builder:
+  current_builder() || error("not currently lowering")
+
+export fun with_builder(builder :: llvm.Builder, thunk :: Function.of_arity(0)) :: Any.like_result(thunk):
+  parameterize { current_builder: builder }:
+    thunk()
+
+//==============================================================================
+def terminator_prompt_tag:
+  Continuation.PromptTag.make(#'terminator)
+
+export fun signal_termination() :: Never:
+  dynamic(Continuation.escape)(~tag: terminator_prompt_tag)
+
+export fun handle_termination(
+  ~terminated: terminated :: Function.of_arity(0),
+  ~unterminated: unterminated :: Function,
+  thunk :: Function.of_arity(0),
+) :: Any.like_result(terminated) || Any.like_result(unterminated):
+  try ~escape_as esc:
+    call_with_values(
+      fun():
+        Continuation.prompt terminator_prompt_tag:
+          thunk()
+          ~catch():
+            call_with_values(terminated, esc),
+      unterminated)
+
+//==============================================================================
+export fun name(value :: maybe(llvm.Value), name :: ReadableString || Symbol) :: Any.like(value):
+  match value
+  | value!!:
+      match value.name
+      | "": value.name := name
+      | _: #void
+  | _: #void
+  value
+
+//==============================================================================
+export namespace packing:
+  export enum Slot
+  | erased
+  | self
+  | ~is_a Nat // struct field index
+
+  export fun get(packed :: maybe(llvm.Value), slot :: Slot) :: maybe(llvm.Value):
+    match slot
+    | Slot.erased:
+        #false
+    | Slot.self:
+        packed
+    | idx :: Nat:
+        builder().create_extract_value(packed, idx)
+
+  export fun set(
+    packed :: maybe(llvm.Value),
+    slot :: Slot,
+    element :: maybe(llvm.Value),
+  ) :: maybe(llvm.Value):
+    match slot
+    | Slot.erased:
+        assert(!element)
+        packed
+    | Slot.self:
+        assert(packed?.type == element?.type)
+        element
+    | idx :: Nat:
+        builder().create_insert_value(packed, element, idx)
+
+  export fun pack(elements :: [maybe(llvm.Value), ...]) :: maybe(llvm.Value):
+    match elements.filter(~keep: (_))
+    | []: #false
+    | [val]: val
+    | vals: builder().create_struct(vals)
+
+  export fun layout(element_reprs :: [Repr, ...]) :~ values(Repr, [Slot, ...]):
+    try ~escape_as esc:
+      let (sized_reprs, slots):
+        for fold (sized_reprs :~ List = [], slots :~ List = []):
+          each repr in element_reprs
+
+          guard repr !is_a Repr.Never
+          | esc(repr, [(each element_reprs) && Slot.erased, ...])
+
+          if repr is_a Repr.Sized
+          | values(sized_reprs ++ [repr], slots ++ [sized_reprs.length()])
+          | values(sized_reprs, slots ++ [Slot.erased])
+
+      match sized_reprs
+      | []:
+          values(Repr.Void(), slots)
+      | [repr]:
+          values(repr, slots.set(slots.index(0), Slot.self))
+      | reprs:
+          values(Repr.Tuple(reprs), slots)
+
+//==============================================================================
+export fun create_internal_function(
+  ~call_conv: call_conv :: llvm.CallConv = llvm.CallConv.fast,
+  display_name :: ReadableString || Symbol,
+  result_repr :: Repr,
+  args :: [[Symbol, Repr], ...],
+  ~inout_mask: inout_mask :: Nat = 0,
+  concretize_body :: () -> Map -> maybe(llvm.Value),
+) :: [maybe(llvm.Value), ...] -> [maybe(llvm.Value), ...]:
+  let profile = Profile.require_current()
+  let native_symbol = profile.gen_native_symbol(display_name)
+
+  let inout_reprs:
+    for List ([_, arg_repr] in args, arg_idx in 0..):
+      keep_when inout_mask bits.(?) arg_idx
+      arg_repr
+
+  let (result_and_inouts_repr, result_and_inouts_slots):
+    packing.layout([result_repr, &inout_reprs])
+
+  fun llvm_fun_type(ctx):
+    llvm.FunctionType(
+      result_and_inouts_repr.llvm_type(ctx),
+      for List ([_, repr] in args):
+        skip_when repr is_a Repr.Erased
+        repr.llvm_type(ctx))
+
+  profile.defer_concretization(_) <| fun():
+    let body_low = concretize_body()
+    profile.define_function(
+      native_symbol,
+      llvm_fun_type,
+      fun(llvm_fun :~ llvm.Function):
+        llvm_fun.call_conv := call_conv
+
+        let builder = llvm.Builder(llvm_fun.context)
+        defer builder.dispose()
+
+        let entry_bb = llvm_fun.basic_blocks.add("entry")
+        builder.position_at_end(entry_bb)
+
+        // Populate environment with arguments
+        let (env, _):
+          for fold(env :~ Map = {}, arg :~ maybe(llvm.Argument) = llvm_fun.arguments.first):
+            each:
+              [arg_name, arg_repr] in args
+              arg_idx in 0..
+            skip_when arg_repr is_a Repr.Erased
+            let arg!! = arg
+            let env_val:
+              cond
+              | inout_mask bits.(?) arg_idx:
+                  name(arg, @str{@(arg_name).in})
+                  let arg_alloca = builder.create_alloca(arg_repr.llvm_type(builder.context))
+                  name(arg_alloca, @str{@(arg_name).alloca})
+                  builder.create_store(arg, arg_alloca)
+                  arg_alloca
+              | ~else:
+                  name(arg, arg_name)
+                  arg
+            values(env ++ {arg_name: env_val}, arg.next)
+
+        with_builder(builder, _) <| fun():
+          handle_termination(
+            ~terminated:
+              fun():
+                #void,
+            ~unterminated:
+              fun(res_val):
+                name(res_val, "result")
+                let inout_vals:
+                  for List ([arg_name, arg_repr] in args, arg_idx in 0..):
+                    keep_when inout_mask bits.(?) arg_idx
+                    guard arg_repr is_a Repr.Sized | #false
+                    let alloca = env[arg_name]
+                    assert(alloca is_a llvm.AllocaInst)
+                    let val = builder.create_load(arg_repr.llvm_type(builder.context), alloca)
+                    name(val, @str{@(arg_name).out})
+                    val
+                match packing.pack([res_val, &inout_vals])
+                | #false:
+                    builder.create_ret_void()
+                | val:
+                    builder.create_ret(val),
+            fun():
+              body_low(env)))
+
+  fun(arg_vals :~ List):
+    // We assume we'll never get here if one of the arguments is uninhabitable
+
+    let builder = builder()
+    let llvm_module = builder.module!!
+    let llvm_ctx = builder.context
+
+    let callee = llvm_module.functions.find(native_symbol) || block:
+      let callee = llvm_module.functions.add(native_symbol, llvm_fun_type(builder.context))
+      callee.call_conv := call_conv
+      callee
+
+    let call_inst:
+      builder.create_direct_call(
+        callee,
+        arg_vals.filter(~keep: (_)) /* erased args will be #false */)
+
+    guard result_repr !is_a Repr.Never
+    | builder.create_unreachable() // Function is guaranteed not to return
+      signal_termination()
+
+    let packed_result_and_inouts:
+      if call_inst.type !is_a llvm.VoidType
+      | call_inst
+      | #false
+
+    for List (slot in result_and_inouts_slots):
+      packing.get(packed_result_and_inouts, slot)

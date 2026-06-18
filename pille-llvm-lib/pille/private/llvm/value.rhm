@@ -1,0 +1,24 @@
+#lang rhombus/static/and_meta
+
+import:
+  "context.rhm" open
+  "llvm_c.rkt" open
+  "type.rhm" open
+
+export veneer Value(this :: satisfying(#{LLVMValueRef?})):
+  constructor ~error
+
+  property type :: Type:
+    LLVMTypeOf(this)
+
+  property context :: Context:
+    LLVMGetValueContext(this)
+
+  property
+  | name :: String:
+      LLVMGetValueName2(this) |> String.snapshot
+  | name := (value :: ReadableString || Symbol):
+      LLVMSetValueName2(this, value)
+
+  method to_string() :: String:
+    LLVMPrintValueToString(this) |> String.snapshot

@@ -1,0 +1,32 @@
+#lang rhombus/static/and_meta
+
+export only_space namespace:
+  List
+
+meta fun transform_body(body :~ Group, body_si_up :~ Term) :~ values(Group, Term):
+  guard.let values_info!! = statinfo_meta.find(body_si_up, statinfo_meta.values_key)
+  | values(
+      'call_with_values(List, fun(): ($body))',
+      'List'
+        |> annot_meta.parse_to_packed_statinfo
+        |> statinfo_meta.unpack)
+  let '$value_si_up ...' = statinfo_meta.unpack_group(values_info)
+  let [value_id, ...] = [value_si_up && Syntax.make_temp_id(#'value), ...]
+  let [value_annot, ...] = [annot_meta.pack_predicate('fun(_): #true', value_si_up), ...]
+  values(
+    'block:
+       let ($value_id, ...) = $body
+       [$value_id, ...]',
+    '[$value_annot, ...]'
+      |> annot_meta.parse_to_packed_statinfo
+      |> statinfo_meta.unpack)
+
+expr.macro 'List.of_values($(exp :: expr_meta.Parsed))':
+  let (new_exp, new_si_up) = transform_body(exp, statinfo_meta.gather(exp))
+  statinfo_meta.replace(new_exp, new_si_up)
+
+repet.macro 'List.of_values($(exp :: repet_meta.Parsed))':
+  ~all_stx: stx
+  let '($_, $binds, $body, $use_depth, $si_up)' = repet_meta.unpack_generator(exp)
+  let (new_body, new_si_up) = transform_body(body, si_up)
+  repet_meta.pack_generator('($stx, $binds, $new_body, $use_depth, $new_si_up)')

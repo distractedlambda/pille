@@ -1,0 +1,11 @@
+#lang rhombus/static/and_meta
+
+import:
+  pille/llvm
+
+llvm.initialize_all_target_infos()
+llvm.initialize_all_targets()
+llvm.initialize_all_target_mcs()
+llvm.initialize_all_asm_printers()
+llvm.initialize_all_asm_parsers()
+llvm.initialize_all_disassemblers()

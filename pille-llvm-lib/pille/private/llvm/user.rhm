@@ -1,0 +1,9 @@
+#lang rhombus/static/and_meta
+
+import:
+  "llvm_c.rkt" open
+  "value.rhm" open
+
+export veneer User(this :: satisfying(LLVMIsAUser)):
+  extends Value
+  constructor ~error

@@ -1,0 +1,8 @@
+#lang rhombus/static/and_meta
+
+export class_clause.macro 'equatable_by_identity':
+  'private implements Equatable
+   private override equals(other, _):
+     this === other
+   private override hash_code(_):
+     Equatable.identity_hash(this)'

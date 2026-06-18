@@ -1,0 +1,51 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  "core_types.rhm" open
+  "special_name.rhm" open
+  pille/concretize open
+  pille/llvm
+
+//==============================================================================
+annot.def Coercer:
+  maybe(llvm.Value) -> maybe(llvm.Value)
+
+export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
+  guard !(from_type === to_type)
+  | fun(val): val
+
+  let method_concr :~ method.Concretized = try:
+    from_type.concretized_method(
+      special_name.symbol(coerce_to),
+      [ConstType(to_type)])
+    ~catch
+    | exn :: Exn.Fail.Concretize.Recoverable:
+        error(
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "incompatible types",
+          ~details: ["types do not match, and no coercion is available"],
+          error.val(~label: "required type", to_type),
+          error.val(~label: "actual type", from_type),
+          error.cause(exn))
+
+  guard method_concr.result_type === to_type
+  | error(
+      ~exn: Exn.Fail.Concretize,
+      "'$coerce_to' method's result type must equal the destination type",
+      error.val(~label: "source type", from_type),
+      error.val(~label: "destination type", to_type),
+      error.val(~label: "'$coerce_to' result type", method_concr.result_type))
+
+  guard method_concr.inout_mask == 0
+  | error(
+      ~exn: Exn.Fail.Concretize,
+      "'$coerce_to' method cannot have 'inout' arguments",
+      error.val(~label: "source type", from_type),
+      error.val(~label: "destination type", to_type))
+
+  let call_low = method_concr.lower_call
+
+  fun(from_val):
+    let [result_val] = call_low([], [from_val, #false])
+    result_val

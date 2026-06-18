@@ -1,0 +1,144 @@
+#lang rhombus/static/and_meta
+
+import:
+  "const_annot_forms.rhm" open
+  "const_bind.rhm" open
+  "const_bind_forms.rhm" open
+  "const_def.rhm" open
+  "const_expr.rhm" open
+  "const_expr_forms.rhm" open
+  "const_fun.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "prim.rhm"
+  pille/concretize open
+
+//==============================================================================
+export const.def Void:
+  #%rhombus:
+    VoidType()
+
+//==============================================================================
+export const.def Never:
+  #%rhombus:
+    NeverType()
+
+//==============================================================================
+export const.def Boolean:
+  #%rhombus:
+    BooleanType()
+
+//==============================================================================
+export const.fun Int(width :: pos_int):
+  ~omit_const_bind
+  #%rhombus(width):
+    IntType(width)
+
+export const_bind.macro 'Int($(width :: const_bind_meta.Parsed))':
+  const_bind_meta.pack_decomposition('int_extractor', [width])
+
+fun int_extractor(target):
+  guard.let IntType(width) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires an Int type",
+      error.val(~label: "target", target))
+  width
+
+//==============================================================================
+export const.fun UInt(width :: pos_int):
+  ~omit_const_bind
+  #%rhombus(width):
+    UIntType(width)
+
+export const_bind.macro 'UInt($(width :: const_bind_meta.Parsed))':
+  const_bind_meta.pack_decomposition('uint_extractor', [width])
+
+fun uint_extractor(target):
+  guard.let UIntType(width) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires a UInt type",
+      error.val(~label: "target", target))
+  width
+
+//==============================================================================
+export const.fun Const(value):
+  ~omit_const_bind
+  #%rhombus(value):
+    ConstType(value)
+
+export const_bind.macro 'Const($(value :: const_bind_meta.Parsed))':
+  const_bind_meta.pack_decomposition('const_extractor', [value])
+
+fun const_extractor(target):
+  guard.let ConstType(value) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires a Const type",
+      error.val(~label: "target", target))
+  value
+
+//==============================================================================
+export const.def Tuple:
+  ~omit_const_bind
+  #%rhombus:
+    fun(&elements):
+      ~name: Tuple
+      for (elem in elements):
+        unless elem is_a Type // HACK
+        | error(
+            ~exn: Exn.Fail.Concretize.Recoverable,
+            error.annot_msg(),
+            error.val(elem),
+            error.annot("type"))
+      TupleType(elements)
+
+export const_bind.macro 'Tuple($(element :: const_bind_meta.Parsed), ...)':
+  const_bind_meta.pack_decomposition(
+    'make_tuple_extractor($(Function.count(element, ...)))',
+    [element, ...])
+
+fun make_tuple_extractor(length):
+  fun(target):
+    guard.let TupleType(elements when elements.length() == length) = target
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        @str{binding requires a Tuple type with @length elements},
+        error.val(~label: "target", target))
+    values(&elements)
+
+//==============================================================================
+export const_bind.macro 'AnyTuple':
+  const_bind_meta.pack_decomposition('any_tuple_extractor')
+
+fun any_tuple_extractor(target):
+  guard.let TupleType(_) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires a Tuple type",
+      error.val(~label: "target", target))
+  values()
+
+//==============================================================================
+export const.fun Simd(element :: type, length :: pos_int):
+  ~omit_const_bind
+  #%rhombus(element, length):
+    SimdType(element, length)
+
+export const_bind.macro 'Simd($(element :: const_bind_meta.Parsed),
+                              $(length :: const_bind_meta.Parsed))':
+  const_bind_meta.pack_decomposition('simd_extractor', [element, length])
+
+fun simd_extractor(target):
+  guard.let SimdType(element, length) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires a Simd type",
+      error.val(~label: "target", target))
+  values(element, length)
+
+//==============================================================================
+export const.def RawPtr:
+  #%rhombus:
+    RawPtrType()

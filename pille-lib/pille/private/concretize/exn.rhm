@@ -1,0 +1,48 @@
+#lang rhombus/static/and_meta
+
+import:
+  lib("racket/base.rkt") as rkt
+
+export only_space namespace:
+  Exn
+  Exn.Fail
+  error
+
+//==============================================================================
+class Exn.Fail.Concretize(srclocs :: PairList.of(Srcloc)):
+  nonfinal
+
+  extends Exn.Fail
+
+  constructor(message, marks, self_srclocs :: PairList, clauses :: List):
+    let cause_srclocs = for PairList (clause in clauses):
+      keep_when clause is_a error.Cause
+      let cause = error.Cause.exn(clause)
+      keep_when rkt.#{exn:srclocs?}(cause)
+      let slocs :~ PairList = rkt.#{exn:srclocs-accessor}(cause)(cause)
+      each sloc in slocs
+      sloc
+    super(message, marks)(self_srclocs ++ cause_srclocs)
+
+  primitive_property rkt.#{prop:exn:srclocs}:
+    // `Exn.Fail.Concretize.srclocs` alone is a use-before-def
+    Exn.Fail.Concretize.srclocs(_)
+
+//==============================================================================
+class Exn.Fail.Concretize.Recoverable():
+  nonfinal
+
+  extends Exn.Fail.Concretize
+
+  constructor(message, marks, self_srclocs, clauses):
+    super(message, marks, self_srclocs, clauses)()
+
+//==============================================================================
+class error.Cause(exn :: Exn.Fail):
+  extends error.Clause
+
+//==============================================================================
+fun error.cause(exn :: Exn.Fail):
+  error.Cause(
+    error.reindent("caused by: " ++ exn.message),
+    exn)

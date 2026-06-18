@@ -1,0 +1,43 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  "type.rhm" open
+  pille/llvm
+
+//============================================================================
+export except_space class: Expr
+class Expr(~type: type :: Type):
+  nonfinal
+
+  constructor ~error
+
+  abstract property lower_rvalue :~ Function.assume_of((env :: Map) -> maybe(llvm.Value))
+
+  final method unpack_rvalue() :~ values(
+    Type,
+    Function.assume_of((env :: Map) -> maybe(llvm.Value)),
+  ):
+    values(type, lower_rvalue)
+
+//============================================================================
+class Expr.Rvalue(
+  ~lower:
+    lower :: (env :: Map) -> maybe(llvm.Value),
+):
+  extends Expr
+  override property lower_rvalue:
+    lower
+
+//============================================================================
+class Expr.Lvalue(
+  ~lower_coordinates:
+    lower_coordinates :: (env :: Map) -> Any,
+  ~lower_read:
+    lower_read :: (coordinates :: Any) -> maybe(llvm.Value),
+  ~lower_write:
+    lower_write :: (coordinates :: Any, value :: maybe(llvm.Value)) -> ~any,
+):
+  extends Expr
+  override property lower_rvalue:
+    lower_read ∘ lower_coordinates

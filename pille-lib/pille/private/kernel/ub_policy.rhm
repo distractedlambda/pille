@@ -1,0 +1,21 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/profile.rhm" open
+  "../runtime/ub_policy.rhm" open
+  "const_def.rhm" open
+  "const_expr_forms.rhm" open
+
+export namespace ub
+
+const.def ub.checked:
+  #%rhombus:
+    Profile.require_current().ub_policy matches UbPolicy.check
+
+const.def ub.suppressed:
+  #%rhombus:
+    Profile.require_current().ub_policy matches UbPolicy.suppress
+
+const.def ub.allowed:
+  #%rhombus:
+    Profile.require_current().ub_policy matches UbPolicy.allow

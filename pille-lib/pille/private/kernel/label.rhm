@@ -1,0 +1,32 @@
+#lang rhombus/static/and_meta
+
+export:
+  label
+  meta:
+    label_meta
+
+space.transform label:
+  space_path pille/label
+  bridge_definer bridge
+  meta_namespace label_meta:
+    reflection space
+    export syntax_class Resolve:
+      kind: ~term
+      fields: id break_id continue_id arity
+    | '$(id :: Identifier)':
+        // TODO: filter out accidental expression bindings
+        def [break_id_, continue_id_, arity_] = syntax_meta.value(id, space)
+
+        field break_id:
+          syntax_meta.track_origin(
+            break_id_,
+            ~add: syntax_meta.flip_introduce(id),
+            ~space: space)
+
+        field continue_id:
+          syntax_meta.track_origin(
+            continue_id_,
+            ~add: syntax_meta.flip_introduce(id),
+            ~space: space)
+
+        field arity = arity_

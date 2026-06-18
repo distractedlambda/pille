@@ -1,0 +1,248 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "coerce.rhm" open
+  "const_bind_forms.rhm" open
+  "const_expr.rhm" open
+  "core_type_forms.rhm" open
+  "expr_forms.rhm" open
+  "local_defn.rhm" open
+  "local_defn_forms.rhm" open
+  "special_name.rhm" open
+  "when_where.rhm" open
+  pille/concretize open
+  pille/lowering
+  rhombus/delay open
+
+//==============================================================================
+export defn.macro 'method ($receiver) $(member :: pille_expr_meta.DotMemberName) $tail ...':
+  '#%method(
+     $member.symbol_expr,
+     make_method_symbol_name_formatter($(member.to_source_string()))) \
+   ($receiver) $tail ...'
+
+fun make_method_symbol_name_formatter(dot_member_str :: String):
+  fun(receiver_type, arg_types :~ List):
+    @str{@receiver_type@(«dot_member_str»)(@(String.join(arg_types.map(to_string), ", ")))}
+
+//==============================================================================
+export defn.macro
+| 'property ($receiver) $(member :: pille_expr_meta.DotMemberName) \
+   $(op :: pille_expr_meta.AssignOp) ($arg) $tail ...':
+    '#%method(
+       $(syntax_meta.track_origin(
+           '(method.WriteSelector($member.symbol_expr))',
+           ~add: syntax_meta.flip_introduce(op),
+           ~space: pille_expr_meta.space)),
+       make_property_write_symbol_name_formatter($(member.to_source_string()))) \
+     ($receiver) ($arg) $tail ...'
+
+| 'property ($receiver) $(member :: pille_expr_meta.DotMemberName) $tail ...':
+    '#%method(
+       method.ReadSelector($member.symbol_expr),
+       make_property_read_symbol_name_formatter($(member.to_source_string()))) \
+     ($receiver) () $tail ...'
+
+fun make_property_read_symbol_name_formatter(dot_member_str :: String):
+  fun(receiver_type, []):
+    to_string(receiver_type) ++ dot_member_str
+
+fun make_property_write_symbol_name_formatter(dot_member_str :: String):
+  fun(receiver_type, [arg_type]):
+    @str{@receiver_type@dot_member_str := @arg_type}
+
+//==============================================================================
+export defn.macro 'coercion \
+                   $('($_)' && receiver) \
+                   $(annot_op :: pille_expr_meta.AnnotOp) \
+                   $(dst_type :: SimpleNonemptySequence):
+                     $(options_and_body :: Block)':
+  let dst_type = const_bind_meta.encapsulate(dst_type)
+  'method $receiver.$coerce_to(to :: Const($dst_type && α)) $annot_op α $options_and_body'
+
+//==============================================================================
+meta:
+  syntax_class MaybeInout:
+    kind: ~sequence
+    fields:
+      present :~ Boolean
+      [op, ...]
+  | '$(inout_op :: pille_expr_meta.InoutOp)':
+      field present = #true
+      field [op, ...] = [inout_op]
+  | '':
+      field present = #false
+      field [op, ...] = []
+
+  syntax_class ArgNameAndType:
+    kind: ~group
+    fields:
+      name :~ maybe(Identifier)
+      type_bind :~ const_bind_meta.Packed
+      [op, ...]
+  | '$(const_op :: pille_expr_meta.ConstOp) $(const_bind :: Group)':
+      field name = #false
+      field type_bind = const_bind_meta.parse('Const($const_bind)').relocate_span([const_bind])
+      field [op, ...] = [const_op]
+  | '$(name :: Identifier)':
+      field type_bind = const_bind_meta.parse('_'.relocate(name))
+      field [op, ...] = []
+  | '$(name :: Identifier) $(annot_op :: pille_expr_meta.AnnotOp) $(type_bind :: const_bind_meta.Parsed)':
+      field [op, ...] = [annot_op]
+
+  syntax_class Arg:
+    kind: ~group
+    fields:
+      is_inout :~ Boolean
+      name :~ maybe(Identifier)
+      type_bind :~ const_bind_meta.Packed
+  | '$(maybe_inout :: MaybeInout) $(nat :: ArgNameAndType)':
+      field is_inout = maybe_inout.present
+      field name = nat.name
+      field type_bind:
+        syntax_meta.track_origin(
+          nat.type_bind,
+          ~add: [syntax_meta.flip_introduce(
+                   each [maybe_inout.op, ...,
+                         nat.op, ...]),
+                 ...],
+          ~space: pille_expr_meta.space)
+
+  syntax_class MaybeResType:
+    kind: ~sequence
+    fields:
+      rhombus_expr :~ maybe(Term)
+  | '$(annot_op :: pille_expr_meta.AnnotOp) $(type :: SimpleNonemptySequence)':
+      field rhombus_expr:
+        syntax_meta.track_origin(
+          const_expr_meta.as_rhombus_expr(type),
+          ~add: syntax_meta.flip_introduce(annot_op),
+          ~space: pille_expr_meta.space)
+  | '':
+      field rhombus_expr = #false
+
+  syntax_class Impl:
+    kind: ~multi
+    fields: [ww, ...] body
+  | '$(_ :: OptionsAndBody: open)':
+      match_def '$(ww :: WhenWhereOption); ...' = '$option; ...'
+
+defn.macro '#%method($selector, $symbol_name_formatter) \
+            ($(receiver :: Arg)) \
+            ($(arg :: Arg), ...) \
+            $(res_type :: MaybeResType) \
+            : $(impl :: Impl)':
+
+  fun make_arg_name_sym(arg :~ Syntax.matched_of(Arg)):
+    guard arg.name | Symbol.uninterned_from_string("_")
+    name_to_uninterned_symbol(arg.name)
+
+  fun bind_arg_ref(arg :~ Syntax.matched_of(Arg), name_sym, type_expr):
+    guard arg.name | ''
+    let ref_concr_id = Syntax.make_temp_id(arg.name)
+    let ref_concretizer:
+      if arg.is_inout
+      | 'concretize_var_ref'
+      | 'concretize_let_ref'
+    '«let $ref_concr_id = $(ref_concretizer)(#'$name_sym, $type_expr)
+      pille_expr.macro '($arg.name)':
+        '$(pille_expr_meta.pack_concretize(ref_concr_id))'»'
+
+  let receiver_name_sym = make_arg_name_sym(receiver)
+  let [arg_name_sym, ...] = [make_arg_name_sym(arg), ...]
+
+  let receiver_and_arg_types_binding:
+    const_bind_meta.pack_parallel_bindings(
+      [receiver.type_bind, arg.type_bind, ...])
+
+  let const_binding:
+    const_bind_meta.pack_conjunction(
+      [receiver_and_arg_types_binding,
+       impl.ww, ...])
+
+  let body_concr_expr:
+    'pille_expr.concretize(
+       $(local_defn_meta.encapsulate_body(
+           impl.body)))'
+
+  let inout_mask:
+    for fold(mask = 0):
+      each:
+        ag in [receiver, arg, ...]
+        idx in 0..
+      if ag.is_inout
+      | mask bits.or (1 bits.(<<) idx)
+      | mask
+
+  'define_method(
+     $selector,
+     $symbol_name_formatter,
+     #'$receiver_name_sym,
+     [#'$arg_name_sym, ...],
+     $inout_mask,
+     fun(types :~ List):
+       $(const_bind_meta.compile(
+           const_binding,
+           'types',
+           'block:
+              $(bind_arg_ref(receiver, receiver_name_sym, 'types[0]'))
+              $(bind_arg_ref(arg, arg_name_sym, 'types[$(index(arg) + 1)]'))
+              ...
+              values(
+                $res_type.rhombus_expr,
+                fun():
+                  pille_expr.concretize(
+                    $(local_defn_meta.encapsulate_body(
+                        impl.body)))) ')))'
+
+fun define_method(
+  selector,
+  format_symbol_name,
+  receiver_name_sym,
+  arg_name_syms :~ List,
+  inout_mask,
+  bind_result_type_and_body,
+):
+  method.define(
+    selector,
+    fun(receiver_type :~ Type, arg_types :~ [Type, ...]):
+      guard arg_types.length() == arg_name_syms.length()
+      | #false
+
+      let (res_type :~ maybe(Type), concretize_body :~ Function.assume_of(() -> Expr)):
+        bind_result_type_and_body([receiver_type, &arg_types])
+
+      let (res_type, raw_call_low) = match res_type
+      | res_type!!:
+          values(
+            res_type,
+            lowering.create_internal_function(
+              format_symbol_name(receiver_type, arg_types),
+              res_type.repr,
+              [[receiver_name_sym, receiver_type.repr],
+               [each arg_name_syms, (each arg_types).repr], ...],
+              ~inout_mask,
+              fun():
+                let (body_type, body_low) = concretize_body().unpack_rvalue()
+                let res_coe = resolve_coercer(body_type, res_type)
+                res_coe ∘ body_low))
+      | #false:
+          let (body_type, body_low) = concretize_body().unpack_rvalue()
+          values(
+            body_type,
+            lowering.create_internal_function(
+              format_symbol_name(receiver_type, arg_types),
+              body_type.repr,
+              [[receiver_name_sym, receiver_type.repr],
+               [each arg_name_syms, (each arg_types).repr], ...],
+              ~inout_mask,
+              fun(): body_low))
+
+      method.Concretized(
+        ~result_type:
+          res_type,
+        ~inout_mask,
+        ~lower_call:
+          fun([], arg_vals):
+            raw_call_low(arg_vals)))

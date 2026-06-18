@@ -1,0 +1,213 @@
+#lang rhombus/static/and_meta
+
+module only_pille_spaces ~lang pille:
+  export:
+    only_space const_annot const_bind const_expr expr labeled_expr local_defn:
+      all_from(pille)
+
+module except_pille_spaces ~lang pille:
+  export:
+    except_space const_annot const_bind const_expr expr labeled_expr local_defn:
+      all_from(pille)
+
+import:
+  "private/runtime/jit_linker.rhm" open
+  "private/runtime/profile.rhm" open
+  "private/runtime/rhombus_interop.rhm" open
+  "private/util/defer.rhm" open
+  "private/util/syntax.rhm" open
+  "private/kernel/local_defn_forms.rhm":
+    expose:
+      concretize_let_ref
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+  rhombus/delay open
+  self!except_pille_spaces as pille
+  self!only_pille_spaces open
+
+export:
+  all_from(self!only_pille_spaces)
+  pille
+
+//==============================================================================
+meta syntax_class ConstArg:
+  kind: ~group
+  fields: binding init
+| '$(binding_ :: NonemptySequence) $('$(bound_as expr_meta.space: '=')' && eo) $(init_ :: expr_meta.Parsed)':
+    match_def '$(binding :: pille.const_bind_meta.Parsed)' = binding_
+    field init = syntax_meta.track_origin(init, ~add: syntax_meta.flip_introduce(eo))
+
+| '$(id :: Identifier)':
+    match_def '$(binding :: pille.const_bind_meta.Parsed)' = id
+    match_def '$(init :: expr_meta.Parsed)' = id
+
+meta def type_const_annot:
+  pille.const_annot_meta.parse('type')
+
+meta syntax_class DynArg:
+  kind: ~group
+  fields: name type init
+| '$(name :: Identifier) \
+   $(ao :: pille.expr_meta.AnnotOp) \
+   $(type_ :: NonemptySequence) \
+   $('$(bound_as expr_meta.space: '=')' && eo) \
+   $(init_ :: expr_meta.Parsed)':
+    field type = type_
+      |> pille.const_expr_meta.pack_delayed_parse
+      |> pille.const_expr_meta.pack_implicitly_annotated(_, type_const_annot)
+    field init = init_
+      |> syntax_meta.track_origin(
+           _,
+           ~add: syntax_meta.flip_introduce(ao),
+           ~space: pille.expr_meta.space)
+      |> syntax_meta.track_origin(
+           _,
+           ~add: syntax_meta.flip_introduce(eo))
+
+| '$(name :: Identifier) \
+   $(ao :: pille.expr_meta.AnnotOp) \
+   $(type_ :: Group)':
+    field type = type_
+      |> pille.const_expr_meta.pack_delayed_parse
+      |> pille.const_expr_meta.pack_implicitly_annotated(_, type_const_annot)
+    match_def '$(init_ :: expr_meta.Parsed)' = name
+    field init:
+      syntax_meta.track_origin(
+        init_,
+        ~add: syntax_meta.flip_introduce(ao),
+        ~space: pille.expr_meta.space)
+
+meta syntax_class MaybeArgs:
+  kind: ~sequence
+  fields:
+    [const_arg :~ Syntax.matched_of(ConstArg), ...]
+    [dyn_arg :~ Syntax.matched_of(DynArg), ...]
+| '($arg, ...)':
+    match_def '($(const_arg :: ConstArg), ...) ($(dyn_arg :: DynArg), ...)':
+      recur split_args(args = '$arg; ...'):
+        match args
+        | '$hd; $tl; ...':
+            let '($const_tl, ...) ($dyn_tl, ...)' = split_args('$tl; ...')
+            match hd
+            | '~const $hd_tl ...':
+                '($hd_tl ..., $const_tl, ...) ($dyn_tl, ...)'
+            | _:
+                '($const_tl, ...) ($hd, $dyn_tl, ...)'
+        | '':
+            '() ()'
+| '':
+    field [const_arg, ...] = []
+    field [dyn_arg, ...] = []
+
+export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
+  let stub:
+    let [dyn_arg_sym, ...] = [name_to_uninterned_symbol(dyn_arg.name), ...]
+    let [dyn_arg_type_id, ...] = [Syntax.make_temp_id(dyn_arg.name), ...]
+    let [dyn_arg_ref_id, ...] = [Syntax.make_temp_id(dyn_arg.name), ...]
+    syntax_meta.lift_expr_to_before(
+      'make_stub(
+         [#'$dyn_arg_sym, ...],
+         fun(const_arg_vals):
+           $(pille.const_bind_meta.compile(
+               pille.const_bind_meta.pack_parallel_bindings(
+                 [const_arg.binding, ...]),
+               'const_arg_vals',
+               '«block:
+                   let $dyn_arg_type_id:
+                     $(pille.const_expr_meta.unpack_rhombus_expr(
+                         dyn_arg.type))
+                   ...
+                   let $dyn_arg_ref_id:
+                     concretize_let_ref(
+                       #'$dyn_arg_sym,
+                       $dyn_arg_type_id)
+                   ...
+                   pille.expr.macro '($dyn_arg.name)':
+                     '$(pille.expr_meta.pack_concretize(dyn_arg_ref_id))'
+                   ...
+                   values(
+                     [$dyn_arg_type_id, ...],
+                     pille.expr.concretize(
+                       $(pille.local_defn_meta.encapsulate_body(body))))»')))')
+
+  '$stub($const_arg.init, ...)($dyn_arg.init, ...)'
+
+fun make_stub(
+  dyn_arg_syms :: [Symbol, ...],
+  concretize :: ([Any, ...]) -> values([Type, ...], Expr),
+):
+  fun make_specialization(const_args :: List) :: Function:
+    let linker = JitLinker.global.force()
+    parameterize { Profile.current: linker.profile }:
+      let (dyn_arg_types, body) = concretize(const_args)
+
+      let RhombusToPilleAdapter(make_callout, read_args, write_result):
+        RhombusToPilleAdapter(
+          [[each dyn_arg_syms, each dyn_arg_types], ...],
+          body.type)
+
+      let native_sym:
+        let suffix:
+          match const_args
+          | []: ""
+          | [arg, ...]: "{" ++ String.join([to_string(arg), ...], ", ") ++ "}"
+        linker.profile.gen_native_symbol("pille" ++ suffix)
+
+      let body_low = body.lower_rvalue
+
+      linker.profile.define_function(
+        native_sym,
+
+        fun(llvm_ctx):
+          llvm.FunctionType(llvm.VoidType(llvm_ctx), [llvm.PointerType(llvm_ctx)]),
+
+        fun(llvm_fn :: llvm.Function):
+          let builder = llvm.Builder(llvm_fn.context)
+          defer builder.dispose()
+
+          llvm_fn.call_conv := llvm.CallConv.c
+
+          let frame_ptr = llvm_fn.arguments.first!!
+          lowering.name(frame_ptr, "frame")
+
+          let entry_bb = llvm_fn.basic_blocks.add("entry")
+          builder.position_at_end(entry_bb)
+
+          lowering.with_builder(builder, _) <| fun():
+            fun terminated(): #void
+            fun unterminated(_): builder.create_ret_void()
+            lowering.handle_termination(~terminated, ~unterminated, _) <| fun():
+              let [arg_val, ...] = read_args(frame_ptr)
+              let res_val = body_low(Map{each dyn_arg_syms: arg_val, ...})
+              write_result(frame_ptr, res_val)
+              #void)
+
+      linker.profile.force_deferred_concretization()
+
+      let fptr = linker.function_pointer(native_sym)
+      let callout = make_callout(fptr)
+
+      fun retaining_callout(&args):
+        ~name: pille
+        try:
+          callout(&args)
+          ~finally:
+            // Keep the linker from being collected for as long as this function
+            // might be called
+            Function.black_box(linker)
+
+      Function.reduce_arity(
+        retaining_callout,
+        1 bits.(<<) dyn_arg_syms.length(),
+        [],
+        [])
+
+  let specialization_cache = MutableMap{}
+
+  fun(&const_args):
+    let spec = specialization_cache.maybe[const_args]
+    guard !spec | spec
+    let spec = make_specialization(const_args)
+    specialization_cache[const_args] := spec
+    spec

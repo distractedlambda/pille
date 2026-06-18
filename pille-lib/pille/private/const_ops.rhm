@@ -1,0 +1,269 @@
+#lang pille/private/kernel
+
+import:
+  pille/concretize open
+
+export only_space namespace:
+  const
+
+//==============================================================================
+export const.fun const.error(message :: string):
+  #%rhombus(message):
+    import rhombus/static open
+    error(
+      ~exn: Exn.Fail.Concretize,
+      message)
+
+//==============================================================================
+export const.fun min(x :: real, y :: real):
+  #%rhombus(x, y):
+    import rhombus/static open
+    math.min(x, y)
+
+//==============================================================================
+export const.fun max(x :: real, y :: real):
+  #%rhombus(x, y):
+    import rhombus/static open
+    math.max(x, y)
+
+//==============================================================================
+export const.fun unify(α :: type, β :: type):
+  #%rhombus(α, β):
+    import rhombus/static open
+    Type.unify(α, β)
+
+//==============================================================================
+export const.fun sizeof(α :: type):
+  #%rhombus(α):
+    import:
+      rhombus/static open
+      "runtime/profile.rhm" open
+    Profile
+      .require_current()
+      .sizer
+      .memory_layout_of(Type.repr(α))
+      .size
+
+//==============================================================================
+export const.fun alignof(α :: type):
+  #%rhombus(α):
+    import:
+      rhombus/static open
+      "runtime/profile.rhm" open
+    Profile
+      .require_current()
+      .sizer
+      .memory_layout_of(Type.repr(α))
+      .alignment
+
+//==============================================================================
+export const.fun strideof(α :: type):
+  #%rhombus(α):
+    import:
+      rhombus/static open
+      "runtime/profile.rhm" open
+    Profile
+      .require_current()
+      .sizer
+      .memory_layout_of(Type.repr(α))
+      .stride
+
+//==============================================================================
+export const.operator (lhs :: number) + (rhs :: number):
+  ~order: addition
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs + rhs
+
+//==============================================================================
+export const.operator
+| - (rhs :: number):
+    ~order: addition
+    #%rhombus(rhs):
+      import rhombus/static open
+      -rhs
+| (lhs :: number) - (rhs :: number):
+    ~order: addition
+    #%rhombus(lhs, rhs):
+      import rhombus/static open
+      lhs - rhs
+
+//==============================================================================
+export const.operator (lhs :: number) * (rhs :: number):
+  ~order: multiplication
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs * rhs
+
+//==============================================================================
+export const.operator (lhs :: number) / (rhs :: number):
+  ~order: multiplication
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs / rhs
+
+export const.operator (lhs :: real) div_trunc (rhs :: real):
+  ~order: multiplication
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    math.truncate(lhs / rhs)
+
+export const.operator (lhs :: real) div_floor (rhs :: real):
+  ~order: multiplication
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    math.floor(lhs / rhs)
+
+export const.operator (lhs :: real) div_ceil (rhs :: real):
+  ~order: multiplication
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    math.ceiling(lhs / rhs)
+
+//==============================================================================
+export const.operator (lhs :: nonneg_real) % (rhs :: nonneg_real):
+  ~order: multiplication
+  lhs rem_trunc rhs
+
+export const.operator (lhs :: real) rem_trunc (rhs :: real):
+  ~order: multiplication
+  lhs - rhs * (lhs div_trunc rhs)
+
+export const.operator (lhs :: real) rem_floor (rhs :: real):
+  ~order: multiplication
+  lhs - rhs * (lhs div_floor rhs)
+
+export const.operator (lhs :: real) rem_ceil (rhs :: real):
+  ~order: multiplication
+  lhs - rhs * (lhs div_ceil rhs)
+
+//==============================================================================
+export const.operator (lhs :: number) ** (rhs :: number):
+  ~order: exponentiation
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs ** rhs
+
+//==============================================================================
+export const.operator lhs == rhs:
+  ~order: equivalence
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs == rhs
+
+//==============================================================================
+export const.operator lhs != rhs:
+  ~order: equivalence
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs != rhs
+
+export only_space const_expr:
+  rename != as ≠
+
+//==============================================================================
+export const.operator (lhs :: comparable) < (rhs :: comparable):
+  ~order: order_comparison
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    lhs < rhs
+
+//==============================================================================
+export const.operator (lhs :: comparable) <= (rhs :: comparable):
+  ~order: order_comparison
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    lhs <= rhs
+
+export only_space const_expr:
+  rename <= as ≤
+
+//==============================================================================
+export const.operator (lhs :: comparable) > (rhs :: comparable):
+  ~order: order_comparison
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    lhs > rhs
+
+//==============================================================================
+export const.operator (lhs :: comparable) >= (rhs :: comparable):
+  ~order: order_comparison
+  #%rhombus(lhs, rhs):
+    import rhombus open
+    lhs >= rhs
+
+export only_space const_expr:
+  rename >= as ≥
+
+//==============================================================================
+export const.operator !rhs:
+  ~order: logical_negation
+  #%rhombus(rhs):
+    import rhombus/static open
+    !rhs
+
+//==============================================================================
+export const.operator
+| ¬(rhs :: boolean):
+    ~order: bitwise_negation
+    #%rhombus(rhs):
+      import rhombus open
+      !rhs
+| ¬(rhs :: int):
+    #%rhombus(rhs):
+      import rhombus open
+      bits.not(rhs)
+
+export only_space const_expr:
+  rename ¬ as not
+
+//==============================================================================
+export const.operator
+| (lhs :: boolean) ∧ (rhs :: boolean):
+    ~order: bitwise_conjunction
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs && rhs
+| (lhs :: int) ∧ (rhs :: int):
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs bits.and rhs
+
+export only_space const_expr:
+  rename ∧ as and
+
+//==============================================================================
+export const.operator
+| (lhs :: boolean) ∨ (rhs :: boolean):
+    ~order: bitwise_disjunction
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs || rhs
+| (lhs :: int) ∨ (rhs :: int):
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs bits.or rhs
+
+export only_space const_expr:
+  rename ∨ as or
+
+//==============================================================================
+export const.operator
+| (lhs :: boolean) ⊻ (rhs :: boolean):
+    ~order: bitwise_disjunction
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs != rhs
+| (lhs :: int) ⊻ (rhs :: int):
+    #%rhombus(lhs, rhs):
+      import rhombus open
+      lhs bits.xor rhs
+
+export only_space const_expr:
+  rename ⊻ as xor
+
+//==============================================================================
+export const.fun bit_length(n :: int):
+  #%rhombus(n):
+    import rhombus/static open
+    bits.length(n)

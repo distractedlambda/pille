@@ -1,0 +1,44 @@
+#lang rhombus/static
+
+import:
+  "../concretize/memory_layout.rhm" open
+  "../concretize/repr.rhm" open
+  ffi/finalize
+  pille/llvm
+
+export Sizer
+class Sizer(
+  private llvm_context :: llvm.Context,
+  private llvm_data_layout :: llvm.DataLayout,
+):
+  internal _Sizer
+
+  constructor(llvm_data_layout_string :: String):
+    let inst:
+      super(
+        llvm.Context(),
+        llvm.DataLayout(llvm_data_layout_string))
+
+    finalize.register_finalizer(inst, _) <| fun(inst :~ _Sizer):
+      inst.llvm_context.dispose()
+      inst.llvm_data_layout.dispose()
+
+    inst
+
+  private immutable repr_llvm_types :: (
+    MutableMap.by(===) && MutableMap.later_of(assuming(Repr), assuming(llvm.Type))
+  ):
+    MutableMap.by(===){}
+
+  private method repr_llvm_type(repr :~ Repr) :~ llvm.Type:
+    repr_llvm_types.maybe[repr] || block:
+      let ty = repr.llvm_type(llvm_context, repr_llvm_type(_))
+      repr_llvm_types[repr] := ty
+      ty
+
+  method memory_layout_of(repr :: Repr) :~ MemoryLayout:
+    guard repr is_a Repr.Sized | MemoryLayout(0, 1)
+    let llvm_ty = repr_llvm_type(repr)
+    let size = llvm_data_layout.store_size_of(llvm_ty)
+    let align = llvm_data_layout.abi_alignment_of(llvm_ty)
+    MemoryLayout(size, align)

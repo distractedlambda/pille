@@ -1,0 +1,99 @@
+#lang rhombus/static/and_meta
+
+import:
+  "enums.rhm" open
+  "global_object.rhm" open
+  "llvm_c.rkt" open
+  "module.rhm" open
+  "value.rhm" open
+
+export annot.delayed_declare _Argument
+export annot.delayed_declare _BasicBlock
+
+export veneer Function(this :: satisfying(LLVMIsAFunction)):
+  export:
+    Arguments
+    BasicBlocks
+
+  extends GlobalObject
+
+  constructor ~error
+
+  method delete():
+    LLVMDeleteFunction(this)
+
+  property next :: maybe(Function):
+    LLVMGetNextFunction(this)
+
+  property previous :: maybe(Function):
+    LLVMGetPreviousFunction(this)
+
+  property
+  | call_conv :: CallConv:
+      LLVMGetFunctionCallConv(this) |> decode_call_conv
+  | call_conv := (value :: CallConv):
+      LLVMSetFunctionCallConv(this, encode_call_conv(value))
+
+  veneer Arguments(this :: Value && satisfying(LLVMIsAFunction)):
+    constructor ~error
+
+    property first :: maybe(_Argument):
+      LLVMGetFirstParam(this)
+
+    property last :: maybe(_Argument):
+      LLVMGetLastParam(this)
+
+    method length() :: Nat:
+      LLVMCountParams(this)
+
+    private implements Indexable
+    private override get(index :: Nat) :: _Argument:
+      LLVMGetParam(this, index)
+
+    sequence '$arg: $self':
+      '(~outer_binds:
+          self = $self,
+        ~recur_binds:
+          cur = LLVMGetFirstParam(self),
+        ~head_guard:
+          cur,
+        ~inner_binds:
+          $arg = cur,
+        ~recur_args:
+          (LLVMGetNextParam(cur)))'
+
+  property arguments :: Arguments:
+    this
+
+  veneer BasicBlocks(this :: Value && satisfying(LLVMIsAFunction)):
+    constructor ~error
+
+    property first :: maybe(_BasicBlock):
+      LLVMGetFirstBasicBlock(this)
+
+    property last :: maybe(_BasicBlock):
+      LLVMGetLastBasicBlock(this)
+
+    method add(name :: ReadableString || Symbol) :: _BasicBlock:
+      LLVMAppendBasicBlockInContext(Function.parent(this)!!.context, this, name)
+
+    sequence '$bb: $self':
+      '(~outer_binds:
+          self = $self,
+        ~recur_binds:
+          cur = LLVMGetFirstBasicBlock(self),
+        ~head_guard:
+          cur,
+        ~inner_binds:
+          $bb = cur,
+        ~recur_args:
+          (LLVMGetNextBasicBlock(cur)))'
+
+    static_info:
+      '(($statinfo_meta.index_result_key,
+         $(annot_meta.parse_to_packed_statinfo('_BasicBlock'))))'
+
+  property basic_blocks :: BasicBlocks:
+    this
+
+annot.delayed_complete _Function: Function

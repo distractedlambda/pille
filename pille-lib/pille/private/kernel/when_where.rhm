@@ -1,0 +1,100 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "const_expr_forms.rhm" open
+
+//==============================================================================
+meta:
+  syntax_class WhereBindingParts:
+    kind: ~group
+    fields: lhs [op, ...] rhs
+  | '$lhs_hd $lhs_tl ... $(the_op :: const_expr_meta.EqualsOp) $(rhs :: Group)':
+      field lhs = '$lhs_hd $lhs_tl ...'
+      field [op, ...] = [the_op]
+  | '$(lhs :: Group): $(rhs :: Group)':
+      field [op, ...] = []
+
+  export syntax_class WhereBinding:
+    kind: ~group
+    fields: packed
+    root_swap: packed group
+  | '$(parts :: WhereBindingParts)':
+      match_def '$(lhs_parsed :: const_bind_meta.Parsed)' = parts.lhs
+      field packed = syntax_meta.track_origin(
+        const_bind_meta
+          .pack_nested_binding(
+            lhs_parsed,
+            const_expr_meta.as_rhombus_expr(parts.rhs))
+          .relocate_span([parts]),
+        ~add: [syntax_meta.flip_introduce(parts.op), ...],
+        ~space: const_expr_meta.space)
+
+  export syntax_class WhenWhereKeyword:
+    kind: ~term
+  | '~when'
+  | '~where'
+
+  export syntax_class UnparsedWhenWhereOption:
+    kind: ~group
+  | '$(_ :: WhenWhereKeyword) $_ ...'
+
+  syntax_class WhenWhereOptionInner:
+    kind: ~group
+    fields: packed
+    root_swap: packed group
+  | '~when: $(hd :: Group); $(tl :: Group); ...':
+      def [test, ...] = [hd, tl, ...]
+      field packed:
+        const_bind_meta.pack_conjunction(
+          [const_bind_meta.pack_side_condition(
+             const_expr_meta.as_rhombus_expr(
+               test)),
+           ...])
+
+  | '~when $(test :: Group)':
+      field packed:
+        const_bind_meta.pack_side_condition(
+          const_expr_meta.as_rhombus_expr(
+            test))
+
+  | '~where: $(hd :: WhereBinding); $(tl :: WhereBinding); ...':
+      field packed:
+        const_bind_meta.pack_conjunction(
+          [hd, tl, ...])
+
+  | '~where $(wb :: WhereBinding)':
+      field packed = wb
+
+  export syntax_class WhenWhereOption:
+    kind: ~group
+    fields: packed
+    root_swap: packed group
+  | '$(inner :: WhenWhereOptionInner)':
+      field packed = inner.relocate_span([inner.group])
+
+  export syntax_class WhenWhereOptionsAndBody:
+    kind: ~multi
+    fields:
+      [when_where, ...]
+      other_options
+      body
+  | '$(oab :: OptionsAndBody)':
+      def (ww, others) = separate_when_where('$oab.option; ...')
+      match_def '$(when_where :: WhenWhereOption); ...' = ww
+      field other_options = others
+      field body = oab.body
+
+  fun separate_when_where(options :~ Syntax) :~ values(Syntax, Syntax):
+    match options
+    | '':
+        values('', '')
+    | '$hd; $tl; ...':
+        let (tl_ww, tl_others) = separate_when_where('$tl; ...')
+        match hd
+        | '$(_ :: WhenWhereKeyword) $_ ...':
+            values('$hd; $tl_ww', tl_others)
+        | _:
+            values(tl_ww, '$hd; $tl_others')

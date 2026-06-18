@@ -1,0 +1,38 @@
+#lang rhombus/static/and_meta
+
+import:
+  "context.rhm" open
+  "enums.rhm" open
+  "llvm_c.rkt" open
+  "type.rhm" open
+
+export veneer DataLayout(this :: satisfying(#{LLVMTargetDataRef?})):
+  constructor(string_rep :: ReadableString):
+    LLVMCreateTargetData(string_rep)
+
+  method dispose() :: Void:
+    LLVMDisposeTargetData(this)
+
+  method to_string() :: String:
+    LLVMCopyStringRepOfTargetData(this) |> String.snapshot
+
+  property byte_order :: ByteOrdering:
+    LLVMByteOrder(this) |> decode_byte_ordering
+
+  method intptr_type(context :: Context, ~address_space: address_space :: NonnegInt = 0) :: IntType:
+    LLVMIntPtrTypeForASInContext(context, this, address_space)
+
+  method bit_size_of(type :: SizedType) :: PosInt:
+    LLVMSizeOfTypeInBits(this, type)
+
+  method store_size_of(type :: SizedType) :: PosInt:
+    LLVMStoreSizeOfType(this, type)
+
+  method abi_size_of(type :: SizedType) :: PosInt:
+    LLVMABISizeOfType(this, type)
+
+  method abi_alignment_of(type :: SizedType) :: PosInt:
+    LLVMABIAlignmentOfType(this, type)
+
+  method preferred_alignment_of(type :: SizedType) :: PosInt:
+    LLVMPreferredAlignmentOfType(this, type)

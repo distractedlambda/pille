@@ -1,0 +1,36 @@
+#lang rhombus/static
+
+import:
+  "../util/readable_string_or_symbol.rhm" open
+  pille/llvm
+  rhombus/delay open
+
+//==============================================================================
+export class Target(
+  triple :~ Symbol,
+  cpu :~ Symbol,
+  features :~ Set.of(Symbol),
+):
+  export:
+    host
+
+  constructor(
+    ~triple: triple :: ReadableStringOrSymbol,
+    ~cpu: cpu :: ReadableStringOrSymbol.to_symbol,
+    ~features: feature_seq :: Sequence,
+  ):
+    super(
+      triple
+        |> llvm.Target.normalize_triple
+        |> Symbol.from_string,
+      cpu,
+      for Set (feature in feature_seq):
+        feature :: ReadableStringOrSymbol.to_symbol)
+
+  def host :: Delay.assume_of(Target):
+    delay:
+      ~sync
+      Target(
+        ~triple: llvm.Target.host_triple,
+        ~cpu: llvm.Target.host_cpu,
+        ~features: llvm.Target.host_features)

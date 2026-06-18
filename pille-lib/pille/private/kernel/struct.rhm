@@ -1,0 +1,271 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/per_profile.rhm" open
+  "../util/syntax.rhm" open
+  "coerce.rhm" open
+  "const_bind.rhm" open
+  "const_def.rhm" open
+  "const_expr.rhm" open
+  "const_expr_forms.rhm" open
+  "const_fun.rhm" open
+  "core_types.rhm" open
+  "expr_forms.rhm" open
+  "special_name.rhm" open
+  pille/concretize open
+  pille/lowering
+
+//==============================================================================
+meta:
+  syntax_class ConstArgs:
+    kind: ~sequence
+    fields:
+      present :~ Boolean
+      [arg :~ const_bind_meta.Packed, ...]
+  | '($(arg :: const_bind_meta.Parsed), ...)':
+      field present = #true
+  | '':
+      field present = #false
+      field [arg, ...] = []
+
+  syntax_class Field:
+    kind: ~group
+    fields:
+      name
+      rhombus_type_expr
+  | '$(name :: pille_expr_meta.MemberName) \
+     $(annot_op :: pille_expr_meta.AnnotOp) \
+     $(type_expr :: Group)':
+      field rhombus_type_expr:
+        syntax_meta.track_origin(
+          const_expr_meta.as_rhombus_expr(type_expr),
+          ~add: syntax_meta.flip_introduce(annot_op),
+          ~space: pille_expr_meta.space)
+
+  syntax_class Body:
+    kind: ~sequence
+    fields:
+      display_name :~ maybe(Name)
+      [field :~ Syntax.matched_of(Field), ...]
+  | ': $(group_option_sequence
+         | '~name $(block_or_tail display_name :: Name)')
+       $(field :: Field)
+       ...'
+  | '':
+      field display_name = #false
+      field [field, ...] = []
+
+//==============================================================================
+export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $(body :: Body)':
+  let display_name = body.display_name || name
+
+  'def species:
+     StructSpecies(
+       #'$(display_name.name_to_symbol()),
+       $(!const_args.present),
+       $(Function.count(body.field, ...)),
+       fun(const_arg_vals):
+         $(const_bind_meta.compile(
+             const_bind_meta.pack_parallel_bindings([const_args.arg, ...]),
+             'const_arg_vals',
+             '[$body.field.rhombus_type_expr, ...]')))
+
+   define_struct_methods(
+     species,
+     [$body.field.name.symbol_expr, ...])
+
+   def type_extractor:
+     make_struct_type_extractor(species)
+
+   $(if const_args.present
+     | let [const_arg_id, ...] = [Syntax.make_temp_id(const_args.arg), ...]
+       '«const.fun $name($const_arg_id, ...):
+           ~name: $display_name
+           ~omit_const_bind
+           #%rhombus($const_arg_id, ...):
+             StructType(species, [$const_arg_id, ...])
+
+         const_bind.macro '($name)($('$')($const_arg_id :: const_bind_meta.Parsed), ...)':
+           const_bind_meta.pack_decomposition('type_extractor', [$const_arg_id, ...])»'
+
+     | '«const.def $name:
+           ~omit_const_bind
+           #%rhombus:
+             StructType(species, [])
+
+         const_bind.macro '($name)':
+           '$(const_bind_meta.pack_decomposition('type_extractor'))'»')'
+
+//==============================================================================
+class StructSpecies(
+  display_name :: Symbol,
+  is_monomorphic :: Boolean,
+  field_count :: Nat,
+  concretize_fields :: List -> [Type, ...],
+):
+  immutable type_maps :: PerProfile:
+    PerProfile()
+
+//==============================================================================
+class StructType(
+  private species :: StructSpecies,
+  private const_args :: [Any, ...],
+):
+  extends Type
+
+  internal _StructType
+
+  //============================================================================
+  constructor(species :: StructSpecies, const_args :: [Any, ...]):
+    let type_map = species.type_maps.get_or_init(MutableMap)
+    type_map.get(const_args, _) <| fun():
+      let ty = super()(species, const_args)
+      type_map[const_args] := ty
+      ty
+
+  //============================================================================
+  private property backing_tuple_type :~ TupleType:
+    caches.unkeyed.get_or_compute(
+      ~get_cache: fun(): cached_backing_tuple_type,
+      ~set_cache: (cached_backing_tuple_type := _),
+      fun(): TupleType(species.concretize_fields(const_args)))
+
+  private field cached_backing_tuple_type = caches.unkeyed.init()
+
+  //============================================================================
+  override compute_repr():
+    backing_tuple_type.repr
+
+  //============================================================================
+  override compute_rhombus_interop():
+    // TODO check for implicits
+    let to_rhombus_concr:
+      this.concretized_method(
+        special_name.symbol(to_rhombus),
+        [])
+
+    guard to_rhombus_concr.inout_mask == 0
+    | error(
+        ~exn: Exn.Fail.Concretize,
+        "'$to_rhombus' method must not take receiver as 'inout'")
+
+    let carrier_type = to_rhombus_concr.result_type
+    let carrier_interop = carrier_type.rhombus_interop
+
+    let from_rhombus_concr:
+      ConstType(this).concretized_method(
+        special_name.symbol(from_rhombus),
+        [carrier_type])
+
+    guard from_rhombus_concr.inout_mask == 0
+    | error(
+        ~exn: Exn.Fail.Concretize,
+        "'$from_rhombus' method must not take receiver or argument as 'inout'")
+
+    let from_rhombus_coe:
+      resolve_coercer(
+        from_rhombus_concr.result_type,
+        this)
+
+    Type.RhombusInteropSpec(
+      ~byte_size:
+        carrier_interop.byte_size,
+      ~write_from_rhombus:
+        carrier_interop.write_from_rhombus,
+      ~read_from_pille:
+        let carrier_read_low = carrier_interop.read_from_pille
+        let from_rhombus_low = from_rhombus_concr.lower_call
+        fun(slot):
+          let carrier_val = carrier_read_low(slot)
+          let [from_rhombus_val] = from_rhombus_low([], [#false, carrier_val])
+          from_rhombus_coe(from_rhombus_val),
+      ~write_from_pille:
+        let to_rhombus_low = to_rhombus_concr.lower_call
+        let carrier_write_low = carrier_interop.write_from_pille
+        fun(slot, this_val):
+          let [carrier_val] = to_rhombus_low([], [this_val])
+          carrier_write_low(slot, carrier_val),
+      ~read_from_rhombus:
+        carrier_interop.read_from_rhombus)
+
+  //============================================================================
+  private implements Printable
+  private override describe(_, rec):
+    if species.is_monomorphic
+    | to_string(species.display_name)
+    | PrintDesc.list(
+        PrintDesc.concat(to_string(species.display_name), "("),
+        [rec(each const_args), ...],
+        ")")
+
+//==============================================================================
+fun make_struct_type_extractor(species :~ StructSpecies):
+  fun(target):
+    guard.let (target :: _StructType when target.species === species) = target
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        @str{binding requires a(n) @(species.display_name) type},
+        error.val(~label: "target", target))
+    values(&target.const_args)
+
+//==============================================================================
+fun define_struct_methods(
+  species :: StructSpecies,
+  field_names :: [Symbol, ...],
+):
+  // Field properties
+  for (field_name in field_names, field_idx in 0..):
+    // Read
+    method.define(
+      method.ReadSelector(field_name),
+      fun(receiver_type, arg_types):
+        guard arg_types matches [] | #false
+        guard.let receiver_type :: _StructType = receiver_type | #false
+        guard receiver_type.species === species | #false
+        let tuple_type = receiver_type.backing_tuple_type
+        method.Concretized(
+          ~result_type:
+            tuple_type.elements[field_idx],
+          ~lower_call:
+            let slot = tuple_type.slots[field_idx]
+            fun([], [receiver_val]):
+              [lowering.packing.get(receiver_val, slot)]))
+
+    // Write
+    method.define(
+      method.WriteSelector(field_name),
+      fun(receiver_type, arg_types :~ [Type, ...]):
+        guard.let [new_value_type] = arg_types | #false
+        guard.let receiver_type :: _StructType = receiver_type | #false
+        guard receiver_type.species === species | #false
+        method.Concretized(
+          ~result_type:
+            VoidType(),
+          ~inout_mask:
+            1,
+          ~lower_call:
+            let tuple_type = receiver_type.backing_tuple_type
+            let slot = tuple_type.slots[field_idx]
+            let new_value_coe = resolve_coercer(new_value_type, tuple_type.elements[field_idx])
+            fun([], [receiver_val, new_value_val]):
+              [#false,
+               lowering.packing.set(
+                 receiver_val,
+                 slot,
+                 new_value_coe(new_value_val))]))
+
+//==============================================================================
+// Baseline `$new` implementation
+method.define(
+  special_name.symbol(new),
+  fun(receiver_type, arg_types :~ [Type, ...]):
+    guard.let ConstType(struct_type :: _StructType) = receiver_type | #false
+    guard arg_types.length() == struct_type.species.field_count | #false
+    let tuple_type = struct_type.backing_tuple_type
+    let [field_coe, ...] = [resolve_coercer(each arg_types, each tuple_type.elements), ...]
+    method.Concretized(
+      ~result_type:
+        struct_type,
+      ~lower_call:
+        fun([], [#false, arg_val, ...]):
+          [lowering.packing.pack([field_coe(arg_val), ...])]))

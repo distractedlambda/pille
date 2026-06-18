@@ -1,0 +1,49 @@
+#lang rhombus/static
+
+import:
+  "artifact.rhm" open
+  "profile.rhm" open
+  ffi open
+  ffi/finalize
+  pille/llvm
+  rhombus/delay open
+
+// TODO: see if we can rely on a smaller part of the LLVM ORC infrasturcture (than LLJIT)
+export JitLinker
+class JitLinker(
+  profile :: Profile,
+  private llvm_jit :: llvm.orc.Lljit,
+):
+  internal _JitLinker
+
+  constructor(profile :: Profile):
+    let llvm_jit:
+      let tm = profile.create_llvm_target_machine()
+      let jtmb = llvm.orc.JitTargetMachineBuilder(tm)
+      let jb = llvm.orc.LljitBuilder()
+      jb.set_jit_target_machine_builder(jtmb)
+      llvm.orc.Lljit(jb)
+    let inst = super(profile, llvm_jit)
+    finalize.register_finalizer(inst, _) <| fun(inst :~ _JitLinker):
+      inst.llvm_jit.dispose()
+    inst
+
+  private immutable linked_fns :: MutableSet:
+    MutableSet{}
+
+  private method link_function(sym :: Symbol):
+    guard sym !in linked_fns | #void
+    let Artifact(obj, deps) = profile.incremental_function_object(sym)
+    llvm_jit.add_object_file(obj)
+    linked_fns.add(sym)
+    for (dep in deps):
+      link_function(dep)
+
+  method function_pointer(sym :: Symbol) :: ptr_t:
+    link_function(sym)
+    llvm_jit.lookup(sym) |> cpointer_to_ptr
+
+def JitLinker.global :: Delay.assume_of(JitLinker):
+  delay:
+    ~sync
+    JitLinker(Profile.jit_default.force())

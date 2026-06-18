@@ -1,0 +1,23 @@
+#lang rhombus/static/and_meta
+
+export annot.macro 'ReadableStringOrSymbol':
+  'ReadableString || Symbol'
+
+export namespace ReadableStringOrSymbol:
+  export annot.macro 'to_symbol':
+    'converting(fun (s :: ReadableStringOrSymbol) :~ Symbol:
+                  _to_symbol(s))'
+
+  fun _to_symbol(s):
+    if s is_a Symbol
+    | s
+    | Symbol.from_string(s)
+
+  export annot.macro 'to_string':
+    'converting(fun (s :: ReadableStringOrSymbol) :~ String:
+                  _to_string(s))'
+
+  fun _to_string(s):
+    if s is_a Symbol
+    | to_string(s :~ Symbol)
+    | String.snapshot(s)

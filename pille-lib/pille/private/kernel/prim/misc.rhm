@@ -1,0 +1,196 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../../util/assert.rhm" open
+  "../const_expr.rhm" open
+  "../core_types.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+//==============================================================================
+export pille_expr.macro 'conjure($(texp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_conjure(
+       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+
+fun concretize_conjure(type :~ Type):
+  assert(type.repr is_a Repr.Void)
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      fun(_):
+        #false)
+
+//==============================================================================
+export pille_expr.macro 'poison($(texp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_poison(
+       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+
+fun concretize_poison(type :~ Type):
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      match type.repr
+      | Repr.Erased():
+          fun(_):
+            #false
+      | repr:
+          fun(_):
+            llvm.PoisonValue(repr.llvm_type(lowering.builder().context)))
+
+//==============================================================================
+export pille_expr.macro 'constant_int($(texp :: const_expr_meta.Parsed),
+                                      $(vexp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_constant_int(
+       $(const_expr_meta.unpack_rhombus_expr(texp)),
+       $(const_expr_meta.unpack_rhombus_expr(vexp)))')
+
+fun concretize_constant_int(type :~ Type, value):
+  let repr = type.repr
+  assert(repr is_a Repr.Bits)
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      fun(_):
+        llvm.ConstantInt(
+          repr.llvm_type(lowering.builder().context),
+          value))
+
+//==============================================================================
+export pille_expr.macro 'unreachable':
+  pille_expr_meta.pack_concretize('concretize_unreachable()')
+
+fun concretize_unreachable():
+  Expr.Rvalue(
+    ~type:
+      NeverType(),
+    ~lower:
+      fun(_):
+        lowering.builder().create_unreachable()
+        lowering.signal_termination())
+
+//==============================================================================
+export pille_expr.macro 'trap':
+  pille_expr_meta.pack_concretize('concretize_trap()')
+
+fun concretize_trap():
+  Expr.Rvalue(
+    ~type:
+      NeverType(),
+    ~lower:
+      fun(_):
+        let builder = lowering.builder()
+        builder.create_intrinsic_call("llvm.trap", [], [])
+        builder.create_unreachable()
+        lowering.signal_termination())
+
+//==============================================================================
+export pille_expr.macro 'repr_equivalent($(fst :: pille_expr_meta.Parsed),
+                                         $(snd :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_repr_equivalent(
+       $(pille_expr_meta.unpack_concretize(fst)),
+       $(pille_expr_meta.unpack_concretize(snd)))')
+
+fun concretize_repr_equivalent(fst :~ Expr, snd :~ Expr):
+  fun lower_equiv_check(repr, fst_val :~ maybe(llvm.Value), snd_val):
+    let builder = lowering.builder()
+    match repr
+    | _ :: Repr.Erased:
+        llvm.ConstantInt(builder.int_type(1), 1)
+
+    | _ :: (Repr.Bits || Repr.Pointer):
+        builder.create_icmp_eq(fst_val, snd_val)
+
+    | _ :: Repr.Simd:
+        let bits_type:
+          builder.int_type(
+            builder.data_layout!!.bit_size_of(
+              fst_val!!.type))
+        let fst_bits = builder.create_bitcast(fst_val, bits_type)
+        let snd_bits = builder.create_bitcast(snd_val, bits_type)
+        builder.create_icmp_eq(fst_bits, snd_bits)
+
+    | Repr.Tuple(elem_reprs):
+        let [hd_equiv, &tl_equivs]:
+          for List (elem_repr in elem_reprs, elem_idx in 0..):
+            let fst_val_elem = builder.create_extract_value(fst_val, elem_idx)
+            let snd_val_elem = builder.create_extract_value(snd_val, elem_idx)
+            lower_equiv_check(elem_repr, fst_val_elem, snd_val_elem)
+        for fold(all_equiv = hd_equiv) (elem_equiv in tl_equivs):
+          builder.create_and(all_equiv, elem_equiv)
+
+  let (fst_type, fst_low) = fst.unpack_rvalue()
+  let (snd_type, snd_low) = snd.unpack_rvalue()
+
+  let repr = fst_type.repr
+  assert(repr === snd_type.repr)
+
+  Expr.Rvalue(
+    ~type:
+      if repr is_a Repr.Erased
+      | ConstType(#true)
+      | BooleanType(),
+    ~lower:
+      let repr = fst_type.repr
+      fun(env):
+        let fst_val = fst_low(env)
+        let snd_val = snd_low(env)
+        lower_equiv_check(repr, fst_val, snd_val))
+
+//==============================================================================
+export pille_expr.macro 'retype($(vexp :: pille_expr_meta.Parsed),
+                                ~to: $(texp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_retype(
+       $(pille_expr_meta.unpack_concretize(vexp)),
+       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+
+fun concretize_retype(value :~ Expr, type :~ Type):
+  let (value_type, lower) = value.unpack_rvalue()
+  assert(type.repr === value_type.repr)
+  Expr.Rvalue(~type, ~lower)
+
+//==============================================================================
+export pille_expr.macro 'select($(test :: pille_expr_meta.Parsed),
+                                $(then :: pille_expr_meta.Parsed),
+                                $(else :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_select(
+       $(pille_expr_meta.unpack_concretize(test)),
+       $(pille_expr_meta.unpack_concretize(then)),
+       $(pille_expr_meta.unpack_concretize(else)))')
+
+fun concretize_select(test :~ Expr, then :~ Expr, else :~ Expr):
+  let (test_type, test_low) = test.unpack_rvalue()
+  let (then_type, then_low) = then.unpack_rvalue()
+  let (else_type, else_low) = else.unpack_rvalue()
+  assert(then_type === else_type)
+  Expr.Rvalue(
+    ~type:
+      then_type,
+    ~lower:
+      fun(env):
+        let test_val = test_low(env)
+        let then_val = then_low(env)
+        let else_val = else_low(env)
+        lowering.builder().create_select(test_val, then_val, else_val))
+
+//==============================================================================
+export pille_expr.macro 'not($(exp :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_not($(pille_expr_meta.unpack_concretize(exp)))')
+
+fun concretize_not(operand :~ Expr):
+  let (operand_type, operand_low) = operand.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      operand_type,
+    ~lower:
+      fun(env):
+        let operand_val = operand_low(env)
+        lowering.builder().create_not(operand_val))

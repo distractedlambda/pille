@@ -1,0 +1,56 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "method.rhm" open
+  "special_name.rhm" open
+  "struct.rhm" open
+
+//==============================================================================
+meta:
+  syntax_class FunOptions:
+    kind: ~multi
+    fields:
+      display_name :: maybe(Name)
+  | '$(group_option_sequence
+       | '~name $(block_or_tail display_name :: Name)')'
+
+  fun split_combined_options(combined_options :: Syntax) :: values(Syntax, Syntax):
+    match combined_options
+    | '': values('', '')
+    | '$hd; $tl; ...':
+        let (fun_opts, case_opts) = split_combined_options('$tl; ...')
+        match hd
+        | '~name $_ ...':
+            values('$hd; $fun_opts', case_opts)
+        | _:
+            values(fun_opts, '$hd; $case_opts')
+
+  syntax_class FunSpec:
+    kind: ~group
+    fields: name display_name [case, ...]
+  | '$(name :: IdentifierName) $sig ...: $(_ :: OptionsAndBody: open)':
+      def (fun_opts_, case_opts) = split_combined_options('$option; ...')
+      match_def '$(_ :: FunOptions: open)' = fun_opts_
+      field [case, ...] = ['$sig ...: $case_opts; $body']
+
+  | '$(name :: IdentifierName) $(maybe_block _ :: FunOptions: open)
+     | $hd_case
+     | $tl_case
+     | ...':
+      field [case, ...] = [hd_case, tl_case, ...]
+
+//==============================================================================
+export defn.macro 'pille_fun $(spec :: FunSpec)':
+  let [method_case, ...] = [spec.case, ...].reverse()
+
+  '«struct Impl:
+      ~name: $(spec.display_name || spec.name)
+
+    pille_expr.macro '($spec.name)':
+      'Impl{}'
+
+    method (f :: Impl).$call $method_case
+    ...»'

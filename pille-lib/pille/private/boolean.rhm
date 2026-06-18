@@ -1,0 +1,42 @@
+#lang pille/private/kernel
+
+import:
+  "const_ops.rhm" open
+  "generic_ops.rhm" open
+
+//==============================================================================
+coercion (const value :: boolean) :: Boolean:
+  prim.constant_int(Boolean, if value | 1 | 0)
+
+//==============================================================================
+unify(Const(_ :: boolean), Const(_ :: boolean)):
+  Boolean
+
+//==============================================================================
+unify(Const(_ :: boolean), Boolean):
+  Boolean
+
+//==============================================================================
+method (b :: Boolean).$not():
+  !b
+
+method (lhs :: Boolean).$and(rhs :: Boolean):
+  prim.and(lhs, rhs)
+
+method (lhs :: Boolean).$or(rhs :: Boolean):
+  prim.or(lhs, rhs)
+
+method (lhs :: Boolean).$xor(rhs :: Boolean):
+  prim.xor(lhs, rhs)
+
+//==============================================================================
+method (lhs :: Boolean).$eq(rhs :: Boolean):
+  lhs === rhs
+
+method (lhs :: Boolean).$ne(rhs :: Boolean):
+  lhs !== rhs
+
+//==============================================================================
+method (test :: Boolean).select(then :: τ, else :: ε) :: α:
+  ~where α = unify(τ, ε)
+  prim.select(test, then :: α, else :: α)

@@ -1,0 +1,43 @@
+#lang rhombus/static/and_meta
+
+import:
+  "llvm_c.rkt" open
+  "type.rhm" open
+  "value.rhm" open
+
+//==============================================================================
+export veneer Constant(this :: satisfying(LLVMIsAConstant)):
+  extends Value
+  constructor ~error
+
+annot.delayed_complete _Constant: Constant
+
+//==============================================================================
+export veneer UndefValue(this :: satisfying(LLVMIsAUndefValue)):
+  extends Constant
+  constructor(type :: Type):
+    LLVMGetUndef(type)
+
+//==============================================================================
+export veneer PoisonValue(this :: satisfying(LLVMIsAPoisonValue)):
+  extends UndefValue
+  constructor(type :: Type):
+    LLVMGetPoison(type)
+
+//==============================================================================
+export veneer ConstantPointerNull(this :: satisfying(LLVMIsAConstantPointerNull)):
+  extends Constant
+  constructor(type :: PointerType):
+    LLVMConstPointerNull(type)
+
+//==============================================================================
+export veneer ConstantInt(this :: satisfying(LLVMIsAConstantInt)):
+  extends Constant
+  constructor(type :: IntType, value :: Int):
+    LLVMConstIntOfArbitraryPrecision(type, value)
+
+//==============================================================================
+export veneer ConstantFp(this :: satisfying(LLVMIsAConstantFP)):
+  extends Constant
+  constructor(type :: HalfType || FloatType || DoubleType, value :: Real):
+    LLVMConstReal(type, value)

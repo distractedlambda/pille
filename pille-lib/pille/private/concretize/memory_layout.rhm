@@ -1,0 +1,8 @@
+#lang rhombus/static
+
+export class MemoryLayout(
+  size :: NonnegInt,
+  alignment :: PosInt,
+):
+  property stride :: NonnegInt:
+    ((size + (alignment - 1)) div alignment) * alignment

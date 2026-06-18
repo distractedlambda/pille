@@ -1,0 +1,52 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../../util/assert.rhm" open
+  "../const_expr.rhm" open
+  "../core_types.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/lowering
+
+//==============================================================================
+export pille_expr.macro 'tuple_get($(tuple :: pille_expr_meta.Parsed),
+                                   $(idx :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_tuple_get(
+       $(pille_expr_meta.unpack_concretize(tuple)),
+       $(const_expr_meta.unpack_rhombus_expr(idx)))')
+
+fun concretize_tuple_get(tuple :~ Expr, idx):
+  let (tuple_type :: TupleType, tuple_low) = tuple.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      tuple_type.elements[idx],
+    ~lower:
+      let slot = tuple_type.slots[idx]
+      fun(env):
+        let tuple_val = tuple_low(env)
+        lowering.packing.get(tuple_val, slot))
+
+//==============================================================================
+export pille_expr.macro 'tuple_set($(tuple :: pille_expr_meta.Parsed),
+                                   $(idx :: const_expr_meta.Parsed),
+                                   $(new_val :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_tuple_set(
+       $(pille_expr_meta.unpack_concretize(tuple)),
+       $(const_expr_meta.unpack_rhombus_expr(idx)),
+       $(pille_expr_meta.unpack_concretize(new_val)))')
+
+fun concretize_tuple_set(tuple :~ Expr, idx, new_val :~ Expr):
+  let (tuple_type :: TupleType, tuple_low) = tuple.unpack_rvalue()
+  let (new_val_type, new_val_low) = new_val.unpack_rvalue()
+  assert(new_val_type === tuple_type.elements[idx])
+  Expr.Rvalue(
+    ~type:
+      tuple_type,
+    ~lower:
+      let slot = tuple_type.slots[idx]
+      fun(env):
+        let tuple_val = tuple_low(env)
+        let new_val_val = new_val_low(env)
+        lowering.packing.set(tuple_val, slot, new_val_val))

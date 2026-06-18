@@ -1,0 +1,22 @@
+#lang rhombus/static/and_meta
+
+decl.macro 'reexport:
+              $path
+              ...':
+  'import:
+     $path open
+     ...
+
+   export:
+     all_from($path)
+     ...'
+
+reexport:
+  "prim/binop.rhm"
+  "prim/cast.rhm"
+  "prim/compare.rhm"
+  "prim/mem.rhm"
+  "prim/misc.rhm"
+  "prim/overflow.rhm"
+  "prim/simd.rhm"
+  "prim/tuple.rhm"

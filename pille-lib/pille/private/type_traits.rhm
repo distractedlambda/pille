@@ -1,0 +1,16 @@
+#lang pille/private/kernel
+
+export const_bind.macro 'BinaryInteger':
+  'Int(_) || UInt(_)'
+
+export const_bind.macro 'Bitwise':
+  'BinaryInteger || Boolean'
+
+export const_bind.macro 'Integral':
+  'BinaryInteger || Const(_ :: int)'
+
+export const_bind.macro 'CoercesTo($δ)':
+  'σ :: type when type_of(faux(σ) :: $(const_expr_meta.encapsulate(δ)))'
+
+export const_bind.macro 'CoercesFrom($σ)':
+  'δ :: type when type_of(faux($σ) :: δ)'

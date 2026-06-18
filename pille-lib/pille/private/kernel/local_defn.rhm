@@ -1,0 +1,149 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_annot.rhm" open
+  "const_bind.rhm" open
+  "const_expr.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  pille/concretize open
+  pille/lowering
+
+meta import:
+  rhombus/static open
+  rhombus/static/meta open
+
+export:
+  only_space namespace:
+    const_annot
+    const_bind
+    const_expr
+    meta
+    pille_expr
+    syntax_parameter
+
+//==============================================================================
+space.transform _local_defn:
+  space_path pille/local_defn
+  macro_definer macro
+  meta_namespace _local_defn_meta:
+    reflection space
+    parse_syntax_class Parsed
+    description "local definition"
+
+//==============================================================================
+export namespace local_defn
+
+export alias 'local_defn':
+  ~only_space space
+  '_local_defn'
+
+//==============================================================================
+meta export namespace local_defn_meta:
+  export alias 'space':
+    '_local_defn_meta.space'
+
+  export fun encapsulate_body(stx :: Syntax) :: Term:
+    if stx is_a Group
+    | pille_expr_meta.encapsulate(stx) // FIXME: change this if defns should be disallowed
+    | '(block: $stx)'.relocate_span([stx])
+
+//==============================================================================
+meta syntax_class MacroDefinedName:
+  kind: ~sequence
+  fields: name
+| '$(name :: Name)'
+| '($(name :: Name))'
+
+meta syntax_class MacroCase:
+  kind: ~group
+  fields: transformed
+  root_swap: transformed group
+| '«'$(dn :: MacroDefinedName) $pat ...':
+      $(group_option_sequence
+        | '~op_stx $(block_or_tail op_stx_id :: Identifier)'
+        | '~name_prefix $(block_or_tail name_prefix_id :: Identifier)')
+      $(body :: NonemptyMulti)»':
+    field transformed
+      = '«'$dn: $('$')(_ :: Name) $pat ...
+                $('$')tl
+                $('...')':
+            $(if op_stx_id | '~op_stx $op_stx_id' | '')
+            $(if name_prefix_id | '~name_prefix $name_prefix_id' | '')
+            let '$('$')new_hd; $('...')' = block: $body
+            'block: $('$')new_hd; $('...'); $('$')tl; $('...')'»'
+
+defn.macro
+| 'local_defn.macro $(case :: MacroCase)':
+    '_local_defn.macro $case'
+| 'local_defn.macro | $(case :: MacroCase) | ...':
+    '_local_defn.macro | $case | ...'
+
+//==============================================================================
+defn.macro '«local_defn.block_macro '$(dn :: MacroDefinedName) $hd_pat ...
+                                     $tl_pat
+                                     ...':
+               $(group_option_sequence
+                 | '~op_stx $(block_or_tail op_stx_id :: Identifier)'
+                 | '~name_prefix $(block_or_tail name_prefix_id :: Identifier)')
+               $(body :: NonemptyMulti)»':
+  '«_local_defn.macro '$dn: $('$')(_ :: Name) $hd_pat ...
+                            $tl_pat
+                            ...':
+      $(if op_stx_id | '~op_stx $op_stx_id' | '')
+      $(if name_prefix_id | '~name_prefix $name_prefix_id' | '')
+      block: $body»'
+
+//==============================================================================
+export local_defn.block_macro '#%global_defns: $global_defn; ...
+                               $(tl :: NonemptyMulti)':
+  pille_expr_meta.pack_concretize(
+    'block:
+       $global_defn; ...
+       pille_expr.concretize($(local_defn_meta.encapsulate_body(tl)))')
+
+//==============================================================================
+defn.macro
+| '«local_defn.expose_global_defn '$(local_defn_name :: Name)': '$(global_defn_name :: Name)'»':
+    '«local_defn.macro '($local_defn_name) $('$')tl $('...')':
+        '#%global_defns: $global_defn_name $('$')tl $('...')'»'
+| '«local_defn.expose_global_defn '$(name :: Name)'»':
+    '«local_defn.expose_global_defn '$name': '$name'»'
+
+local_defn.expose_global_defn 'const_annot.macro'
+local_defn.expose_global_defn 'const_bind.macro'
+local_defn.expose_global_defn 'const_expr.macro'
+local_defn.expose_global_defn 'local_defn.block_macro'
+local_defn.expose_global_defn 'local_defn.macro'
+local_defn.expose_global_defn 'meta.bridge'
+local_defn.expose_global_defn 'pille_expr.macro'
+local_defn.expose_global_defn 'syntax_parameter.relet'
+
+//==============================================================================
+fun concretize_seq(first :~ Expr, second :~ Expr):
+  let (_, first_low) = first.unpack_rvalue()
+  let (second_type, second_low) = second.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      second_type,
+    ~lower:
+      fun(env):
+        first_low(env)
+        second_low(env))
+
+export pille_expr.macro block
+| 'block: $(body :: Group)':
+    // FIXME: error if leading name is bound as a local_defn?
+    body
+| 'block: $hd; $tl; ...':
+    match hd
+    | '$(nm :: Name) $_ ...' where '$(parsed :: _local_defn_meta.Parsed)' = '$nm: $hd; $tl; ...':
+        parsed
+    | '$(parsed_hd :: pille_expr_meta.Parsed)':
+        let '$(parsed_tl :: pille_expr_meta.Parsed)':
+          local_defn_meta.encapsulate_body('$tl; ...')
+        pille_expr_meta.pack_concretize(
+          'concretize_seq(
+             $(pille_expr_meta.unpack_concretize(parsed_hd)),
+             $(pille_expr_meta.unpack_concretize(parsed_tl)))')

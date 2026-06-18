@@ -1,0 +1,52 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../../util/annot.rhm" open
+  "../../util/assert.rhm" open
+  "../core_types.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+fun concretize_op(intrinsic_name, lhs :~ Expr, rhs :~ Expr):
+  let (lhs_type, lhs_low) = lhs.unpack_rvalue()
+  let (rhs_type, rhs_low) = rhs.unpack_rvalue()
+  assert(lhs_type === rhs_type)
+  Expr.Rvalue(
+    ~type:
+      TupleType(
+        [lhs_type,
+         match lhs_type
+         | SimdType(_, length):
+             SimdType(BooleanType(), length)
+         | _:
+             BooleanType()]),
+    ~lower:
+      fun(env):
+        let lhs_val = lhs_low(env)
+        let rhs_val = rhs_low(env)
+        lowering.builder().create_intrinsic_call(
+          intrinsic_name,
+          [lhs_val!!.type],
+          [lhs_val, rhs_val]))
+
+defn.macro 'ops:
+              $op_name $intrinsic_name
+              ...':
+  '«pille_expr.macro '$op_name($('$')(lhs :: pille_expr_meta.Parsed),
+                               $('$')(rhs :: pille_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        'concretize_op(
+           $intrinsic_name,
+           $('$')(pille_expr_meta.unpack_concretize(lhs)),
+           $('$')(pille_expr_meta.unpack_concretize(rhs)))')
+    ...»'
+
+export ops:
+  sadd_with_overflow "llvm.sadd.with.overflow"
+  uadd_with_overflow "llvm.uadd.with.overflow"
+  ssub_with_overflow "llvm.ssub.with.overflow"
+  usub_with_overflow "llvm.usub.with.overflow"
+  smul_with_overflow "llvm.smul.with.overflow"
+  umul_with_overflow "llvm.umul.with.overflow"

@@ -1,0 +1,18 @@
+#lang rhombus/static/and_meta
+
+import:
+  "data_layout.rhm" open
+  "enums.rhm" open
+  "llvm_c.rkt" open
+  "target.rhm" open
+
+export veneer TargetMachine(this :: satisfying(#{LLVMTargetMachineRef?})):
+  constructor ~error
+
+  method dispose():
+    LLVMDisposeTargetMachine(this)
+
+  method create_data_layout() :: DataLayout:
+    LLVMCreateTargetDataLayout(this)
+
+annot.delayed_complete _TargetMachine: TargetMachine

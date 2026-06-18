@@ -1,0 +1,173 @@
+#lang rhombus/static/and_meta
+
+import:
+  "syntax.rhm" open
+
+meta:
+  import:
+    rhombus/static/meta open
+
+  syntax_class PrecedenceOptionKeyword:
+    kind: ~term
+  | '~order'
+  | '~stronger_than'
+  | '~weaker_than'
+  | '~same_as'
+  | '~same_on_left_as'
+  | '~same_on_right_as'
+  | '~associativity'
+
+  syntax_class PrecedenceOption:
+    kind: ~group
+  | '$(_ :: PrecedenceOptionKeyword) $_ ...'
+
+  syntax_class.together:
+    syntax_class Options:
+      kind: ~multi
+      fields:
+        [precedence_option, ...]
+        [other_option, ...]
+    | '$(hd :: PrecedenceOption); $(tl :: Options: other_option)':
+        field [precedence_option, ...] = [hd, tl.precedence_option, ...]
+    | '$hd; $(tl :: Options: precedence_option)':
+        field [other_option, ...] = [hd, tl.other_option, ...]
+    | '':
+        field [precedence_option, ...] = []
+        field [other_option, ...] = []
+
+  syntax_class ImplBody:
+    kind: ~multi
+    fields: options body
+  | '$(oab :: OptionsAndBody: body)':
+      match_def '$(options :: Options)' = '$oab.option; ...'
+
+  syntax_class BindTerm:
+    kind: ~term
+  | '$term':
+      match_when term !is_a Operator
+
+  syntax_class ResAnnot(is_annot_op):
+    kind: ~sequence
+    fields: «»
+  | '$(op :: Name) $_ ...':
+      match_when is_annot_op(op)
+  | ''
+
+  syntax_class PrefixCase(is_annot_op):
+    kind: ~group
+    fields: op_name rhs res_annot options body
+  | '$(parenthesizable '$(op_name :: Name) $(rhs :: BindTerm)') \
+     $(res_annot :: ResAnnot(is_annot_op)): $(_ :: ImplBody: open)'
+
+  syntax_class InfixCase(is_annot_op):
+    kind: ~group
+    fields: op_name lhs rhs res_annot options body
+  | '$(parenthesizable '$(lhs :: BindTerm) $(op_name :: Name) $(rhs :: BindTerm)') \
+     $(res_annot :: ResAnnot(is_annot_op)): $(_ :: ImplBody: open)'
+
+  syntax_class PostfixCase(is_annot_op):
+    kind: ~group
+    fields: op_name lhs res_annot options body
+  | '$(parenthesizable '$(lhs :: BindTerm) $(op_name :: Name)') \
+     $(res_annot :: ResAnnot(is_annot_op)): $(_ :: ImplBody: open)'
+
+  syntax_class.together:
+    syntax_class UncheckedCases(is_annot_op):
+      kind: ~multi
+      fields:
+        [prefix :~ Syntax.matched_of(PrefixCase), ...]
+        [infix :~ Syntax.matched_of(InfixCase), ...]
+        [postfix :~ Syntax.matched_of(PostfixCase), ...]
+    | '$(hd :: PrefixCase(is_annot_op)); $(tl :: UncheckedCases(is_annot_op): infix postfix)':
+        field [prefix, ...] = [hd, tl.prefix, ...]
+    | '$(hd :: InfixCase(is_annot_op)); $(tl :: UncheckedCases(is_annot_op): prefix postfix)':
+        field [infix, ...] = [hd, tl.infix, ...]
+    | '$(hd :: PostfixCase(is_annot_op)); $(tl :: UncheckedCases(is_annot_op): prefix infix)':
+        field [postfix, ...] = [hd, tl.postfix, ...]
+    | '':
+        field [prefix, ...] = []
+        field [infix, ...] = []
+        field [postfix, ...] = []
+
+  syntax_class Cases(is_annot_op):
+    kind: ~multi
+    fields:
+      op_name
+      [prefix, ...]
+      [infix, ...]
+      [postfix, ...]
+      [prefix_precedence_option, ...]
+      [infix_precedence_option, ...]
+      [postfix_precedence_option, ...]
+  | '$(stx :: UncheckedCases(is_annot_op): open)':
+      field op_name:
+        match [prefix.op_name, ..., infix.op_name, ..., postfix.op_name, ...]
+        | [op_name, &tl]:
+            for (nm in tl):
+              unless syntax_meta.equal_name_and_scopes(op_name, nm)
+              | syntax_meta.error("operator names do not match", stx, [op_name, nm])
+            op_name
+
+      when Function.count(infix, ...) != 0 && Function.count(postfix, ...) != 0
+      | syntax_meta.error(
+          "operator may have infix or postfix cases, but not both",
+          stx)
+
+      field [prefix_precedence_option, ...]:
+        match [prefix, ...]
+        | [hd, &tl]:
+            for (case in tl):
+              when '$case.options.precedence_option; ...' !matches ''
+              | syntax_meta.error(
+                  "only the first prefix case may specify precedence-related options",
+                  case)
+            [hd.options.precedence_option, ...]
+        | _:
+            []
+
+      field [infix_precedence_option, ...]:
+        match [infix, ...]
+        | [hd, &tl]:
+            for (case in tl):
+              when '$case.options.precedence_option; ...' !matches ''
+              | syntax_meta.error(
+                  "only the first infix case may specify precedence-related options",
+                  case)
+            [hd.options.precedence_option, ...]
+        | _:
+            []
+
+      field [postfix_precedence_option, ...]:
+        match [postfix, ...]
+        | [hd, &tl]:
+            for (case in tl):
+              when '$case.options.precedence_option; ...' !matches ''
+              | syntax_meta.error(
+                  "only the first postfix case may specify precedence-related options",
+                  case)
+            [hd.options.precedence_option, ...]
+        | _:
+            []
+
+  export syntax_class GenericOperatorSpec(is_annot_op):
+    kind: ~group
+    fields:
+      op_name
+      [prefix, ...]
+      [infix, ...]
+      [postfix, ...]
+      [prefix_precedence_option, ...]
+      [infix_precedence_option, ...]
+      [postfix_precedence_option, ...]
+  | '| $(hd_case :: Group)
+     | $(tl_case :: Group)
+     | ...':
+      match_def '$(_ :: Cases(is_annot_op): open)' = '$hd_case; $tl_case; ...'
+  | '$(only_case :: Group)':
+      match_def '$(_ :: Cases(is_annot_op): open)' = only_case
+
+  export namespace GenericOperatorSpec:
+    export:
+      InfixCase
+      PostfixCase
+      PrefixCase

@@ -1,0 +1,47 @@
+#lang rhombus/static/and_meta
+
+import:
+  "constant.rhm" open
+  "global_object.rhm" open
+  "llvm_c.rkt" open
+  "module.rhm" open
+
+export veneer GlobalVariable(this :: satisfying(LLVMIsAGlobalVariable)):
+  extends GlobalObject
+
+  constructor ~error
+
+  property
+  | alignment :: PosInt:
+      LLVMGetAlignment(this)
+  | alignment := (value :: PosInt):
+      LLVMSetAlignment(this, value)
+
+  property next :: maybe(GlobalVariable):
+    LLVMGetNextGlobal(this)
+
+  property previous :: maybe(GlobalVariable):
+    LLVMGetPreviousGlobal(this)
+
+  property
+  | initializer :: maybe(Constant):
+      LLVMGetInitializer(this)
+  | initializer := (value :: maybe(Constant)):
+      LLVMSetInitializer(this, value)
+
+  property
+  | is_constant :: Boolean:
+      LLVMIsGlobalConstant(this)
+  | is_constant := (value :: Any):
+      LLVMSetGlobalConstant(this, value)
+
+  property
+  | is_externally_initialized :: Boolean:
+      LLVMIsExternallyInitialized(this)
+  | is_externally_initialized := (value :: Any):
+      LLVMSetExternallyInitialized(this, value)
+
+  method delete():
+    LLVMDeleteGlobal(this)
+
+annot.delayed_complete _GlobalVariable: GlobalVariable

@@ -1,0 +1,78 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+check:
+  pille: 42
+  ~is 42
+
+check:
+  pille: const(42)
+  ~is 42
+
+check:
+  pille(x :: Int(32) = 42): x
+  ~is 42
+
+check:
+  pille(x :: Int(32) = 0, y :: Int(32) = 42): y
+  ~is 42
+
+fun dynamic_bit_width(width :: PosInt, val :: Int):
+  pille(~const width, val :: Int(width)): val
+
+check dynamic_bit_width(8, 42) ~is 42
+check dynamic_bit_width(16, 42) ~is 42
+check dynamic_bit_width(4, 42) ~throws "argument does not satisfy annotation"
+
+check:
+  pille(x :: Int(32) = 41, y :: Int(32) = 1): x + y
+  ~is 42
+
+fun add_by_const(x :: Int, y :: Int):
+  pille(~const x, ~const y): const(x) + const(y)
+
+check add_by_const(1, 2) ~is 3
+check add_by_const(5, 9) ~is 14
+
+check:
+  pille(x :: UInt(8) = 21, y :: Int(16) = 21): x + y
+  ~is 42
+
+check:
+  pille(x :: Int(32) = 5, y :: Int(32) = 7, z :: Int(32) = 9):
+    let xy = x + y
+    xy + z
+  ~is 21
+
+check:
+  pille(x :: Int(32) = 5, y :: Int(32) = 7, z :: Int(32) = 9):
+    let acc = x
+    let acc = acc + y
+    let acc = acc + z
+    acc
+  ~is 21
+
+check:
+  pille(x :: Int(32) = 35):
+    x + 7
+  ~is 42
+
+check:
+  pille:
+    128 :: Int(8)
+  ~throws "incompatible types"
+
+check:
+  pille:
+    127 :: Int(8)
+  ~is 127
+
+check:
+  pille:
+    #'count_down(x = 9 :: Int(32)):
+      if x == 0
+      | break count_down: 42
+      | continue count_down(x - 1)
+  ~is 42

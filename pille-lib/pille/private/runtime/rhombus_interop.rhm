@@ -1,0 +1,66 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  ffi open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+export class RhombusToPilleAdapter(
+  make_callout :: ptr_t -> Function.assume_of((~any) -> Any),
+  read_args :: (frame :: llvm.Value) -> [maybe(llvm.Value), ...],
+  write_result :: (frame :: llvm.Value, maybe(llvm.Value)) -> ~any,
+):
+  constructor(
+    args :: Listable.to_list && [[Symbol, Type], ...],
+    result_type :: Type,
+  ):
+    let [[arg_name, arg_type], ...] = args
+
+    let arg_specs = [arg_type.rhombus_interop, ...]
+    let result_spec = result_type.rhombus_interop
+
+    let arg_writers = [(each arg_specs).write_from_rhombus, ...]
+    let arg_readers = [(each arg_specs).read_from_pille, ...]
+    let result_writer = result_spec.write_from_pille
+    let result_reader = result_spec.read_from_rhombus
+
+    let (arg_offsets :~ List, args_size) = for fold(offsets :~ List = [], next_offset = 0):
+      each spec in arg_specs
+      values(offsets.add(next_offset), next_offset + spec.byte_size)
+
+    let frame_size = math.max(args_size, result_spec.byte_size)
+
+    fun make_callout(fptr :: ptr_t):
+      let prim_callout = cast (ptr_t/gcable -> void_t)fptr
+      fun(&args):
+        try:
+          let frame = malloc(frame_size)
+          for (arg in args, writer in arg_writers, offset in arg_offsets):
+            writer(frame, offset, arg)
+          prim_callout(frame)
+          result_reader(frame, 0)
+          ~finally:
+            // Keep `args` reachable, in case it includes GCable pointers that
+            // would be obscured by being written into the frame (which is not
+            // traceable)
+            Function.black_box(args)
+
+    fun read_args(frame_ptr):
+      let builder = lowering.builder()
+      for List (offset in arg_offsets, reader in arg_readers, name in [arg_name, ...]):
+        let ptr = builder.create_gep(
+          ~inbounds: #true,
+          ~nuw: #true,
+          builder.int_type(8),
+          frame_ptr,
+          [llvm.ConstantInt(builder.intptr_type(), offset)])
+        lowering.name(ptr, @str{@(name).ptr})
+        reader(ptr) |> lowering.name(_, name)
+
+    fun write_result(frame_ptr, val :: maybe(llvm.Value)):
+      lowering.name(val, "result")
+      result_writer(frame_ptr, val)
+
+    super(make_callout, read_args, write_result)

@@ -1,0 +1,4 @@
+#lang pille/private/kernel
+
+export fun panic() :: Never:
+  prim.trap

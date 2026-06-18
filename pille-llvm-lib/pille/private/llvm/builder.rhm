@@ -1,0 +1,393 @@
+#lang rhombus/static/and_meta
+
+import:
+  "basic_block.rhm" open
+  "constant.rhm" open
+  "context.rhm" open
+  "data_layout.rhm" open
+  "enums.rhm" open
+  "function.rhm" open
+  "instruction.rhm" open
+  "llvm_c.rkt" open
+  "module.rhm" open
+  "type.rhm" open
+  "value.rhm" open
+
+export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
+  constructor(context :: Context):
+    LLVMCreateBuilderInContext(context)
+
+  method dispose() :: Void:
+    LLVMDisposeBuilder(this)
+
+  method position_before(instruction :: Instruction) :: Void:
+    LLVMPositionBuilderBefore(this, instruction)
+
+  method position_at_end(block :: BasicBlock) :: Void:
+    LLVMPositionBuilderAtEnd(this, block)
+
+  method position_at_start(block :: BasicBlock) :: Void:
+    match block.instructions.first
+    | instr!!:
+        position_before(instr)
+    | _:
+        position_at_end(block)
+
+  property insertion_block :: maybe(BasicBlock):
+    LLVMGetInsertBlock(this)
+
+  method clear_insertion_position() :: Void:
+    LLVMClearInsertionPosition(this)
+
+  property context :: Context:
+    LLVMGetBuilderContext(this)
+
+  //============================================================================
+  property function :: maybe(Function):
+    insertion_block?.parent
+
+  property module :: maybe(Module):
+    function?.parent
+
+  property data_layout :: maybe(DataLayout):
+    module?.data_layout
+
+  //============================================================================
+  veneer_clause.macro 'singleton_type_properties:
+                         $prop_name :: $type_veneer_name
+                         ...':
+    'property $prop_name :: $type_veneer_name:
+       $type_veneer_name(context)
+     ...'
+
+  singleton_type_properties:
+    void_type :: VoidType
+    label_type :: LabelType
+    token_type :: TokenType
+    metadata_type :: MetadataType
+    half_type :: HalfType
+    float_type :: FloatType
+    double_type :: DoubleType
+
+  //============================================================================
+  method int_type(width :: PosInt) :: IntType:
+    IntType(context, width)
+
+  method struct_type(~packed = #false, element_types) :: StructType:
+    StructType(context, element_types, ~packed)
+
+  method ptr_type(~address_space = 0) :: PointerType:
+    PointerType(context, ~address_space)
+
+  method intptr_type(~address_space = 0) :: IntType:
+    data_layout!!.intptr_type(context, ~address_space)
+
+  //============================================================================
+  method create_ret_void() :: ReturnInst:
+    LLVMBuildRetVoid(this)
+
+  method create_ret(value :: Value) :: ReturnInst:
+    LLVMBuildRet(this, value)
+
+  method create_br(dest :: BasicBlock) :: BranchInst:
+    LLVMBuildBr(this, dest)
+
+  method create_cond_br(
+    test :: Value,
+    then :: BasicBlock,
+    else :: BasicBlock,
+  ) :: BranchInst:
+    LLVMBuildCondBr(this, test, then, else)
+
+  method create_unreachable() :: UnreachableInst:
+    LLVMBuildUnreachable(this)
+
+  veneer_clause.macro 'unop_creators:
+                         $method_name: $cfun_name
+                         ...':
+    'method $method_name(
+       ~name: name :: ReadableString || Symbol = "",
+       operand :: Value,
+     ) :: Value:
+       $cfun_name(this, operand, name)
+     ...'
+
+  unop_creators:
+    create_neg: LLVMBuildNeg
+    create_neg_nsw: LLVMBuildNSWNeg
+    create_not: LLVMBuildNot
+
+  veneer_clause.macro 'binop_creators:
+                         $method_name: $cfun_name
+                         ...':
+    'method $method_name(
+       ~name: name :: ReadableString || Symbol = "",
+       lhs :: Value,
+       rhs :: Value,
+     ) :: Value:
+       $cfun_name(this, lhs, rhs, name)
+     ...'
+
+  binop_creators:
+    create_add: LLVMBuildAdd
+    create_add_nsw: LLVMBuildNSWAdd
+    create_add_nuw: LLVMBuildNUWAdd
+    create_sub: LLVMBuildSub
+    create_sub_nsw: LLVMBuildNSWSub
+    create_sub_nuw: LLVMBuildNUWSub
+    create_mul: LLVMBuildMul
+    create_mul_nsw: LLVMBuildNSWMul
+    create_mul_nuw: LLVMBuildNUWMul
+    create_udiv: LLVMBuildUDiv
+    create_udiv_exact: LLVMBuildExactUDiv
+    create_sdiv: LLVMBuildSDiv
+    create_sdiv_exact: LLVMBuildExactSDiv
+    create_urem: LLVMBuildURem
+    create_srem: LLVMBuildSRem
+    create_shl: LLVMBuildShl
+    create_lshr: LLVMBuildLShr
+    create_ashr: LLVMBuildAShr
+    create_and: LLVMBuildAnd
+    create_or: LLVMBuildOr
+    create_xor: LLVMBuildXor
+
+  method create_shl_nuw(~name, lhs, rhs) :~ Value:
+    let result = create_shl(~name, lhs, rhs)
+    when result is_a Instruction // FIXME: this really should be an opcode check
+    | LLVMSetNUW(result, #true)
+    result
+
+  method create_shl_nsw(~name, lhs, rhs) :~ Value:
+    let result = create_shl(~name, lhs, rhs)
+    when result is_a Instruction // FIXME: this really should be an opcode check
+    | LLVMSetNSW(result, #true)
+    result
+
+  method create_alloca(
+    ~name: name :: ReadableString || Symbol = "",
+    type :: SizedType,
+    array_size :: maybe(Value) = #false,
+  ) :: AllocaInst:
+    LLVMBuildArrayAlloca(this, type, array_size, name)
+
+  method create_load(
+    ~name: name :: ReadableString || Symbol = "",
+    ~alignment: alignment :: maybe(PosInt) = #false,
+    type :: SizedType,
+    pointer :: Value,
+  ) :: LoadInst:
+    let inst :: LoadInst = LLVMBuildLoad2(this, type, pointer, name)
+    when alignment | inst.alignment := alignment
+    inst
+
+  method create_store(
+    ~alignment: alignment :: maybe(PosInt) = #false,
+    value :: Value,
+    pointer :: Value,
+  ) :: StoreInst:
+    let inst :: StoreInst = LLVMBuildStore(this, value, pointer)
+    when alignment | inst.alignment := alignment
+    inst
+
+  method create_gep(
+    ~name: name :: ReadableString || Symbol = "",
+    ~inbounds: inbounds :: Any.to_boolean = #false,
+    ~nusw: nusw :: Any.to_boolean = #false,
+    ~nuw: nuw :: Any.to_boolean = #false,
+    type :: SizedType,
+    pointer :: Value,
+    indices :: Listable.to_list && [Value, ...],
+  ) :: Value:
+    LLVMBuildGEPWithNoWrapFlags(
+      this,
+      type,
+      pointer,
+      indices,
+      name,
+      (if inbounds | 1 | 0) bits.or (if nusw | 2 | 0) bits.or (if nuw | 4 | 0))
+
+  veneer_clause.macro 'cast_creators:
+                         $method_name: $cfun_name
+                         ...':
+    'method $method_name(
+       ~name: name :: ReadableString || Symbol = "",
+       src :: Value,
+       dst_type :: Type,
+     ) :: Value:
+       $cfun_name(this, src, dst_type, name)
+     ...'
+
+  cast_creators:
+    create_trunc: LLVMBuildTrunc
+    create_zext: LLVMBuildZExt
+    create_sext: LLVMBuildSExt
+    create_fp2ui: LLVMBuildFPToUI
+    create_fp2si: LLVMBuildFPToSI
+    create_ui2fp: LLVMBuildUIToFP
+    create_si2fp: LLVMBuildSIToFP
+    create_fptrunc: LLVMBuildFPTrunc
+    create_fpext: LLVMBuildFPExt
+    create_ptrtoint: LLVMBuildPtrToInt
+    create_inttoptr: LLVMBuildIntToPtr
+    create_bitcast: LLVMBuildBitCast
+    create_addrspace_cast: LLVMBuildAddrSpaceCast
+
+  method create_trunc_nuw(~name = "", src, dst_type) :~ Value:
+    match create_trunc(~name, src, dst_type)
+    | inst :: TruncInst:
+        inst.nuw_flag := #true
+        inst
+    | val:
+        val
+
+  method create_trunc_nsw(~name = "", src, dst_type) :~ Value:
+    match create_trunc(~name, src, dst_type)
+    | inst :: TruncInst:
+        inst.nsw_flag := #true
+        inst
+    | val:
+        val
+
+  method create_zext_nneg(~name = "", src, dst_type) :~ Value:
+    match create_zext(~name, src, dst_type)
+    | inst :: ZExtInst:
+        inst.nneg_flag := #true
+        inst
+    | val:
+        val
+
+  method create_phi(
+    ~name: name :: ReadableString || Symbol = "",
+    type :: Type,
+  ) :: PhiNode:
+    LLVMBuildPhi(this, type, name)
+
+  method create_call(
+    ~name: name :: ReadableString || Symbol = "",
+    callee_type :: FunctionType,
+    callee :: Value,
+    args :: Listable.to_list && [Value, ...],
+  ) :: CallInst:
+    LLVMBuildCall2(this, callee_type, callee, args, name)
+
+  method create_direct_call(
+    ~name: name :: ReadableString || Symbol = "",
+    callee :: _Function,
+    args :: Listable.to_list && [Value, ...],
+  ) :: CallInst:
+    let inst = create_call(~name, callee.value_type, callee, args)
+    inst.call_conv := callee.call_conv
+    inst
+
+  method create_intrinsic_call(
+    ~name: name :: ReadableString || Symbol = "",
+    intrinsic_name :: ReadableString || Symbol,
+    type_args :: Listable.to_list && [Type, ...],
+    args :: Listable.to_list && [Value, ...],
+  ) :: CallInst:
+    create_direct_call(
+      ~name,
+      module!!.functions.get_intrinsic(intrinsic_name, type_args),
+      args)
+
+  method create_select(
+    ~name: name :: ReadableString || Symbol = "",
+    test :: Value,
+    thn :: Value,
+    els :: Value,
+  ) :: Value:
+    LLVMBuildSelect(this, test, thn, els, name)
+
+  method create_extract_element(
+    ~name: name :: ReadableString || Symbol = "",
+    vec :: Value,
+    idx :: Value,
+  ) :: Value:
+    LLVMBuildExtractElement(this, vec, idx, name)
+
+  method create_insert_element(
+    ~name: name :: ReadableString || Symbol = "",
+    vec :: Value,
+    val :: Value,
+    idx :: Value,
+  ) :: Value:
+    LLVMBuildInsertElement(this, vec, val, idx, name)
+
+  method create_shuffle_vector(
+    ~name: name :: ReadableString || Symbol = "",
+    v1 :: Value,
+    v2 :: Value,
+    mask :: Value,
+  ) :: Value:
+    LLVMBuildShuffleVector(this, v1, v2, mask, name)
+
+  method create_splat(
+    ~name: name :: ReadableString || Symbol = "",
+    val :: Value,
+    length :: PosInt,
+  ) :: Value:
+    let vec_type = VectorType(val.type, length)
+    let poison_vec = PoisonValue(vec_type)
+    let val_in_0 = create_insert_element(poison_vec, val, 0)
+    create_shuffle_vector(
+      ~name,
+      val_in_0,
+      poison_vec,
+      VectorType(int_type(32), length).null_value)
+
+  method create_vector(elements :: Listable.to_list && [Value, Value, ...]) :: Value:
+    let elem_type = elements[0].type
+    let res_type = VectorType(elem_type, elements.length())
+    for fold(res = PoisonValue(res_type)) (elem in elements, idx in 0..):
+      create_insert_element(res, elem, idx)
+
+  method create_extract_value(
+    ~name: name :: ReadableString || Symbol = "",
+    agg :: Value,
+    idx :: Nat,
+  ) :: Value:
+    LLVMBuildExtractValue(this, agg, idx, name)
+
+  method create_insert_value(
+    ~name: name :: ReadableString || Symbol = "",
+    agg :: Value,
+    val :: Value,
+    idx :: Nat,
+  ) :: Value:
+    LLVMBuildInsertValue(this, agg, val, idx, name)
+
+  method create_struct(elements :: Listable.to_list && [Value, Value, ...]) :: Value:
+    let res_ty = StructType(context, [(each elements).type, ...])
+    for fold(res = PoisonValue(res_ty)) (elem in elements, idx in 0..):
+      create_insert_value(res, elem, idx)
+
+  method create_icmp(
+    ~name: name :: ReadableString || Symbol = "",
+    op :: IntPredicate,
+    lhs :: Value,
+    rhs :: Value,
+  ) :: Value:
+    LLVMBuildICmp(this, encode_int_predicate(op), lhs, rhs, name)
+
+  veneer_clause.macro 'icmp_creators:
+                         $method_name: $op
+                         ...':
+    'method $method_name(
+       ~name: name :: ReadableString || Symbol = "",
+       lhs :: Value,
+       rhs :: Value,
+     ) :: Value:
+       create_icmp(~name, IntPredicate. $op, lhs, rhs)
+     ...'
+
+  icmp_creators:
+    create_icmp_eq: eq
+    create_icmp_ne: ne
+    create_icmp_slt: slt
+    create_icmp_sle: sle
+    create_icmp_sgt: sgt
+    create_icmp_sge: sge
+    create_icmp_ult: ult
+    create_icmp_ule: ule
+    create_icmp_ugt: ugt
+    create_icmp_uge: uge

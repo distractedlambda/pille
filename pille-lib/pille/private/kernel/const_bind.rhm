@@ -1,0 +1,244 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "const_expr.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  pille/concretize open
+  rhombus/syntax_map open
+
+meta import:
+  "../util/annot.rhm" open
+
+export:
+  const_bind
+  meta:
+    const_bind_meta
+
+space.enforest const_bind:
+  space_path pille/const_bind
+  macro_definer macro
+  meta_namespace const_bind_meta:
+    export:
+      Packed
+      compile
+      pack_conjunction
+      pack_decomposition
+      pack_disjunction
+      pack_equal_to
+      pack_nested_binding
+      pack_parallel_bindings
+      pack_side_condition
+      parse
+
+    reflection space
+    description "const binding"
+    operator_description "const binding operator"
+
+    parse_syntax_class Parsed
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
+
+    identifier_parser fun(id):
+      id
+
+    private parsed_packer _pack
+    private parsed_unpacker _unpack
+
+    fun is_packed(stx):
+      _unpack(stx, fun(_): #false)
+
+    annot.def Packed:
+      Term && satisfying(is_packed)
+
+    fun parse('$(parsed :: Parsed)') :~ Packed:
+      parsed
+
+    fun pack_decomposition(extractor :: Group, sub_bindings :: [Packed, ...] = []) :~ Packed:
+      _pack('[$(expr_meta.pack_expr(extractor)) $(each sub_bindings) ...]')
+
+    fun pack_parallel_bindings(sub_bindings :: List = []) :~ Packed:
+      pack_decomposition(
+        'make_parallel_extractor($(sub_bindings.length()))',
+        sub_bindings)
+
+    fun pack_conjunction(sub_bindings :: [Packed, Packed, ...]) :~ Packed:
+      pack_decomposition(
+        'fun(target):
+           values($((each sub_bindings) && 'target'),
+                  ...)',
+        sub_bindings)
+
+    fun pack_side_condition(rhombus_expr :: Group) :~ Packed:
+      pack_decomposition(
+        'make_side_condition_extractor(
+           fun(): $(expr_meta.pack_expr(rhombus_expr)))')
+        .relocate_span([rhombus_expr])
+
+    fun pack_nested_binding(lhs_packed :: Packed, rhs_rhombus_expr :: Group) :~ Packed:
+      pack_decomposition(
+        'fun(_): $(expr_meta.pack_expr(rhs_rhombus_expr))',
+        [lhs_packed])
+
+    fun pack_disjunction(sub_bindings :: [Packed, Packed, ...]) :~ Packed:
+      match sub_bindings
+      | [bnd]: bnd
+      | [bnd, ...]: _pack('($bnd ...)')
+
+    fun pack_equal_to(rhombus_expr :: Group) :~ Packed:
+      pack_decomposition('make_equality_extractor($rhombus_expr)')
+        .relocate_span([rhombus_expr])
+
+    fun compile(binding :: Packed, target :: Group, body :: Group) :~ Term:
+      fun metavar_bindings(metavar :~ Identifier, rhm_id :~ Identifier) :~ Syntax:
+        '«const_expr.macro '($metavar)':
+            '$(const_expr_meta.pack_rhombus_expr('$rhm_id'))'
+          const_bind.macro '($metavar)':
+            '$(pack_equal_to(rhm_id))'
+          pille_expr.macro '($metavar)':
+            '$(pille_expr_meta.pack_concretize('concretize_bound_metavar($rhm_id)'))'»'
+
+      fun partial_compile(
+        binding :~ Packed,
+        target_id :~ Identifier,
+        bound_metavars :~ Map.of(Identifier, Identifier),
+      ) :~ [Map.of(Identifier, Identifier), Function.assume_of(Group -> Group)]:
+        match _unpack(binding)
+        | metavar :: Identifier:
+            match bound_metavars.maybe[metavar]
+            | rhm_id!!:
+                [bound_metavars,
+                 fun(body):
+                   'block:
+                      check_repeat_metavar_occurrence(
+                        $(binding.srcloc()),
+                        $rhm_id,
+                        $target_id)
+                      $body']
+            | #false:
+                [bound_metavars ++ {metavar: target_id},
+                 fun(body):
+                   'block:
+                      $(metavar_bindings(metavar, target_id))
+                      $body']
+
+        | '[$extractor $sub_binding ...]':
+            let [sub_target_id, ...] = [Syntax.make_temp_id(sub_binding), ...]
+            let (bound_metavars, sub_templates):
+              for fold(bound_metavars :~ Map = bound_metavars,
+                       sub_templates :~ List = []):
+                each:
+                  sub_binding in [sub_binding, ...]
+                  sub_target_id in [sub_target_id, ...]
+                let [bound_metavars, sub_template]:
+                  partial_compile(sub_binding, sub_target_id, bound_metavars)
+                values(bound_metavars, sub_templates ++ [sub_template])
+            [bound_metavars,
+             fun(body):
+               'block:
+                  let ($sub_target_id, ...) = $(extractor)($target_id)
+                  $(recur unfold(sub_templates :~ List = sub_templates):
+                      match sub_templates
+                      | []:
+                          body
+                      | [hd, &tl]:
+                          hd(unfold(tl)))']
+
+        | '($dis_sub_binding ...)':
+            let [[sub_bound_metavars, sub_template], ...]:
+              [partial_compile(dis_sub_binding, target_id, bound_metavars),
+               ...]
+            let common_metavars:
+              Set.intersect(
+                Set.by(equal_name_and_scopes)(&sub_bound_metavars.keys()),
+                ...)
+            let expo_metavars:
+              common_metavars.subtract(
+                Set.by(equal_name_and_scopes)(&bound_metavars.keys()))
+            let [expo_metavar, ...] = [each expo_metavars, ...]
+            let [[expo_metavar_deep, ...], ...] = [sub_bound_metavars && [expo_metavar, ...], ...]
+            let [expo_metavar_rhm_id, ...] = [Syntax.make_temp_id(expo_metavar), ...]
+            [bound_metavars ++ {expo_metavar: expo_metavar_rhm_id, ...},
+             fun(body):
+               'block:
+                  let ($expo_metavar_rhm_id, ...):
+                    disjunction_impl(
+                      $(binding.srcloc()),
+                      fun():
+                        $(sub_template(
+                            'values(
+                               $((deepen sub_bound_metavars ~like_inner expo_metavar_deep)[expo_metavar_deep]),
+                               ...)')),
+                      ...)
+                  block:
+                    $(metavar_bindings(expo_metavar, expo_metavar_rhm_id))
+                    ...
+                    $body']
+
+      let target_id = Syntax.make_temp_id(target)
+      let [_, template]:
+        partial_compile(
+          binding,
+          target_id,
+          Map.by(equal_name_and_scopes){})
+
+      expr_meta.pack_expr(
+        'block:
+           let $target_id = $target
+           $(template(expr_meta.pack_expr(body)))')
+
+fun check_repeat_metavar_occurrence(srcloc, old_val, new_val):
+  unless old_val == new_val
+  | error(
+      ~srcloc,
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "conflicting target values for metavariable",
+      error.val(~label: "already-bound value", old_val),
+      error.val(~label: "new target value", new_val))
+
+fun make_parallel_extractor(arity):
+  fun(target):
+    guard.let (target :: List when target.length() == arity) = target
+    | error(
+        ~exn: Exn.Fail.Concretize, // should this be Recoverable?
+        "invalid target for parallel bindings",
+        ~details: [@str{expected a List of length @arity}],
+        error.val(~label: "target", target))
+    values(&target)
+
+fun make_equality_extractor(expected):
+  fun(target):
+    unless target == expected
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "target value does not match expected value",
+        error.val(~label: "target value", target),
+        error.val(~label: "expected value", expected))
+    values()
+
+fun make_side_condition_extractor(thunk):
+  fun(_):
+    unless thunk()
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "side-condition not satisfied")
+    values()
+
+fun concretize_bound_metavar(value):
+  Expr.Rvalue(
+    ~type: ConstType(value),
+    ~lower: fun(_): #false)
+
+fun disjunction_impl(srcloc, &arms):
+  try ~escape_as esc:
+    let exns = for List (arm in arms):
+      try:
+        call_with_values(arm, esc)
+        ~catch exn :: Exn.Fail.Concretize.Recoverable:
+          exn
+    error(
+      ~srcloc,
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "no matching alternative",
+      error.cause(each exns), ...)

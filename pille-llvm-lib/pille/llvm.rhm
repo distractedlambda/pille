@@ -1,0 +1,90 @@
+#lang rhombus/static/and_meta
+
+import:
+  lib("pille/private/llvm/llvm_c.rkt") open
+  pille/private/llvm/argument open
+  pille/private/llvm/basic_block open
+  pille/private/llvm/builder open
+  pille/private/llvm/constant open
+  pille/private/llvm/context open
+  pille/private/llvm/data_layout open
+  pille/private/llvm/enums open
+  pille/private/llvm/function open
+  pille/private/llvm/global_object open
+  pille/private/llvm/global_value open
+  pille/private/llvm/global_variable open
+  pille/private/llvm/instruction open
+  pille/private/llvm/module open
+  pille/private/llvm/orc open
+  pille/private/llvm/target open
+  pille/private/llvm/target_machine open
+  pille/private/llvm/type open
+  pille/private/llvm/user open
+  pille/private/llvm/value open
+
+export:
+  AllocaInst
+  Argument
+  ArrayType
+  BasicBlock
+  BranchInst
+  Builder
+  ByteOrdering
+  CallConv
+  CallInst
+  CastInst
+  CodeGenOptLevel
+  CodeModel
+  CodegenFileType
+  Constant
+  ConstantFp
+  ConstantInt
+  ConstantPointerNull
+  Context
+  DataLayout
+  DllStorageClass
+  DoubleType
+  FloatType
+  Function
+  FunctionType
+  GlobalObject
+  GlobalValue
+  GlobalVariable
+  HalfType
+  Instruction
+  IntType
+  LabelType
+  Linkage
+  LoadInst
+  MetadataType
+  Module
+  PhiNode
+  PointerType
+  PoisonValue
+  RelocMode
+  ReturnInst
+  SizedType
+  StoreInst
+  StructType
+  Target
+  TargetMachine
+  TokenType
+  TruncInst
+  Type
+  UnaryInstruction
+  UndefValue
+  UnnamedAddr
+  UnreachableInst
+  User
+  Value
+  VectorType
+  Visibility
+  VoidType
+  ZExtInst
+  orc
+  rename LLVMInitializeAllAsmParsers as initialize_all_asm_parsers
+  rename LLVMInitializeAllAsmPrinters as initialize_all_asm_printers
+  rename LLVMInitializeAllDisassemblers as initialize_all_disassemblers
+  rename LLVMInitializeAllTargetInfos as initialize_all_target_infos
+  rename LLVMInitializeAllTargetMCs as initialize_all_target_mcs
+  rename LLVMInitializeAllTargets as initialize_all_targets

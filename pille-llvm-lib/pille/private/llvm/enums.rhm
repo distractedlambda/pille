@@ -1,0 +1,120 @@
+#lang rhombus/static/and_meta
+
+defn.macro 'foreign_enum $(name :: Name) $(encode_name :: Name) $(decode_name :: Name)
+            | $(alt_name :: Identifier) = $(alt_value :: Int)
+            | ...':
+  'enum $name
+   | $alt_name
+   | ...
+
+   fun $encode_name(sym):
+     match sym
+     | #'$alt_name: $alt_value
+     | ...
+
+   fun $decode_name(val):
+     match val
+     | $alt_value: #'$alt_name
+     | ...'
+
+export foreign_enum ByteOrdering encode_byte_ordering decode_byte_ordering
+| big_endian = 0
+| little_endian = 1
+
+export foreign_enum CodeGenOptLevel encode_code_gen_opt_level decode_code_gen_opt_level
+| none = 0
+| less = 1
+| default = 2
+| aggressive = 3
+
+export foreign_enum RelocMode encode_reloc_mode decode_reloc_mode
+| default = 0
+| static = 1
+| pic = 2
+| dynamic_no_pic = 3
+| ropi = 4
+| rwpi = 5
+| ropi_rwpi = 6
+
+export foreign_enum CodeModel encode_code_model decode_code_model
+| default = 0
+| jit_default = 1
+| tiny = 2
+| small = 3
+| kernel = 4
+| medium = 5
+| large = 6
+
+export foreign_enum Linkage encode_linkage decode_linkage
+| external = 0
+| available_externally = 1
+| linkonce = 2
+| linkonce_odr = 3
+| weak = 5
+| weak_odr = 6
+| appending = 7
+| internal = 8
+| private = 9
+| extern_weak = 12
+| common = 14
+
+export foreign_enum Visibility encode_visibility decode_visibility
+| default = 0
+| hidden = 1
+| protected = 2
+
+export foreign_enum CallConv encode_call_conv decode_call_conv
+| c = 0
+| fast = 8
+| cold = 9
+| anyreg = 13
+| preserve_most = 14
+| preserve_all = 15
+
+export foreign_enum UnnamedAddr encode_unnamed_addr decode_unnamed_addr
+| none = 0
+| local = 1
+| global = 2
+
+export foreign_enum DllStorageClass encode_dll_storage_class decode_dll_storage_class
+| default = 0
+| dllimport = 1
+| dllexport = 2
+
+export foreign_enum TypeKind encode_type_kind decode_type_kind
+| void = 0
+| half = 1
+| float = 2
+| double = 3
+| x86_fp80 = 4
+| fp128 = 5
+| ppc_fp128 = 6
+| label = 7
+| integer = 8
+| function = 9
+| struct = 10
+| array = 11
+| pointer = 12
+| vector = 13
+| metadata = 14
+| token = 16
+| scalable_vector = 17
+| bfloat = 18
+| x86_amx = 19
+| target_ext = 20
+
+export foreign_enum CodegenFileType encode_codegen_file_type decode_codegen_file_type
+| asm = 0
+| obj = 1
+
+export foreign_enum IntPredicate encode_int_predicate decode_int_predicate
+| eq = 32
+| ne = 33
+| ugt = 34
+| uge = 35
+| ult = 36
+| ule = 37
+| sgt = 38
+| sge = 39
+| slt = 40
+| sle = 41

@@ -1,0 +1,104 @@
+#lang rhombus/static/and_meta
+
+import:
+  "coerce.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "local_defn.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+  rhombus/delay open
+
+//==============================================================================
+export pille_expr.macro 'if $(test :: pille_expr_meta.Parsed)
+                         | $(then :: Multi)
+                         | $(else :: Multi)':
+  let '$(parsed_then :: pille_expr_meta.Parsed)':
+    local_defn_meta.encapsulate_body(then)
+  let '$(parsed_else :: pille_expr_meta.Parsed)':
+    local_defn_meta.encapsulate_body(else)
+  pille_expr_meta.pack_concretize(
+    'concretize_if(
+       $(pille_expr_meta.unpack_concretize(test)),
+       fun(): $(pille_expr_meta.unpack_concretize(parsed_then)),
+       fun(): $(pille_expr_meta.unpack_concretize(parsed_else)))')
+
+fun concretize_if(
+  test :~ Expr,
+  concretize_then :~ Function.assume_of(() -> Expr),
+  concretize_else :~ Function.assume_of(() -> Expr),
+):
+  let (test_type, test_low) = test.unpack_rvalue()
+
+  // Handle constant test condition
+  guard test_type !matches ConstType(_ :: Boolean)
+  | let (body_type, body_low):
+      if ConstType.value(test_type)
+      | concretize_then().unpack_rvalue()
+      | concretize_else().unpack_rvalue()
+    Expr.Rvalue(
+      ~type: body_type,
+      ~lower:
+        fun(env):
+          test_low(env)
+          body_low(env))
+
+  // Apply boolean coercion
+  let test_coe = resolve_coercer(test_type, BooleanType())
+  let test_low = test_coe ∘ test_low
+
+  let (then_type, then_low) = concretize_then().unpack_rvalue()
+  let (else_type, else_low) = concretize_else().unpack_rvalue()
+
+  let result_type = then_type.unify(else_type)
+  let coe_then = resolve_coercer(then_type, result_type)
+  let coe_else = resolve_coercer(else_type, result_type)
+
+  Expr.Rvalue(
+    ~type: result_type,
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        let fn = builder.function!!
+
+        let then_bb = fn.basic_blocks.add("if.then")
+        let else_bb = fn.basic_blocks.add("if.else")
+
+        // Merge block will not be present if both prongs diverge, so create it lazily
+        let merge_bb = delay: fn.basic_blocks.add("if.merge")
+
+        let test_val = test_low(env)
+        builder.create_cond_br(test_val, then_bb, else_bb)
+
+        fun lower_prong(bb, low):
+          builder.position_at_end(bb)
+          let result_val = lowering.handle_termination(
+            ~terminated: fun(): #false,
+            ~unterminated:
+              fun(val):
+                builder.create_br(merge_bb.force())
+                val,
+            fun(): low(env))
+          values(result_val, builder.insertion_block)
+
+        let (then_val, then_exit_bb) = lower_prong(then_bb, coe_then ∘ then_low)
+        let (else_val, else_exit_bb) = lower_prong(else_bb, coe_else ∘ else_low)
+
+        // If the merge block wasn't forced, it means that both prongs diverged,
+        // so the whole `if` expression has diverged
+        guard merge_bb.is_forced()
+        | lowering.signal_termination()
+
+        builder.position_at_end(merge_bb.force())
+
+        cond
+        | then_val && else_val:
+            // Neither prong diverged _and_ the result repr is non-erased
+            let phi = builder.create_phi(llvm.Value.type(then_val))
+            phi.add_incoming(then_val, then_exit_bb)
+            phi.add_incoming(else_val, else_exit_bb)
+            phi
+        | ~else:
+            // One of the prongs diverged _or_ the result repr is erased
+            then_val || else_val)

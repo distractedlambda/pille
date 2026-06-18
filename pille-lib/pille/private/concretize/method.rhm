@@ -1,0 +1,49 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  "type_fwd.rhm" open
+  pille/llvm
+
+//============================================================================
+export class Concretized(
+  ~result_type:
+    result_type :: _Type,
+  ~inout_mask:
+    inout_mask :: Nat = 0,
+  ~implicit_args:
+    implicit_args :: [[Symbol, _Type], ...] = [],
+  ~lower_call:
+    lower_call :: (
+      implicit_args :: [maybe(llvm.Value), ...],
+      formal_args :: [maybe(llvm.Value), ...],
+    ) -> [maybe(llvm.Value), maybe(llvm.Value), ...])
+
+//============================================================================
+export annot.def Concretizer:
+  (receiver_type :: _Type, arg_types :: [_Type, ...]) -> maybe(Concretized)
+
+//============================================================================
+export class ReadSelector(property :: Symbol)
+export class WriteSelector(property :: Symbol)
+
+//============================================================================
+export annot.def Table:
+  Map.of(Any, [Function.assume_of(Concretizer), ...])
+
+Parameter.def current_table :~ Table:
+  Map{}
+
+//============================================================================
+export fun define(selector :: Any, concretizer :: Concretizer) :: Void:
+  let tbl = current_table()
+  current_table(
+    tbl ++ {
+      selector:
+        List.cons(
+          concretizer,
+          tbl.maybe[selector] || [])})
+
+//============================================================================
+export fun snapshot_defined() :~ Table:
+  current_table()

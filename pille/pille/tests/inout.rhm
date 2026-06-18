@@ -1,0 +1,23 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+pille.struct Point(α):
+  x :: α
+  y :: α
+
+pille.fun swap(inout fst :: α, inout snd :: α) :: Void:
+  let tmp = fst
+  fst := snd
+  snd := tmp
+
+pille.method (inout pt :: Point(α)).form_transpose() :: Void:
+  swap(pt.x, pt.y)
+
+check:
+  pille:
+    var pt = Point(Int(32)){1, 2}
+    pt.form_transpose()
+    pt.y
+  ~is 1

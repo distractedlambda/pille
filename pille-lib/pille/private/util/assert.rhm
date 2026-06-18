@@ -1,0 +1,13 @@
+#lang rhombus/static/and_meta
+
+export expr.macro 'assert($test)':
+  'unless $test
+   | assertion_failure(
+       $(test.srcloc()),
+       $(test.to_source_string()))'
+
+fun assertion_failure(srcloc :~ maybe(Srcloc), source_string :~ String) :: Never:
+  error(
+    ~srcloc,
+    @str{assertion failed: '@source_string'},
+    ~details: ["this is likely a bug in Pille itself"])

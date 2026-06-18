@@ -1,0 +1,118 @@
+#lang pille/private/kernel
+
+import:
+  "const_ops.rhm" open
+  "type_traits.rhm" open
+
+//==============================================================================
+global_defn.macro 'generic_binops:
+                     $op $order $special_name
+                     ...':
+  'special_name.def $special_name
+   ...
+
+   operator
+   | lhs $op rhs:
+       ~order: $order
+       lhs.$ $special_name(rhs)
+   | (lhs :: α) $op (rhs :: β):
+       ~where γ = unify(α, β)
+       (lhs :: γ).$ $special_name(rhs :: γ)
+   ...'
+
+export generic_binops:
+  + addition add
+  +% addition add_wrap
+  * multiplication mul
+  *% multiplication mul_wrap
+  / multiplication div
+  div_trunc multiplication div_trunc
+  div_floor multiplication div_floor
+  div_ceil multiplication div_ceil
+  % multiplication rem
+  rem_trunc multiplication rem_trunc
+  rem_floor multiplication rem_floor
+  rem_ceil multiplication rem_ceil
+  ∧ bitwise_conjunction and
+  ∨ bitwise_disjunction or
+  ⊻ bitwise_disjunction xor
+  == equivalence eq
+  != equivalence ne
+  < order_comparison lt
+  > order_comparison gt
+  <= order_comparison le
+  >= order_comparison ge
+
+//==============================================================================
+global_defn.macro 'generic_binpreops:
+                     $op $order $prefix_special_name $infix_special_name
+                     ...':
+  'special_name.def $prefix_special_name
+   ...
+
+   special_name.def $infix_special_name
+   ...
+
+   operator
+   | $op rhs:
+       ~order: $order
+       rhs.$ $prefix_special_name()
+   | lhs $op rhs:
+       ~order: $order
+       lhs.$ $infix_special_name(rhs)
+   | (lhs :: α) $op (rhs :: β):
+       ~where γ = unify(α, β)
+       (lhs :: γ).$ $infix_special_name(rhs :: γ)
+   ...'
+
+export generic_binpreops:
+  - addition neg sub
+  -% addition neg_wrap sub_wrap
+
+//==============================================================================
+export operator
+| ! (const b :: boolean) :: Const(!b):
+    ~order: logical_negation
+    const(!b)
+| ! (rhs :: CoercesTo(Boolean)) :: Boolean:
+    prim.not(rhs :: Boolean)
+
+//==============================================================================
+export special_name.def not
+
+export operator ¬rhs:
+  ~order: bitwise_negation
+  rhs.$not()
+
+//==============================================================================
+export struct CastExact(α :: type):
+  src :: α
+
+method (src :: α).cast_exact():
+  CastExact(α){src}
+
+//==============================================================================
+export struct CastWrap(α :: type):
+  src :: α
+
+method (src :: α).cast_wrap():
+  CastWrap(α){src}
+
+//==============================================================================
+export operator (lhs :: α) === (rhs :: β):
+  ~where γ = unify(α, β)
+  prim.repr_equivalent(lhs :: γ, rhs :: γ)
+
+export operator lhs !== rhs:
+  !(lhs === rhs)
+
+//==============================================================================
+export only_space expr:
+  rename:
+    ¬ as not
+    ∧ as and
+    ∨ as or
+    ⊻ as xor
+    != as ≠
+    <= as ≤
+    >= as ≥

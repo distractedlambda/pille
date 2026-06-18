@@ -1,0 +1,13 @@
+#lang rhombus/static/and_meta
+
+export:
+  only_space namespace:
+    Any
+    annot
+
+annot.macro 'Any.like_annotated($(ann :: annot_meta.Parsed))':
+  let (_, _, sinfo) = annot_meta.unpack_converter(ann)
+  annot_meta.pack_predicate(~track: [ann], 'fun(_): #true', sinfo)
+
+defn.macro 'annot.def $(name :: IdentifierName): $(rhs :: annot_meta.Parsed)':
+  '«annot.macro '$name': '$rhs'»'

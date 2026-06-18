@@ -1,0 +1,67 @@
+#lang rhombus/static/and_meta
+
+import:
+  "defer.rhm" open
+  "equatable_by_identity.rhm" open
+  rhombus/delay open
+  rhombus/thread open
+
+meta syntax_class FieldsSpec:
+  kind: ~group
+  fields:
+    has_super :~ Boolean
+    [super_field, ...]
+    [self_field, ...]
+| '($(super_field :: Identifier), ...)($(self_field :: Identifier), ...)':
+    field has_super = #true
+| '($(self_field :: Identifier), ...)':
+    field has_super = #false
+    field [super_field, ...] = []
+
+export class_clause.macro 'interned $(fs :: FieldsSpec)':
+  let [field, ...] = [fs.super_field, ..., fs.self_field, ...]
+
+  let internal_ctor_call:
+    if fs.has_super
+    | 'Internal($fs.super_field, ...)($fs.self_field, ...)'
+    | 'Internal($fs.self_field, ...)'
+
+  'internal Internal
+   reconstructor ~none
+   equatable_by_identity
+
+   $(if Function.count(field, ...) == 0
+     | 'def the_instance:
+          delay:
+            ~sync
+            $internal_ctor_call
+
+        constructor():
+          Delay.force(the_instance)'
+
+     | '«key_comp.def 'equal_fields':
+           ~equals:
+             fun(fst :~ Internal, snd :~ Internal, rec :~ Function.of_arity(2)):
+               all(rec(fst. $field, snd. $field), ...)
+           ~hash_code:
+             fun(val :~ Internal, rec :~ Function.of_arity(1)):
+               Equatable.hash_code_combine(rec(val. $field), ...)
+
+         def instances = WeakMutableMap.by(equal_fields){}
+         def instances_lock = Semaphore(1)
+
+         constructor($field, ...):
+           intern($internal_ctor_call, instances, instances_lock)»')'
+
+fun intern(candidate, instances :~ WeakMutableMap, lock :~ Semaphore):
+  let existing = instances.maybe[candidate]
+  guard !existing | existing
+
+  lock.wait()
+  defer lock.post()
+
+  let existing = instances.maybe[candidate]
+  guard !existing | existing
+
+  instances[candidate] := candidate
+  candidate

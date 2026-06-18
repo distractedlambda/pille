@@ -1,0 +1,70 @@
+#lang rhombus/static/and_meta
+
+meta import:
+  "../util/annot.rhm" open
+
+export:
+  const_expr
+  meta:
+    const_expr_meta
+
+//==============================================================================
+space.enforest const_expr:
+  space_path pille/const_expr
+  macro_definer macro
+  meta_namespace const_expr_meta:
+    export:
+      Literal
+      Packed
+      as_rhombus_expr
+      pack_delayed_parse
+      pack_rhombus_expr
+      parse
+      unpack_rhombus_expr
+
+    reflection space
+    description "const expression"
+    operator_description "const operator"
+
+    parse_syntax_class Parsed
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
+
+    private parsed_packer _pack
+    private parsed_unpacker _unpack
+
+    fun is_packed(stx):
+      _unpack(stx, fun(_): #false)
+
+    annot.def Packed:
+      Term && satisfying(is_packed)
+
+    fun pack_rhombus_expr(rhombus_expr :: Group) :~ Packed:
+      _pack(expr_meta.pack_expr(rhombus_expr))
+
+    fun pack_delayed_parse(cexp :: Group) :~ Packed:
+      pack_rhombus_expr('const_expr.eval($cexp)')
+        .relocate_span([cexp])
+
+    fun unpack_rhombus_expr(packed :: Packed) :~ Term:
+      _unpack(packed)
+
+    fun as_rhombus_expr(cexp :: Group) :~ Term:
+      expr_meta
+        .pack_expr('const_expr.eval($cexp)')
+        .relocate_span([cexp])
+
+    fun parse('$(parsed :: Parsed)') :~ Packed:
+      parsed
+
+    syntax_class Literal:
+      kind: ~term
+    | '$(_ :: Number)'
+    | '$(_ :: Boolean)'
+    | '$(_ :: String)'
+
+  export:
+    eval
+
+  expr.macro 'eval($(cexp :: const_expr_meta.Parsed))':
+    const_expr_meta.unpack_rhombus_expr(cexp)

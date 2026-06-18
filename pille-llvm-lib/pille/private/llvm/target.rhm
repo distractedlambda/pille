@@ -1,0 +1,75 @@
+#lang rhombus/static/and_meta
+
+import:
+  "enums.rhm" open
+  "llvm_c.rkt" open
+
+export annot.delayed_declare _TargetMachine
+
+export veneer Target(this :: satisfying(#{LLVMTargetRef?})):
+  export:
+    first
+    for_triple
+    host_cpu
+    host_features
+    host_triple
+    named
+    normalize_triple
+
+  constructor ~error
+
+  method next() :: maybe(Target):
+    LLVMGetNextTarget(this)
+
+  property name :: String:
+    LLVMGetTargetName(this) |> String.snapshot
+
+  property description :: String:
+    LLVMGetTargetDescription(this) |> String.snapshot
+
+  property has_jit :: Boolean:
+    LLVMTargetHasJIT(this)
+
+  property has_target_machine :: Boolean:
+    LLVMTargetHasTargetMachine(this)
+
+  property has_asm_backend :: Boolean:
+    LLVMTargetHasAsmBackend(this)
+
+  method create_target_machine(
+    ~triple: triple :: ReadableString || Symbol,
+    ~cpu: cpu :: ReadableString || Symbol,
+    ~features: features :: Listable.to_list && [ReadableString || Symbol, ...],
+    ~code_gen_opt_level: code_gen_opt_level :: CodeGenOptLevel = CodeGenOptLevel.default,
+    ~reloc_mode: reloc_mode :: RelocMode = RelocMode.default,
+    ~code_model: code_model :: CodeModel = CodeModel.default,
+  ) :: maybe(_TargetMachine):
+    LLVMCreateTargetMachine(
+      this,
+      triple,
+      cpu,
+      String.join(features.map(to_string), ","),
+      encode_code_gen_opt_level(code_gen_opt_level),
+      encode_reloc_mode(reloc_mode),
+      encode_code_model(code_model))
+
+  fun first() :: maybe(Target):
+    LLVMGetFirstTarget()
+
+  fun named(name :: ReadableString || Symbol) :: maybe(Target):
+    LLVMGetTargetFromName(name)
+
+  fun for_triple(triple :: ReadableString || Symbol) :: maybe(Target):
+    LLVMGetTargetFromTriple(triple)
+
+  fun normalize_triple(triple :: ReadableString || Symbol) :: String:
+    LLVMNormalizeTargetTriple(triple) |> String.snapshot
+
+  def host_triple :: String:
+    LLVMGetDefaultTargetTriple() |> String.snapshot
+
+  def host_cpu :: String:
+    LLVMGetHostCPUName() |> String.snapshot
+
+  def host_features :: [String, ...]:
+    LLVMGetHostCPUFeatures() |> String.split(_, ",")

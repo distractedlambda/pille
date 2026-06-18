@@ -1,0 +1,85 @@
+#lang rhombus/static
+
+import:
+  "exn.rhm" open
+
+def empty_token = Symbol.gen(#'empty)
+def busy_token = Symbol.gen(#'busy)
+
+export namespace unkeyed:
+  export fun init() :: Any:
+    empty_token
+
+  export fun get_or_compute(
+    ~get_cache: get_cache :~ Function.of_arity(0),
+    ~set_cache: set_cache :~ Function.of_arity(1),
+    compute :~ Function.of_arity(0),
+  ) :: Any:
+    match get_cache()
+    | t when t === empty_token:
+        set_cache(busy_token)
+        let computed = try:
+          let computed = compute() // Force single result values here
+          computed
+          ~catch
+          | exn :: Exn.Fail.Concretize.Recoverable:
+              set_cache(exn)
+              throw exn
+          | exn:
+              set_cache(empty_token)
+              throw exn
+        set_cache(computed)
+        computed
+
+    | t when t === busy_token:
+        error(
+          ~exn: Exn.Fail.Concretize,
+          "dependency cycle during concretization")
+
+    | exn :: Exn.Fail.Concretize.Recoverable:
+        throw exn
+
+    | value:
+        value
+
+export namespace keyed:
+  export fun init() :: Any:
+    #false
+
+  export fun get_or_compute(
+    ~get_cache: get_cache :~ Function.of_arity(0),
+    ~set_cache: set_cache :~ Function.of_arity(1),
+    ~make_map: make_map :~ Function.of_arity(0) = MutableMap,
+    key :: Any,
+    compute :~ Function.of_arity(1),
+  ) :: Any:
+    let map :~ MutableMap = get_cache() || block:
+      let map = make_map()
+      set_cache(map)
+      map
+
+    match map.get(key, empty_token)
+    | t when t === empty_token:
+        map[key] := busy_token
+        let computed = try:
+          compute(key)
+          ~catch
+          | exn :: Exn.Fail.Concretize.Recoverable:
+              map[key] := exn
+              throw exn
+          | exn:
+              map.remove(key)
+              throw exn
+        map[key] := computed
+        computed
+
+    | t when t === busy_token:
+        error(
+          ~exn: Exn.Fail.Concretize,
+          "dependency cycle during concretization")
+
+    | exn :: Exn.Fail.Concretize.Recoverable:
+        throw exn
+
+    | value:
+        value

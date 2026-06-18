@@ -1,0 +1,134 @@
+#lang rhombus/static/and_meta
+
+import:
+  "context.rhm" open
+  "data_layout.rhm" open
+  "enums.rhm" open
+  "llvm_c.rkt" open
+  "target_machine.rhm" open
+  "type.rhm" open
+
+export annot.delayed_declare _Function
+export annot.delayed_declare _GlobalVariable
+annot.delayed_declare _Module
+
+export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
+  export:
+    Functions
+    from_bitcode
+
+  constructor(context :: Context, name :: ReadableString || Symbol):
+    LLVMModuleCreateWithNameInContext(name, context)
+
+  method dispose() :: Void:
+    LLVMDisposeModule(this)
+
+  method clone() :: Module:
+    LLVMCloneModule(this)
+
+  method verify() :: Void:
+    let message = LLVMVerifyModule(this)
+    when message
+    | error(
+        "LLVM module verification failed",
+        error.text(~label: "verifier message", message))
+
+  method to_ir() :: String:
+    LLVMPrintModuleToString(this) |> String.snapshot
+
+  method to_bitcode() :: ImmutableBytes:
+    LLVMWriteBitcodeToMemoryBuffer(this) |> Bytes.snapshot
+
+  property context :: Context:
+    LLVMGetModuleContext(this)
+
+  property
+  | data_layout :: DataLayout:
+      LLVMGetModuleDataLayout(this)
+  | data_layout := (value :: DataLayout):
+      LLVMSetModuleDataLayout(this, value)
+
+  method set_data_layout_string(layout_string :: ReadableString) :: Void:
+    LLVMSetDataLayout(this, layout_string)
+
+  veneer Functions(this :: satisfying(#{LLVMModuleRef?})):
+    constructor ~error
+
+    property first :: maybe(_Function):
+      LLVMGetFirstFunction(this)
+
+    property last :: maybe(_Function):
+      LLVMGetLastFunction(this)
+
+    method add(name :: ReadableString || Symbol, type :: FunctionType) :: _Function:
+      LLVMAddFunction(this, name, type)
+
+    method find(name :: ReadableString || Symbol) :: maybe(_Function):
+      LLVMGetNamedFunction(this, name)
+
+    method get_intrinsic(
+      name :: ReadableString || Symbol,
+      param_types :: Listable.to_list && [Type, ...] = [],
+    ) :: _Function:
+      guard.let id!! = LLVMLookupIntrinsicID(name)
+      | error("intrinsic does not exist", error.val(~label: name, name))
+      LLVMGetIntrinsicDeclaration(this, id, param_types)
+
+    sequence '$fn: $self':
+      '(~outer_binds:
+          self = $self,
+        ~recur_binds:
+          cur = LLVMGetFirstFunction(self),
+        ~head_guard:
+          cur,
+        ~inner_binds:
+          $fn = cur,
+        ~recur_args:
+          (LLVMGetNextFunction(cur)))'
+
+    static_info:
+      '(($statinfo_meta.index_result_key,
+         $(annot_meta.parse_to_packed_statinfo('_Function'))))'
+
+  property functions :: Functions:
+    this
+
+  method link_in(other :: Module) :: Void:
+    LLVMLinkModules2(this, other)
+
+  method run_passes(
+    ~target_machine: target_machine :: maybe(TargetMachine) = #false,
+    pipeline :: NonemptyList,
+  ) :: Void:
+    fun pipeline_to_string(pipeline :~ NonemptyList) :~ String:
+      String.join(pipeline.map(pipeline_element_to_string), ",")
+
+    fun pipeline_element_to_string(elem) :~ String:
+      match elem
+      | elem :: ReadableString || Symbol:
+          to_string(elem)
+      | [hd :: ReadableString || Symbol, &sub_pipeline :: NonemptyList]:
+          @str{@(«to_string(hd)»)(@pipeline_to_string(sub_pipeline))}
+      | elem:
+          error("invalid pipeline element", error.val(elem))
+
+    let options = LLVMCreatePassBuilderOptions()
+    try:
+      LLVMRunPasses(this, pipeline_to_string(pipeline), target_machine, options)
+      ~finally LLVMDisposePassBuilderOptions(options)
+
+  method compile(
+    target_machine :: TargetMachine,
+    file_type :: CodegenFileType = CodegenFileType.obj,
+  ) :: ImmutableBytes:
+    Bytes.snapshot(
+      LLVMTargetMachineEmitToMemoryBuffer(
+        target_machine,
+        this,
+        encode_codegen_file_type(file_type)))
+
+  fun from_bitcode(context :: Context, bitcode :: Bytes) :: maybe(Module):
+    // LLVMGetBitcodeModuleInContext2(context, bitcode)
+    LLVMParseBitcodeInContext2(context, bitcode)
+
+annot.delayed_complete _Module: Module

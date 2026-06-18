@@ -1,0 +1,159 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../../util/assert.rhm" open
+  "../../util/list_of_values.rhm" open
+  "../const_expr.rhm" open
+  "../core_types.rhm" open
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+//==============================================================================
+export pille_expr.macro 'splat($(elem :: pille_expr_meta.Parsed),
+                               $(length :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_splat(
+       $(pille_expr_meta.unpack_concretize(elem)),
+       $(const_expr_meta.unpack_rhombus_expr(length)))')
+
+fun concretize_splat(elem :~ Expr, length):
+  let (elem_type, elem_low) = elem.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      SimdType(elem_type, length),
+    ~lower:
+      fun(env):
+        guard.let elem_val!! = elem_low(env) | #false
+        lowering.builder().create_splat(elem_val, length))
+
+//==============================================================================
+defn.macro 'reduce_ops:
+              $name $llvm_name
+              ...':
+  '«pille_expr.macro '($name) ($('$')(vec :: pille_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        'concretize_reduce_op(
+           $(@str{llvm.vector.reduce.@(llvm_name.unwrap())}),
+           $('$')(pille_expr_meta.unpack_concretize(vec)))')
+    ...»'
+
+export reduce_ops:
+  reduce_add "add"
+  reduce_mul "mul"
+  reduce_and "and"
+  reduce_or "or"
+  reduce_xor "xor"
+  reduce_smax "smax"
+  reduce_smin "smin"
+  reduce_umax "umax"
+  reduce_umin "umin"
+
+fun concretize_reduce_op(intrinsic_name, vec :~ Expr):
+  let (SimdType(elem_type, len) && vec_type, vec_low) = vec.unpack_rvalue()
+  Expr.Rvalue(
+    ~type: elem_type,
+    ~lower:
+      fun(env):
+        let vec_val = vec_low(env)
+        lowering.builder().create_intrinsic_call(
+          intrinsic_name,
+          [vec_val!!.type],
+          [vec_val]))
+
+//==============================================================================
+defn.macro 'vp_reduce_ops:
+              $name $llvm_name
+              ...':
+  '«pille_expr.macro '($name) ($('$')(start :: pille_expr_meta.Parsed),
+                               $('$')(vec :: pille_expr_meta.Parsed),
+                               $('$')(mask :: pille_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        'concretize_vp_reduce_op(
+           $(@str{llvm.vp.reduce.@(llvm_name.unwrap())}),
+           $('$')(pille_expr_meta.unpack_concretize(start)),
+           $('$')(pille_expr_meta.unpack_concretize(vec)),
+           $('$')(pille_expr_meta.unpack_concretize(mask)))')
+    ...»'
+
+export vp_reduce_ops:
+  vp_reduce_add "add"
+  vp_reduce_mul "mul"
+  vp_reduce_and "and"
+  vp_reduce_or "or"
+  vp_reduce_xor "xor"
+  vp_reduce_smax "smax"
+  vp_reduce_smin "smin"
+  vp_reduce_umax "umax"
+  vp_reduce_umin "umin"
+
+fun concretize_vp_reduce_op(intrinsic_name, start :~ Expr, vec :~ Expr, mask :~ Expr):
+  let (start_type, start_low) = start.unpack_rvalue()
+  let (vec_type, vec_low) = vec.unpack_rvalue()
+  let (mask_type, mask_low) = mask.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      start_type,
+    ~lower:
+      fun(env):
+        let start_val = start_low(env)
+        let vec_val = vec_low(env)
+        let mask_val = mask_low(env)
+
+        let vec_llvm_type = vec_val!!.type
+        let builder = lowering.builder()
+        let evl = llvm.ConstantInt(
+          builder.int_type(32),
+          llvm.VectorType.length(vec_llvm_type))
+
+        builder.create_intrinsic_call(
+          intrinsic_name,
+          [vec_llvm_type],
+          [start_val, vec_val, mask_val, evl]))
+
+//==============================================================================
+defn.macro 'vp_binops:
+              $name $intrinsic_name
+              ...':
+  '«pille_expr.macro '($name)($('$')(lhs :: pille_expr_meta.Parsed),
+                              $('$')(rhs :: pille_expr_meta.Parsed),
+                              $('$')(mask :: pille_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        'concretize_vp_binop(
+           $(@str{llvm.vp.@(intrinsic_name.unwrap())}),
+           $('$')(pille_expr_meta.unpack_concretize(lhs)),
+           $('$')(pille_expr_meta.unpack_concretize(rhs)),
+           $('$')(pille_expr_meta.unpack_concretize(mask)))')
+    ...»'
+
+export vp_binops:
+  vp_sdiv "sdiv"
+  vp_udiv "udiv"
+  vp_srem "srem"
+  vp_urem "urem"
+
+fun concretize_vp_binop(intrinsic_name, lhs :~ Expr, rhs :~ Expr, mask :~ Expr):
+  let (lhs_type, lhs_low) = lhs.unpack_rvalue()
+  let (rhs_type, rhs_low) = rhs.unpack_rvalue()
+  assert(lhs_type === rhs_type)
+  let (mask_type, mask_low) = mask.unpack_rvalue()
+  Expr.Rvalue(
+    ~type:
+      lhs_type,
+    ~lower:
+      fun(env):
+        let lhs_val = lhs_low(env)
+        let rhs_val = rhs_low(env)
+        let mask_val = mask_low(env)
+
+        let lhs_llvm_type = lhs_val!!.type
+        let builder = lowering.builder()
+        let evl = llvm.ConstantInt(
+          builder.int_type(32),
+          llvm.VectorType.length(lhs_llvm_type))
+
+        builder.create_intrinsic_call(
+          intrinsic_name,
+          [lhs_llvm_type],
+          [lhs_val, rhs_val, mask_val, evl]))

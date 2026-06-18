@@ -1,0 +1,21 @@
+#lang rhombus/static/and_meta
+
+import:
+  only_meta 0:
+    meta_label:
+      pille open
+
+  only_meta 1:
+    meta_label:
+      only_space operator_order:
+        pille open
+
+  meta_label:
+    rhombus as rhm
+    rhombus/meta as rhm_meta
+
+export:
+  meta_label:
+    all_from(pille)
+    rhm
+    rhm_meta

@@ -1,0 +1,27 @@
+#lang rhombus/static/and_meta
+
+decl.macro 'reexport: $path; ...':
+  'import:
+     $path open
+     ...
+
+   export:
+     all_from($path)
+     ...'
+
+reexport:
+  "private/concretize/exn.rhm"
+  "private/concretize/expr.rhm"
+  "private/concretize/memory_layout.rhm"
+  "private/concretize/repr.rhm"
+  "private/concretize/type.rhm"
+
+import:
+  "private/concretize/caches.rhm"
+  "private/concretize/method.rhm"
+  "private/concretize/unify.rhm"
+
+export:
+  caches
+  method
+  unify

@@ -1,0 +1,18 @@
+#lang rhombus/static/and_meta
+
+decl.macro 'reexport:
+              $path
+              ...':
+  'import:
+     $path open
+     ...
+
+   export:
+     all_from($path)
+     ...'
+
+reexport:
+  "pille/doc_forms.rhm"
+  "pille/labels.rhm"
+  "pille/nonterminals.rhm"
+  "pille/spacers.rhm"

@@ -1,0 +1,30 @@
+#lang pille/private/kernel
+
+import:
+  "cond.rhm" open
+
+//==============================================================================
+export expr.macro 'while $(test :: Group): $body':
+  '#'lbl while $test: $body'
+
+export labeled_expr.macro 'while $(test :: Group): $body':
+  ~label_id: lbl
+  let lbl = syntax_meta.flip_introduce(lbl)
+  '#'$lbl:
+     if $test
+     | block: $body
+       continue $lbl
+     | break $lbl'
+
+//==============================================================================
+export expr.macro 'until $(test :: Group): $body':
+  '#'lbl until $test: $body'
+
+export labeled_expr.macro 'until $(test :: Group): $body':
+  ~label_id: lbl
+  let lbl = syntax_meta.flip_introduce(lbl)
+  '#'$lbl:
+     if $test
+     | break $lbl
+     | block: $body
+       continue $lbl'

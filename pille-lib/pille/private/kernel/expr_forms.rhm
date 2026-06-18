@@ -1,0 +1,494 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/list_of_values.rhm" open
+  "coerce.rhm" open
+  "const_annot_forms.rhm" open
+  "const_expr.rhm" open
+  "const_expr_forms.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "special_name.rhm" open
+  pille/concretize open
+  pille/lowering
+
+meta import:
+  rhombus/static/meta open
+
+meta export only_space namespace:
+  pille_expr_meta
+
+//==============================================================================
+export pille_expr.macro '#%parens($child)':
+  child
+
+meta fun pille_expr_meta.encapsulate(stx :: Group) :: Term:
+  '($stx)'.relocate_span([stx])
+
+//==============================================================================
+export pille_expr.macro '$lhs = $rhs':
+  ~weaker_than: ~other
+  ~associativity: ~none
+  ~op_stx: op
+  syntax_meta.error("not an expression operator", op)
+
+meta syntax_class pille_expr_meta.EqualsOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: '=')'
+
+//==============================================================================
+meta def const_type_annot:
+  const_annot_meta.parse('type')
+
+export pille_expr.macro '$lhs :: $(rhs :: const_expr_meta.AfterInfixParsed('::')) $()':
+  ~weaker_than: ~other
+  ~associativity: ~none
+  ~op_stx: op
+  values(
+    pille_expr_meta
+      .pack_concretize(
+        'concretize_annotated(
+           $(pille_expr_meta.unpack_concretize(lhs)),
+           $(const_expr_meta.unpack_rhombus_expr(
+               const_expr_meta.pack_implicitly_annotated(
+                 rhs,
+                 const_type_annot))),
+           $(rhs.srcloc()))')
+      .relocate_span([lhs, op, rhs]),
+    '$rhs.tail ...')
+
+meta syntax_class pille_expr_meta.AnnotOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: '::')'
+
+fun concretize_annotated(lhs :~ Expr, rhs, rhs_srcloc):
+  let (lhs_type, lhs_low) = lhs.unpack_rvalue()
+  let coe = resolve_coercer(lhs_type, rhs)
+  Expr.Rvalue(
+    ~type: rhs,
+    ~lower: coe ∘ lhs_low)
+
+//==============================================================================
+export pille_expr.macro 'faux($(ty_exp :: const_expr_meta.Parsed))':
+  ~all_stx: stx
+  pille_expr_meta.pack_concretize(
+    'concretize_faux(
+       $(const_expr_meta.unpack_rhombus_expr(
+           const_expr_meta.pack_implicitly_annotated(
+             ty_exp,
+             const_type_annot))),
+       $(stx.srcloc()),
+       $(ty_exp.srcloc()))')
+
+fun concretize_faux(type, full_srcloc, type_srcloc):
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      fun(_):
+        error(
+          ~srcloc: full_srcloc,
+          "cannot lower a 'faux' expression"))
+
+//==============================================================================
+meta fun pille_expr_meta.pack_const_rhombus_expr(
+  exp :: Group,
+) :~ pille_expr_meta.Packed:
+  pille_expr_meta.pack_concretize('concretize_const($exp)')
+
+meta fun pille_expr_meta.pack_const_expr(
+  cexp :~ const_expr_meta.Packed,
+) :~ pille_expr_meta.Packed:
+  cexp
+    |> const_expr_meta.unpack_rhombus_expr
+    |> pille_expr_meta.pack_const_rhombus_expr
+
+export pille_expr.macro 'const($(cexp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_const_expr(cexp)
+
+meta syntax_class pille_expr_meta.ConstOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: 'const')'
+
+fun concretize_const(val):
+  Expr.Rvalue(
+    ~type:
+      ConstType(val),
+    ~lower:
+      fun(_):
+        #false)
+
+//==============================================================================
+export pille_expr.macro 'type_of($exp)':
+  'const(type_of($exp))'
+
+//==============================================================================
+export pille_expr.macro
+| '#%literal $(lit :: const_expr_meta.Literal)':
+    'const($lit)'
+| '#%literal #void':
+    pille_expr_meta.pack_concretize('concretize_void()')
+
+fun concretize_void():
+  Expr.Rvalue(
+    ~type:
+      VoidType(),
+    ~lower:
+      fun(_):
+        #false)
+
+//==============================================================================
+export pille_expr.macro '$lhs := $rhs':
+  ~order: assignment
+  pille_expr_meta.pack_concretize(
+    'concretize_assignment(
+       $(pille_expr_meta.unpack_concretize(lhs)),
+       $(pille_expr_meta.unpack_concretize(rhs)),
+       $(lhs.srcloc()))')
+
+meta syntax_class pille_expr_meta.AssignOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: ':=')'
+
+fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
+  let (rhs_type, rhs_low) = rhs.unpack_rvalue()
+  let rhs_coe = resolve_coercer(rhs_type, lhs.type)
+
+  guard.let lhs :: Expr.Lvalue = lhs
+  | error(
+      ~srcloc: lhs_srcloc,
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "expression is not assignable")
+
+  let lhs_coordinates_low = lhs.lower_coordinates
+  let lhs_write_low = lhs.lower_write
+
+  Expr.Rvalue(
+    ~type: VoidType(),
+    ~lower:
+      fun(env):
+        let coords = lhs_coordinates_low(env)
+        let rhs_val = rhs_low(env) |> rhs_coe
+        lhs_write_low(coords, rhs_val)
+        #false)
+
+//==============================================================================
+export pille_expr.macro '#%brackets [$(element :: pille_expr_meta.Parsed), ...]':
+  pille_expr_meta.pack_concretize(
+    'concretize_new_tuple(
+       $(pille_expr_meta.unpack_concretize(element)),
+       ...)')
+
+fun concretize_new_tuple(elem :~ Expr, ...):
+  let [[elem_type, elem_low], ...]:
+    [List.of_values(elem.unpack_rvalue()),
+     ...]
+  Expr.Rvalue(
+    ~type:
+      TupleType([elem_type, ...]),
+    ~lower:
+      fun(env):
+        lowering.packing.pack(
+          [elem_low(env), ...]))
+
+//==============================================================================
+meta:
+  syntax_class pille_expr_meta.MemberName:
+    kind: ~sequence
+    fields: symbol_expr
+  | '$(name :: Identifier)':
+      field symbol_expr = '(#'$name)'
+  | '$(op :: pille_expr_meta.DollarOp) $(name :: Identifier)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          '(special_name.symbol($name))',
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: pille_expr_meta.space)
+
+  syntax_class pille_expr_meta.DotOp:
+    kind: ~sequence
+  | '$(bound_as pille_expr_meta.space: '.')'
+
+  syntax_class pille_expr_meta.DotDollarOp:
+    kind: ~sequence
+  | '$(bound_as pille_expr_meta.space: '.$')'
+
+  syntax_class pille_expr_meta.DotMemberName:
+    kind: ~sequence
+    fields: symbol_expr
+  | '$(op :: pille_expr_meta.DotOp) $(name :: pille_expr_meta.MemberName)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          name.symbol_expr,
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: pille_expr_meta.space)
+  | '$(op :: pille_expr_meta.DotDollarOp) $(name :: Identifier)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          '(special_name.symbol($name))',
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: pille_expr_meta.space)
+
+export pille_expr.macro
+| '$lhs . $(member :: pille_expr_meta.MemberName) ($(arg :: pille_expr_meta.Parsed), ...)':
+    ~order: member_access
+    pille_expr_meta.pack_concretize(
+      'concretize_method_call(
+         $(pille_expr_meta.unpack_concretize(lhs)),
+         $(member.symbol_expr),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...],
+         $(lhs.srcloc()),
+         [$(arg.srcloc()), ...])')
+
+| '$lhs . $(member :: pille_expr_meta.MemberName)':
+    pille_expr_meta.pack_concretize(
+      'concretize_property_ref(
+         $(pille_expr_meta.unpack_concretize(lhs)),
+         $(member.symbol_expr))')
+
+export pille_expr.macro
+| '$lhs .$ $(member :: Identifier) ($(arg :: pille_expr_meta.Parsed), ...)':
+    ~order: member_access
+    pille_expr_meta.pack_concretize(
+      'concretize_method_call(
+         $(pille_expr_meta.unpack_concretize(lhs)),
+         special_name.symbol($member),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...],
+         $(lhs.srcloc()),
+         [$(arg.srcloc()), ...])')
+
+| '$lhs .$ $(member :: Identifier)':
+    pille_expr_meta.pack_concretize(
+      'concretize_property_ref(
+         $(pille_expr_meta.unpack_concretize(lhs)),
+         special_name.symbol($member))')
+
+fun concretize_method_call(
+  receiver_concr :~ Expr,
+  name,
+  [arg_concr :~ Expr, ...],
+  receiver_srcloc,
+  [arg_srcloc, ...],
+):
+  // TODO: implicits
+  let method_concr:
+    receiver_concr.type.concretized_method(
+      name,
+      [arg_concr.type, ...])
+
+  let [[coords_low, in_low, out_low], ...]:
+    for List (concr in [receiver_concr, arg_concr, ...], idx in 0..):
+      cond
+      | method_concr.inout_mask bits.(?) idx:
+          guard.let concr :: Expr.Lvalue = concr
+          | error(
+              ~exn: Exn.Fail.Concretize.Recoverable,
+              ~srcloc: [receiver_srcloc, arg_srcloc, ...][idx],
+              "expression is not assignable",
+              ~details: ["passed to a method as 'inout'"])
+          [concr.lower_coordinates, concr.lower_read, concr.lower_write]
+      | ~else:
+          let (_, low) = concr.unpack_rvalue()
+          [low, fun(val): val, #false]
+
+  Expr.Rvalue(
+    ~type: method_concr.result_type,
+    ~lower:
+      let inout_mask = method_concr.inout_mask
+      let call_low = method_concr.lower_call
+      fun(env):
+        let [coords, ...] = [coords_low(env), ...]
+        let in_vals = [in_low(coords), ...]
+        let [result, &out_vals] = call_low([], in_vals)
+        for fold(out_val_idx = 0):
+          each:
+            coords in [coords, ...]
+            out_low in [out_low, ...]
+          keep_when out_low
+          out_low(coords, out_vals[out_val_idx])
+          out_val_idx + 1
+        result)
+
+fun concretize_property_ref(receiver_concr :~ Expr, name):
+  // TODO: implicits
+  try ~escape_as esc:
+    let read_concr:
+      receiver_concr.type.concretized_method(
+        method.ReadSelector(name),
+        [])
+
+    let read_low = read_concr.lower_call
+
+    guard read_concr.inout_mask == 0
+    | error(
+        ~exn: Exn.Fail.Concretize,
+        "property reader cannot take receiver as 'inout'",
+        error.val(~label: "type", receiver_concr.type),
+        error.val(~label: "property", name))
+
+    try ~escape_as readonly:
+      let write_concr :~ method.Concretized:
+        try:
+          receiver_concr.type.concretized_method(
+            method.WriteSelector(name),
+            [read_concr.result_type])
+          ~catch _ :: Exn.Fail.Concretize.Recoverable:
+            readonly()
+
+      let write_low = write_concr.lower_call
+
+      esc <| match write_concr.inout_mask
+      | 0:
+          let (_, receiver_low) = receiver_concr.unpack_rvalue()
+          Expr.Lvalue(
+            ~type: read_concr.result_type,
+            ~lower_coordinates: receiver_low,
+            ~lower_read:
+              fun(receiver_val):
+                let [result] = read_low([], [receiver_val])
+                result,
+            ~lower_write:
+              fun(receiver_val, new_val):
+                write_low([], [receiver_val, new_val]))
+      | 1:
+          guard.let Expr.Lvalue(
+            ~lower_coordinates: receiver_coord_low,
+            ~lower_read: receiver_read_low,
+            ~lower_write: receiver_write_low) = receiver_concr
+          | readonly()
+          Expr.Lvalue(
+            ~type: read_concr.result_type,
+            ~lower_coordinates: receiver_coord_low,
+            ~lower_read:
+              fun(receiver_coords):
+                let receiver_val = receiver_read_low(receiver_coords)
+                let [result] = read_low([], [receiver_val])
+                result,
+            ~lower_write:
+              fun(receiver_coords, new_val):
+                let receiver_val = receiver_read_low(receiver_coords)
+                let [_, new_receiver_val] = write_low([], [receiver_val, new_val])
+                receiver_write_low(receiver_coords, new_receiver_val))
+      | _:
+          error(
+            ~exn: Exn.Fail.Concretize,
+            "property writer cannot take new value as 'inout'",
+            error.val(~label: "type", receiver_concr.type),
+            error.val(~label: "property", name))
+
+    let (_, receiver_low) = receiver_concr.unpack_rvalue()
+    Expr.Rvalue(
+      ~type: read_concr.result_type,
+      ~lower:
+        fun(env):
+          let receiver_val = receiver_low(env)
+          let [result] = read_low([], [receiver_val])
+          result)
+
+//==============================================================================
+export pille_expr.macro '$callee #%call ($arg, ...)':
+  ~stronger_than: ~other
+  ~associativity: ~left
+  '$callee.$call($arg, ...)'
+
+//==============================================================================
+export pille_expr.macro '$callee #%comp {$arg, ...}':
+  ~stronger_than: ~other
+  ~associativity: ~left
+  '$callee.$new($arg, ...)'
+
+//==============================================================================
+export pille_expr.macro 'inout':
+  ~op_stx: op
+  syntax_meta.error(op)
+
+meta syntax_class pille_expr_meta.InoutOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: 'inout')'
+
+//==============================================================================
+export pille_expr.macro '$lhs #%index [$(key :: pille_expr_meta.Parsed), ...]':
+  ~stronger_than: ~other
+  ~associativity: ~left
+  pille_expr_meta.pack_concretize(
+    'concretize_index(
+       $(pille_expr_meta.unpack_concretize(lhs)),
+       [$(pille_expr_meta.unpack_concretize(key)), ...])')
+
+fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
+  // TODO: implicits
+  let [[key_type, key_low], ...]:
+    [List.of_values(key_concr.unpack_rvalue()),
+     ...]
+
+  try ~escape_as esc:
+    let read_concr:
+      receiver_concr.type.concretized_method(
+        special_name.symbol(index_read),
+        [key_type, ...])
+
+    let read_low = read_concr.lower_call
+
+    guard read_concr.inout_mask == 0
+    | error(
+        ~exn: Exn.Fail.Concretize,
+        "'$index_read' method cannot have 'inout' arguments")
+
+    try ~escape_as readonly:
+      let write_concr :~ method.Concretized:
+        try:
+          receiver_concr.type.concretized_method(
+            special_name.symbol(index_write),
+            [key_type, ..., read_concr.result_type])
+          ~catch _ :: Exn.Fail.Concretize.Recoverable:
+            readonly()
+
+      let write_low = write_concr.lower_call
+
+      esc <| match write_concr.inout_mask
+      | 0:
+          let (_, receiver_low) = receiver_concr.unpack_rvalue()
+          Expr.Lvalue(
+            ~type: read_concr.result_type,
+            ~lower_coordinates:
+              fun(env):
+                [receiver_low(env), key_low(env), ...],
+            ~lower_read:
+              fun(coords):
+                let [result] = read_low([], coords)
+                result,
+            ~lower_write:
+              fun(coords, new_val):
+                write_low([], [&coords, new_val]))
+      | 1:
+          guard.let Expr.Lvalue(
+            ~lower_coordinates: receiver_coord_low,
+            ~lower_read: receiver_read_low,
+            ~lower_write: receiver_write_low) = receiver_concr
+          | readonly()
+          Expr.Lvalue(
+            ~type: read_concr.result_type,
+            ~lower_coordinates:
+              fun(env):
+                [receiver_coord_low(env), key_low(env), ...],
+            ~lower_read:
+              fun([receiver_coords, key_val, ...]):
+                let receiver_val = receiver_read_low(receiver_coords)
+                let [result] = read_low([], [receiver_val, key_val, ...])
+                result,
+            ~lower_write:
+              fun([receiver_coords, key_val, ...], new_val):
+                let receiver_val = receiver_read_low(receiver_coords)
+                let [_, new_receiver_val] = write_low([], [receiver_val, key_val, ..., new_val])
+                receiver_write_low(receiver_coords, new_receiver_val))
+      | _:
+          error(
+            ~exn: Exn.Fail.Concretize,
+            "'$index_write' method cannot take key or new value as 'inout'")
+
+    let (_, receiver_low) = receiver_concr.unpack_rvalue()
+    Expr.Rvalue(
+      ~type: read_concr.result_type,
+      ~lower:
+        fun(env):
+          let [result] = read_low([], [receiver_low(env), key_low(env), ...])
+          result)

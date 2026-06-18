@@ -1,0 +1,395 @@
+#lang pille/private/kernel
+
+import:
+  "cond.rhm" open
+  "const_ops.rhm" open
+  "generic_ops.rhm" open
+  "panic.rhm" open
+  "type_traits.rhm" open
+
+//==============================================================================
+export const.def NativeInt:
+  ~omit_const_bind
+  Int(sizeof(RawPtr) * 8)
+
+export const.def NativeUInt:
+  ~omit_const_bind
+  UInt(sizeof(RawPtr) * 8)
+
+export const_bind.macro 'NativeInt':
+  'equal_to(NativeInt)'
+
+export const_bind.macro 'NativeUInt':
+  'equal_to(NativeUInt)'
+
+//==============================================================================
+property (const Int(w)).min_value:
+  const(-(2**(w - 1)))
+
+property (const Int(w)).max_value:
+  const(2**(w - 1) - 1)
+
+//==============================================================================
+property (const UInt(w)).min_value:
+  0
+
+property (const UInt(w)).max_value:
+  const(2**w - 1)
+
+//==============================================================================
+coercion (from :: UInt(from_width)) :: α && UInt(to_width):
+  ~when to_width > from_width
+  prim.zext(from, ~to: α)
+
+//==============================================================================
+unify(UInt(w1), UInt(w2)):
+  UInt(max(w1, w2))
+
+//==============================================================================
+coercion (from :: UInt(from_width)) :: α && Int(to_width):
+  ~when to_width > from_width
+  prim.zext(from, ~to: α)
+
+//==============================================================================
+unify(UInt(w1), Int(w2)):
+  Int(max(w1 + 1, w2))
+
+//==============================================================================
+coercion (from :: Int(from_width)) :: α && Int(to_width):
+  ~when to_width > from_width
+  prim.sext(from, ~to: α)
+
+//==============================================================================
+unify(Int(w1), Int(w2)):
+  Int(max(w1, w2))
+
+//==============================================================================
+coercion (const value :: nat) :: α && UInt(width):
+  ~when bit_length(value) ≤ width
+  prim.constant_int(α, value)
+
+//==============================================================================
+unify(Const(v1 :: nat), Const(v2 :: nat)):
+  UInt(bit_length(max(v1, v2)))
+
+//==============================================================================
+unify(Const(v :: nat), UInt(w)):
+  UInt(max(bit_length(v), w))
+
+//==============================================================================
+coercion (const value :: int) :: α && Int(width):
+  ~when bit_length(value) < width
+  prim.constant_int(α, value)
+
+//==============================================================================
+unify(Const(v1 :: int), Const(v2 :: int)):
+  ~when v1 < 0 || v2 < 0
+  Int(max(bit_length(v1), bit_length(v2)) + 1)
+
+//==============================================================================
+unify(Const(v :: int), Int(w)):
+  Int(max(bit_length(v) + 1, w))
+
+//==============================================================================
+method (lhs :: Int(n)).$add(rhs :: Int(n)) :: Int(n):
+  cond
+  | ub.allowed:
+      prim.add_nsw(lhs, rhs)
+  | ub.suppressed:
+      prim.add(lhs, rhs)
+  | ub.checked:
+      let res = prim.sadd_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: Int(n)).$add_wrap(rhs :: Int(n)) :: Int(n):
+  prim.add(lhs, rhs)
+
+method (lhs :: Int(n)).$sub(rhs :: Int(n)) :: Int(n):
+  cond
+  | ub.allowed:
+      prim.sub_nsw(lhs, rhs)
+  | ub.suppressed:
+      prim.sub(lhs, rhs)
+  | ub.checked:
+      let res = prim.ssub_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: Int(n)).$sub_wrap(rhs :: Int(n)) :: Int(n):
+  prim.sub(lhs, rhs)
+
+method (rhs :: Int(n)).$neg() :: Int(n):
+  0 - rhs
+
+method (rhs :: Int(n)).$neg_wrap() :: Int(n):
+  0 -% rhs
+
+method (lhs :: Int(n)).$mul(rhs :: Int(n)) :: Int(n):
+  cond
+  | ub.allowed:
+      prim.mul_nsw(lhs, rhs)
+  | ub.suppressed:
+      prim.mul(lhs, rhs)
+  | ub.checked:
+      let res = prim.smul_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: Int(n)).$mul_wrap(rhs :: Int(n)) :: Int(n):
+  prim.mul(lhs, rhs)
+
+fun sdiv_safe(lhs :: Int(n), rhs :: Int(n)):
+  ub.allowed || (rhs != 0 && (lhs != Int(n).min_value || rhs != -1))
+
+method (lhs :: Int(n)).$div_trunc(rhs :: Int(n)) :: Int(n):
+  cond
+  | sdiv_safe(lhs, rhs):
+      prim.sdiv(lhs, rhs)
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: Int(n)).$rem_trunc(rhs :: Int(n)) :: Int(n):
+  cond
+  | sdiv_safe(lhs, rhs):
+      prim.srem(lhs, rhs)
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: Int(n)).$eq(rhs :: Int(n)) :: Boolean:
+  prim.icmp_eq(lhs, rhs)
+
+method (lhs :: Int(n)).$ne(rhs :: Int(n)) :: Boolean:
+  prim.icmp_ne(lhs, rhs)
+
+method (lhs :: Int(n)).$lt(rhs :: Int(n)) :: Boolean:
+  prim.icmp_slt(lhs, rhs)
+
+method (lhs :: Int(n)).$le(rhs :: Int(n)) :: Boolean:
+  prim.icmp_sle(lhs, rhs)
+
+method (lhs :: Int(n)).$gt(rhs :: Int(n)) :: Boolean:
+  prim.icmp_sgt(lhs, rhs)
+
+method (lhs :: Int(n)).$ge(rhs :: Int(n)) :: Boolean:
+  prim.icmp_sge(lhs, rhs)
+
+//==============================================================================
+method (lhs :: UInt(n)).$add(rhs :: UInt(n)) :: UInt(n):
+  cond
+  | ub.allowed:
+      prim.add_nuw(lhs, rhs)
+  | ub.suppressed:
+      prim.add(lhs, rhs)
+  | ub.checked:
+      let res = prim.uadd_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: UInt(n)).$add_wrap(rhs :: UInt(n)) :: UInt(n):
+  prim.add(lhs, rhs)
+
+method (lhs :: UInt(n)).$sub(rhs :: UInt(n)) :: UInt(n):
+  cond
+  | ub.allowed:
+      prim.sub_nuw(lhs, rhs)
+  | ub.suppressed:
+      prim.sub(lhs, rhs)
+  | ub.checked:
+      let res = prim.usub_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: UInt(n)).$sub_wrap(rhs :: UInt(n)) :: UInt(n):
+  prim.sub(lhs, rhs)
+
+method (rhs :: UInt(n)).$neg_wrap() :: UInt(n):
+  0 -% rhs
+
+method (lhs :: UInt(n)).$mul(rhs :: UInt(n)) :: UInt(n):
+  cond
+  | ub.allowed:
+      prim.mul_nuw(lhs, rhs)
+  | ub.suppressed:
+      prim.mul(lhs, rhs)
+  | ub.checked:
+      let res = prim.umul_with_overflow(lhs, rhs)
+      if res[1]
+      | panic()
+      | res[0]
+
+method (lhs :: UInt(n)).$mul_wrap(rhs :: UInt(n)) :: UInt(n):
+  prim.mul(lhs, rhs)
+
+method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n):
+  cond
+  | ub.allowed || rhs != 0:
+      prim.udiv(lhs, rhs)
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n):
+  lhs div_trunc rhs
+
+method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n):
+  cond
+  | ub.allowed || rhs != 0:
+      prim.urem(lhs, rhs)
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: UInt(n)).$rem_floor(rhs :: UInt(n)) :: UInt(n):
+  lhs rem_trunc rhs
+
+method (lhs :: UInt(n)).$rem(rhs :: UInt(n)) :: UInt(n):
+  lhs rem_trunc rhs
+
+method (lhs :: UInt(n)).$eq(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_eq(lhs, rhs)
+
+method (lhs :: UInt(n)).$ne(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_ne(lhs, rhs)
+
+method (lhs :: UInt(n)).$lt(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_ult(lhs, rhs)
+
+method (lhs :: UInt(n)).$le(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_ule(lhs, rhs)
+
+method (lhs :: UInt(n)).$gt(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_ugt(lhs, rhs)
+
+method (lhs :: UInt(n)).$ge(rhs :: UInt(n)) :: Boolean:
+  prim.icmp_uge(lhs, rhs)
+
+//==============================================================================
+coercion (cast :: CastExact(σ && Const(_ :: int))) :: CoercesFrom(σ) && BinaryInteger:
+  cast.src
+
+coercion (cast :: CastExact(Int(w1))) :: δ && Int(w2):
+  cond
+  | w1 ≤ w2:
+      cast.src
+  | ub.allowed:
+      prim.trunc_nsw(cast.src, ~to: δ)
+  | ub.suppressed:
+      prim.trunc(cast.src, ~to: δ)
+  | ub.checked:
+      if cast.src ≥ δ.min_value && cast.src ≤ δ.max_value
+      | prim.trunc_nsw(cast.src, ~to: δ)
+      | panic()
+
+coercion (cast :: CastExact(Int(w1))) :: δ && UInt(w2):
+  cond
+  | w1 == w2:
+      if ub.checked && cast.src < 0
+      | panic()
+      | prim.retype(cast.src, ~to: δ)
+  | w1 < w2:
+      cond
+      | ub.allowed:
+          prim.zext_nneg(cast.src, ~to: δ)
+      | ub.suppressed:
+          prim.zext(cast.src, ~to: δ)
+      | ub.checked:
+          if cast.src < 0
+          | panic()
+          | prim.zext_nneg(cast.src, ~to: δ)
+  | w1 > w2:
+      cond
+      | ub.allowed:
+          prim.trunc_nuw(cast.src, ~to: δ)
+      | ub.suppressed:
+          prim.trunc(cast.src, ~to: δ)
+      | ub.checked:
+          if cast.src ≥ δ.min_value && cast.src ≤ δ.max_value
+          | prim.trunc_nuw(cast.src, ~to: δ)
+          | panic()
+
+coercion (cast :: CastExact(UInt(w1))) :: δ && UInt(w2):
+  cond
+  | w1 ≤ w2:
+      cast.src
+  | ub.allowed:
+      prim.trunc_nuw(cast.src, ~to: δ)
+  | ub.suppressed:
+      prim.trunc(cast.src, ~to: δ)
+  | ub.checked:
+      if cast.src ≤ δ.max_value
+      | prim.trunc_nuw(cast.src, ~to: δ)
+      | panic()
+
+coercion (cast :: CastExact(UInt(w1))) :: δ && Int(w2):
+  cond
+  | w1 < w2:
+      cast.src
+  | w1 == w2:
+      if ub.checked && cast.src > δ.max_value
+      | panic()
+      | prim.retype(cast.src, ~to: δ)
+  | ub.allowed:
+      prim.trunc_nsw(cast.src, ~to: δ)
+  | ub.suppressed:
+      prim.trunc(cast.src, ~to: δ)
+  | ub.checked:
+      if cast.src ≤ δ.max_value
+      | prim.trunc_nsw(cast.src, ~to: δ)
+      | panic()
+
+//==============================================================================
+coercion (cast :: CastWrap(Const(n :: int))) :: δ && BinaryInteger:
+  prim.constant_int(δ, n)
+
+coercion (cast :: CastWrap(Int(w1))) :: δ && Int(w2):
+  if w1 ≤ w2
+  | cast.src
+  | prim.trunc(cast.src, ~to: δ)
+
+coercion (cast :: CastWrap(Int(w1))) :: δ && UInt(w2):
+  cond
+  | w1 < w2:
+      prim.sext(cast.src, ~to: δ)
+  | w1 == w2:
+      prim.retype(cast.src, ~to: δ)
+  | w1 > w2:
+      prim.trunc(cast.src, ~to: δ)
+
+coercion (cast :: CastWrap(UInt(w1))) :: δ && UInt(w2):
+  if w1 ≤ w2
+  | cast.src
+  | prim.trunc(cast.src, ~to: δ)
+
+coercion (cast :: CastWrap(UInt(w1))) :: δ && Int(w2):
+  cond
+  | w1 < w2:
+      cast.src
+  | w1 == w2:
+      prim.retype(cast.src, ~to: δ)
+  | w1 > w2:
+      prim.trunc(cast.src, ~to: δ)
+
+//==============================================================================
+method (rhs :: α && BinaryInteger).$not() :: α:
+  prim.not(rhs)
+
+method (lhs :: α && BinaryInteger).$and(rhs :: α) :: α:
+  prim.and(lhs, rhs)
+
+method (lhs :: α && BinaryInteger).$or(rhs :: α) :: α:
+  prim.or(lhs, rhs)
+
+method (lhs :: α && BinaryInteger).$xor(rhs :: α) :: α:
+  prim.xor(lhs, rhs)
