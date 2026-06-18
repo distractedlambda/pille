@@ -50,9 +50,7 @@ space.enforest const_expr:
       _unpack(packed)
 
     fun as_rhombus_expr(cexp :: Group) :~ Term:
-      expr_meta
-        .pack_expr('const_expr.eval($cexp)')
-        .relocate_span([cexp])
+      '(const_expr.eval($cexp))'.relocate_span([cexp])
 
     fun parse('$(parsed :: Parsed)') :~ Packed:
       parsed

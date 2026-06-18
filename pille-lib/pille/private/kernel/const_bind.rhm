@@ -56,7 +56,7 @@ space.enforest const_bind:
       parsed
 
     fun pack_decomposition(extractor :: Group, sub_bindings :: [Packed, ...] = []) :~ Packed:
-      _pack('[$(expr_meta.pack_expr(extractor)) $(each sub_bindings) ...]')
+      _pack('[($extractor) $(each sub_bindings) ...]')
 
     fun pack_parallel_bindings(sub_bindings :: List = []) :~ Packed:
       pack_decomposition(
@@ -73,12 +73,12 @@ space.enforest const_bind:
     fun pack_side_condition(rhombus_expr :: Group) :~ Packed:
       pack_decomposition(
         'make_side_condition_extractor(
-           fun(): $(expr_meta.pack_expr(rhombus_expr)))')
+           fun(): ($rhombus_expr))')
         .relocate_span([rhombus_expr])
 
     fun pack_nested_binding(lhs_packed :: Packed, rhs_rhombus_expr :: Group) :~ Packed:
       pack_decomposition(
-        'fun(_): $(expr_meta.pack_expr(rhs_rhombus_expr))',
+        'fun(_): ($rhs_rhombus_expr)',
         [lhs_packed])
 
     fun pack_disjunction(sub_bindings :: [Packed, Packed, ...]) :~ Packed:
@@ -183,10 +183,9 @@ space.enforest const_bind:
           target_id,
           Map.by(equal_name_and_scopes){})
 
-      expr_meta.pack_expr(
-        'block:
-           let $target_id = $target
-           $(template(expr_meta.pack_expr(body)))')
+      '(block:
+          let $target_id = $target
+          $(template('($body)')))'
 
 fun check_repeat_metavar_occurrence(srcloc, old_val, new_val):
   unless old_val == new_val
