@@ -33,7 +33,7 @@ space.enforest pille_expr:
       Term && satisfying(is_packed)
 
     export fun pack_concretize(rhm_expr :: Group) :~ Packed:
-      _pack(expr_meta.pack_expr(rhm_expr))
+      _pack('($rhm_expr)')
 
     export fun unpack_concretize(packed :: Packed) :~ Term:
       _unpack(packed)
