@@ -36,7 +36,7 @@ space.enforest const_annot:
       Term && satisfying(is_packed)
 
     fun pack_rhombus_predicate(pred_expr :: Group) :~ Packed:
-      _pack(expr_meta.pack_expr(pred_expr))
+      _pack('($pred_expr)')
 
     fun unpack_rhombus_predicate(packed :: Packed) :~ Term:
       _unpack(packed)

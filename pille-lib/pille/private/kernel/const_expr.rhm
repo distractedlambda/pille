@@ -40,7 +40,7 @@ space.enforest const_expr:
       Term && satisfying(is_packed)
 
     fun pack_rhombus_expr(rhombus_expr :: Group) :~ Packed:
-      _pack(expr_meta.pack_expr(rhombus_expr))
+      _pack('($rhombus_expr)')
 
     fun pack_delayed_parse(cexp :: Group) :~ Packed:
       pack_rhombus_expr('const_expr.eval($cexp)')
