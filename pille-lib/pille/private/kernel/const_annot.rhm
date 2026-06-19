@@ -26,6 +26,9 @@ space.enforest const_annot:
     parse_prefix_more_syntax_class AfterPrefixParsed
     parse_infix_more_syntax_class AfterInfixParsed
 
+    name_start_syntax_class NameStart
+    bound_name_start_syntax_class BoundNameStart
+
     private parsed_packer _pack
     private parsed_unpacker _unpack
 
