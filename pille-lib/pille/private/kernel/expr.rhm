@@ -1,6 +1,8 @@
 #lang rhombus/static/and_meta
 
 import:
+  "const_expr.rhm" open
+  "core_types.rhm" open
   pille/concretize open
 
 meta import:
@@ -26,6 +28,15 @@ space.enforest pille_expr:
     name_start_syntax_class NameStart
     bound_name_start_syntax_class BoundNameStart
 
+    identifier_parser parse_name
+    dotted_identifier_parser parse_name
+
+    fun parse_name(nm):
+      guard.let '$(_ :: const_expr_meta.BoundNameStart)' = nm
+      | syntax_meta.error("not bound as an expression", nm)
+      let '$(cexp :: const_expr_meta.Parsed)' = nm
+      cexp |> pack_const_expr |> _unpack
+
     private parsed_packer _pack
     private parsed_unpacker _unpack
 
@@ -41,8 +52,21 @@ space.enforest pille_expr:
     export fun unpack_concretize(packed :: Packed) :~ Term:
       _unpack(packed)
 
+    export fun pack_const_rhombus_expr(rhm_expr :: Group) :~ Packed:
+      pack_concretize('concretize_const($rhm_expr)')
+
+    export fun pack_const_expr(cexp :: const_expr_meta.Packed) :~ Packed:
+      cexp
+        |> const_expr_meta.unpack_rhombus_expr
+        |> pack_const_rhombus_expr
+
   export:
     concretize
 
   expr.macro 'concretize($(pexp :: pille_expr_meta.Parsed))':
     pille_expr_meta.unpack_concretize(pexp)
+
+fun concretize_const(val):
+  Expr.Rvalue(
+    ~type: ConstType(val),
+    ~lower: fun(_): #false)

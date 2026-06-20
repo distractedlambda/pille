@@ -1,11 +1,5 @@
 #lang rhombus/static/and_meta
 
-import:
-  "expr.rhm" open
-
-export only_space namespace:
-  meta: pille_expr_meta
-
 //==============================================================================
 space.transform _special_name:
   space_path pille/special_name
@@ -18,16 +12,6 @@ export namespace special_name
 export alias 'special_name':
   ~only_space space
   '_special_name'
-
-//==============================================================================
-export pille_expr.macro '($) $rhs':
-  ~stronger_than: ~other
-  ~op_stx: op
-  syntax_meta.error(op)
-
-meta syntax_class pille_expr_meta.DollarOp:
-  kind: ~sequence
-| '$(bound_as pille_expr_meta.space: '$')'
 
 //==============================================================================
 defn.macro 'special_name.def $(name :: Identifier)':

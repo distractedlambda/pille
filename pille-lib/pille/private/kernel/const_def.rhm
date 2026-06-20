@@ -34,17 +34,11 @@ meta:
     fields:
       lhs
       [op, ...]
-      omit_const_bind
       rhs
   | '$lhs_hd $lhs_tl ... $(eq_op :: const_expr_meta.EqualsOp) $(rhs :: Group)':
       match_def '$(lhs :: Lhs)' = '$lhs_hd $lhs_tl ...'
       field [op, ...] = [eq_op]
-      field omit_const_bind = #false
-  | '$(lhs :: Lhs):
-       $(group_option_sequence
-         | '~omit_const_bind':
-             field omit_const_bind = #true)
-       $(rhs :: Group)':
+  | '$(lhs :: Lhs): $(rhs :: Group)':
       field [op, ...] = []
 
 defn.macro 'const.def $(spec :: Spec)':
@@ -55,15 +49,7 @@ defn.macro 'const.def $(spec :: Spec)':
             $(const_expr_meta.encapsulate(spec.rhs)) $spec.lhs.annot))
 
     const_expr.macro '($spec.lhs.name)':
-      '$(const_expr_meta.pack_rhombus_expr('forcer()'))'
-
-    $(if spec.omit_const_bind
-      | ''
-      | '«const_bind.macro '($spec.lhs.name)':
-            '$(const_bind_meta.pack_equal_to('forcer()'))'»')
-
-    pille_expr.macro '($spec.lhs.name)':
-      '$(pille_expr_meta.pack_concretize('concretize_const_def_ref(forcer)'))'»'
+      '$(const_expr_meta.pack_rhombus_expr('forcer()'))'»'
 
 fun make_forcer(thunk):
   let mutable cache = caches.keyed.init()
@@ -74,12 +60,3 @@ fun make_forcer(thunk):
       ~make_map: WeakMutableMap,
       Profile.require_current(),
       fun(_): thunk())
-
-fun concretize_const_def_ref(forcer):
-  let val = forcer()
-  Expr.Rvalue(
-    ~type:
-      ConstType(val),
-    ~lower:
-      fun(_):
-        #false)

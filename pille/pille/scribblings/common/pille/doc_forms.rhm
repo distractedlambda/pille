@@ -193,7 +193,7 @@ doc.bridge const.def:
         "constant definition",
     ~extract_space:
       fun(_):
-        [#'#{pille/const_expr}, #'#{pille/expr}],
+        #'#{pille/const_expr},
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
@@ -235,7 +235,7 @@ doc.bridge const.fun:
         "constant function",
     ~extract_space:
       fun(_):
-        [#'#{pille/const_expr}, #'#{pille/expr}],
+        #'#{pille/const_expr},
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:

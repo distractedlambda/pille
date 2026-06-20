@@ -19,6 +19,16 @@ meta export only_space namespace:
   pille_expr_meta
 
 //==============================================================================
+export pille_expr.macro '($) $rhs':
+  ~stronger_than: ~other
+  ~op_stx: op
+  syntax_meta.error(op)
+
+meta syntax_class pille_expr_meta.DollarOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: '$')'
+
+//==============================================================================
 export pille_expr.macro '#%parens($child)':
   child
 
@@ -90,32 +100,12 @@ fun concretize_faux(type, full_srcloc, type_srcloc):
           "cannot lower a 'faux' expression"))
 
 //==============================================================================
-meta fun pille_expr_meta.pack_const_rhombus_expr(
-  exp :: Group,
-) :~ pille_expr_meta.Packed:
-  pille_expr_meta.pack_concretize('concretize_const($exp)')
-
-meta fun pille_expr_meta.pack_const_expr(
-  cexp :~ const_expr_meta.Packed,
-) :~ pille_expr_meta.Packed:
-  cexp
-    |> const_expr_meta.unpack_rhombus_expr
-    |> pille_expr_meta.pack_const_rhombus_expr
-
 export pille_expr.macro 'const($(cexp :: const_expr_meta.Parsed))':
   pille_expr_meta.pack_const_expr(cexp)
 
 meta syntax_class pille_expr_meta.ConstOp:
   kind: ~sequence
 | '$(bound_as pille_expr_meta.space: 'const')'
-
-fun concretize_const(val):
-  Expr.Rvalue(
-    ~type:
-      ConstType(val),
-    ~lower:
-      fun(_):
-        #false)
 
 //==============================================================================
 export pille_expr.macro 'type_of($exp)':

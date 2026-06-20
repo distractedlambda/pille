@@ -81,7 +81,6 @@ export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $
      | let [const_arg_id, ...] = [Syntax.make_temp_id(const_args.arg), ...]
        '«const.fun $name($const_arg_id, ...):
            ~name: $display_name
-           ~omit_const_bind
            #%rhombus($const_arg_id, ...):
              StructType(species, [$const_arg_id, ...])
 
@@ -89,7 +88,6 @@ export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $
            const_bind_meta.pack_decomposition('type_extractor', [$const_arg_id, ...])»'
 
      | '«const.def $name:
-           ~omit_const_bind
            #%rhombus:
              StructType(species, [])
 

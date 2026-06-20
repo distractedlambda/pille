@@ -9,18 +9,10 @@ import:
 
 //==============================================================================
 export const.def NativeInt:
-  ~omit_const_bind
   Int(sizeof(RawPtr) * 8)
 
 export const.def NativeUInt:
-  ~omit_const_bind
   UInt(sizeof(RawPtr) * 8)
-
-export const_bind.macro 'NativeInt':
-  'equal_to(NativeInt)'
-
-export const_bind.macro 'NativeUInt':
-  'equal_to(NativeUInt)'
 
 //==============================================================================
 property (const Int(w)).min_value:

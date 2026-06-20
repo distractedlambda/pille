@@ -7,7 +7,6 @@ import:
   "const_expr_forms.rhm" open
   "const_ns.rhm" open
   "expr.rhm" open
-  "expr_forms.rhm" open
   "when_where.rhm" open
   pille/concretize open
   rhombus/delay open
@@ -43,18 +42,14 @@ meta:
     kind: ~multi
     fields:
       display_name :~ maybe(Name)
-      omit_const_bind :~ Boolean
   | '$(group_option_sequence
-       | '~name $(block_or_tail display_name :: Name)'
-       | '~omit_const_bind':
-           field omit_const_bind = #true)'
+       | '~name $(block_or_tail display_name :: Name)')'
 
   syntax_class Spec:
     kind: ~group
     fields:
       name
       display_name :~ maybe(Name)
-      omit_const_bind :~ Boolean
       [case, ...]
   | '$(name :: IdentifierName) $sig ...:
        $opt; ...
@@ -75,15 +70,7 @@ defn.macro 'const.fun $(spec :: Spec)':
         [compile_case($spec.case), ...])
 
     const_expr.macro '($spec.name)':
-      '$(const_expr_meta.pack_rhombus_expr('impl'))'
-
-    $(if spec.omit_const_bind
-      | ''
-      | '«const_bind.macro '($spec.name)':
-            '$(const_bind_meta.pack_equal_to('impl'))'»')
-
-    pille_expr.macro '($spec.name)':
-      '$(pille_expr_meta.pack_const_rhombus_expr('impl'))'»'
+      '$(const_expr_meta.pack_rhombus_expr('impl'))'»'
 
 fun make_const_fun(name, cases :~ List):
   fun impl(&args):

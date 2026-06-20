@@ -44,7 +44,26 @@ space.enforest const_bind:
     bound_name_start_syntax_class BoundNameStart
 
     identifier_parser fun(id):
-      id
+      match id
+      | '$(_ :: const_expr_meta.BoundNameStart)':
+          let '$(cexp :: const_expr_meta.Parsed)' = id
+          cexp
+            |> const_expr_meta.unpack_rhombus_expr
+            |> pack_equal_to
+            |> _unpack
+      | _:
+          id
+
+    dotted_identifier_parser fun(nm):
+      match nm
+      | '$(_ :: const_expr_meta.BoundNameStart)':
+          let '$(cexp :: const_expr_meta.Parsed)' = nm
+          cexp
+            |> const_expr_meta.unpack_rhombus_expr
+            |> pack_equal_to
+            |> _unpack
+      | _:
+          syntax_meta.error("not a constant-binding form", nm)
 
     private parsed_packer _pack
     private parsed_unpacker _unpack
@@ -96,11 +115,7 @@ space.enforest const_bind:
     fun compile(binding :: Packed, target :: Group, body :: Group) :~ Term:
       fun metavar_bindings(metavar :~ Identifier, rhm_id :~ Identifier) :~ Syntax:
         '«const_expr.macro '($metavar)':
-            '$(const_expr_meta.pack_rhombus_expr('$rhm_id'))'
-          const_bind.macro '($metavar)':
-            '$(pack_equal_to(rhm_id))'
-          pille_expr.macro '($metavar)':
-            '$(pille_expr_meta.pack_concretize('concretize_bound_metavar($rhm_id)'))'»'
+            '$(const_expr_meta.pack_rhombus_expr('$rhm_id'))'»'
 
       fun partial_compile(
         binding :~ Packed,
@@ -235,11 +250,6 @@ fun make_side_condition_extractor(thunk):
         ~exn: Exn.Fail.Concretize.Recoverable,
         "side-condition not satisfied")
     values()
-
-fun concretize_bound_metavar(value):
-  Expr.Rvalue(
-    ~type: ConstType(value),
-    ~lower: fun(_): #false)
 
 fun disjunction_impl(srcloc, &arms):
   try ~escape_as esc:

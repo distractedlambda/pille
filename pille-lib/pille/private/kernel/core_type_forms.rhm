@@ -30,7 +30,6 @@ export const.def Boolean:
 
 //==============================================================================
 export const.fun Int(width :: pos_int):
-  ~omit_const_bind
   #%rhombus(width):
     IntType(width)
 
@@ -47,7 +46,6 @@ fun int_extractor(target):
 
 //==============================================================================
 export const.fun UInt(width :: pos_int):
-  ~omit_const_bind
   #%rhombus(width):
     UIntType(width)
 
@@ -64,7 +62,6 @@ fun uint_extractor(target):
 
 //==============================================================================
 export const.fun Const(value):
-  ~omit_const_bind
   #%rhombus(value):
     ConstType(value)
 
@@ -81,7 +78,6 @@ fun const_extractor(target):
 
 //==============================================================================
 export const.def Tuple:
-  ~omit_const_bind
   #%rhombus:
     fun(&elements):
       ~name: Tuple
@@ -122,7 +118,6 @@ fun any_tuple_extractor(target):
 
 //==============================================================================
 export const.fun Simd(element :: type, length :: pos_int):
-  ~omit_const_bind
   #%rhombus(element, length):
     SimdType(element, length)
 
