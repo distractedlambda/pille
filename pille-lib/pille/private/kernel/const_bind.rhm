@@ -50,9 +50,8 @@ space.enforest const_bind:
           cexp
             |> const_expr_meta.unpack_rhombus_expr
             |> pack_equal_to
-            |> _unpack
       | _:
-          '(~metavariable $id)'.relocate(id)
+          _pack('(~metavariable $id)').relocate(id)
 
     dotted_identifier_parser fun(nm):
       match nm
@@ -61,7 +60,6 @@ space.enforest const_bind:
           cexp
             |> const_expr_meta.unpack_rhombus_expr
             |> pack_equal_to
-            |> _unpack
       | _:
           syntax_meta.error("not a constant-binding form", nm)
 

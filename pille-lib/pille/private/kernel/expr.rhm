@@ -35,7 +35,7 @@ space.enforest pille_expr:
       guard.let '$(_ :: const_expr_meta.BoundNameStart)' = nm
       | syntax_meta.error("not bound as an expression", nm)
       let '$(cexp :: const_expr_meta.Parsed)' = nm
-      cexp |> pack_const_expr |> _unpack
+      cexp |> pack_const_expr
 
     private parsed_packer _pack
     private parsed_unpacker _unpack
