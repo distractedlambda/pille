@@ -88,7 +88,11 @@ export defn.macro 'implicit \
         make_validator([$indices.index, ...], $value_type_bind.bind))
 
     _implicit.bridge $name:
-      ['key_factory', $(Function.count(indices.index, ...))]»'
+      ['key_factory', $(Function.count(indices.index, ...))]
+
+    pille_expr.macro '($name) $('$')(_ :: MaybeIndices)':
+      ~all_stx: stx
+      'summon $('$')stx'»'
 
 expr.macro 'make_validator([$(index_bind :: const_bind_meta.Parsed), ...], $value_type_bind)':
   'fun(indices):
