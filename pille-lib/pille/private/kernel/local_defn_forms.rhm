@@ -11,40 +11,43 @@ import:
 
 export only_space namespace:
   pille_expr
+  meta: local_defn_meta
 
 //==============================================================================
 meta:
-  syntax_class BindingSpec:
+  syntax_class local_defn_meta.BindingInit:
+    kind: ~group
+    fields: transformed
+    root_swap: transformed group
+  | '$(eo :: pille_expr_meta.EqualsOp) $(init :: pille_expr_meta.Parsed)':
+      field transformed:
+        syntax_meta.track_origin(
+          init,
+          ~add: syntax_meta.flip_introduce(eo),
+          ~space: pille_expr_meta.space)
+  | ': $init_body':
+      match_def '$(transformed :: pille_expr_meta.Parsed)':
+        local_defn_meta.encapsulate_body(init_body)
+  | '$(ao :: pille_expr_meta.AnnotOp) $type ... \
+     $(eo :: pille_expr_meta.EqualsOp) $(unann_init :: Group)':
+      match_def '$(init :: pille_expr_meta.Parsed)':
+        '$(pille_expr_meta.encapsulate(unann_init)) $ao $type ...'
+      field transformed:
+        syntax_meta.track_origin(
+          init,
+          ~add: syntax_meta.flip_introduce(eo),
+          ~space: pille_expr_meta.space)
+  | '$(ao :: pille_expr_meta.AnnotOp) $type ...: $unann_init':
+      match_def '$(transformed :: pille_expr_meta.Parsed)':
+        '$(local_defn_meta.encapsulate_body(unann_init)) $ao $type ...'
+
+  syntax_class local_defn_meta.BindingSpec:
     kind: ~group
     fields: name init
-  | '$(name_ :: Identifier) $(eo :: pille_expr_meta.EqualsOp) $(init :: pille_expr_meta.Parsed)':
-      field name = syntax_meta.track_origin(
-        name_,
-        ~add: syntax_meta.flip_introduce(eo),
-        ~space: expr_meta.space)
-
-  | '$(name :: Identifier): $init_body':
-      match_def '$(init :: pille_expr_meta.Parsed)':
-        local_defn_meta.encapsulate_body(init_body)
-
-  | '$(name_ :: Identifier) \
-     $(ann_op :: pille_expr_meta.AnnotOp) $type ... \
-     $(eo :: pille_expr_meta.EqualsOp) $(unann_init :: Group)':
-      field name = syntax_meta.track_origin(
-        name_,
-        ~add: syntax_meta.flip_introduce(eo),
-        ~space: expr_meta.space)
-      match_def '$(init :: pille_expr_meta.Parsed)':
-        '$(pille_expr_meta.encapsulate(unann_init)) $ann_op $type ...'
-
-  | '$(name :: Identifier) \
-     $(ann_op :: pille_expr_meta.AnnotOp) $type ... \
-     : $unann_init':
-      match_def '$(init :: pille_expr_meta.Parsed)':
-        '$(local_defn_meta.encapsulate_body(unann_init)) $ann_op $type ...'
+  | '$(name :: Identifier) $(init :: local_defn_meta.BindingInit)'
 
 //==============================================================================
-export local_defn.block_macro 'let $(_ :: BindingSpec: open)
+export local_defn.block_macro 'let $(_ :: local_defn_meta.BindingSpec: open)
                                $(tl :: NonemptyMulti)':
   let name_sym = name_to_uninterned_symbol(name)
   pille_expr_meta.pack_concretize(
@@ -82,7 +85,7 @@ fun concretize_let(bound_name, bound_expr :~ Expr, body :~ Expr):
         body_low(env))
 
 //==============================================================================
-export local_defn.block_macro 'var $(_ :: BindingSpec: open)
+export local_defn.block_macro 'var $(_ :: local_defn_meta.BindingSpec: open)
                                $(tl :: NonemptyMulti)':
   let name_sym = name_to_uninterned_symbol(name)
   pille_expr_meta.pack_concretize(
@@ -133,8 +136,8 @@ export fun concretize_var_ref(name, type :~ Type):
       Expr.Lvalue(
         ~type,
         ~lower_coordinates: fun(_): #false,
-        ~lower_read: fun(_): #false,
-        ~lower_write: fun(_, _): #void)
+        ~lower_read: fun(_, _): #false,
+        ~lower_write: fun(_, _, _): #void)
   | repr :: Repr.Sized:
       Expr.Lvalue(
         ~type,
@@ -142,7 +145,7 @@ export fun concretize_var_ref(name, type :~ Type):
           fun(env :: Map):
             env[name],
         ~lower_read:
-          fun(alloca_inst :: llvm.AllocaInst):
+          fun(_, alloca_inst :: llvm.AllocaInst):
             let builder = lowering.builder()
             builder.create_load(
               ~name: name,
@@ -150,7 +153,7 @@ export fun concretize_var_ref(name, type :~ Type):
               repr.llvm_type(builder.context),
               alloca_inst),
         ~lower_write:
-          fun(alloca_inst :: llvm.AllocaInst, new_val):
+          fun(_, alloca_inst :: llvm.AllocaInst, new_val):
             lowering.builder().create_store(
               ~alignment: alloca_inst.alignment,
               new_val,

@@ -7,6 +7,7 @@ import:
   "const_expr.rhm" open
   "core_type_forms.rhm" open
   "expr_forms.rhm" open
+  "implicit.rhm" open
   "local_defn.rhm" open
   "local_defn_forms.rhm" open
   "special_name.rhm" open
@@ -63,50 +64,77 @@ export defn.macro 'coercion \
 
 //==============================================================================
 meta:
+  syntax_class MaybeImplicitAlias:
+    kind: ~sequence
+    fields: name :~ maybe(Identifier)
+  | '~as $(name :: Identifier)'
+  | '': field name = #false
+
+  syntax_class MaybeTypeBind:
+    kind: ~sequence
+    fields: normalized
+    root_swap: normalized sequence
+  | '$(annot_op :: pille_expr_meta.AnnotOp) $(tl :: NonemptySequence)':
+      field normalized:
+        syntax_meta.track_origin(
+          const_bind_meta.encapsulate(tl),
+          ~add: syntax_meta.flip_introduce(annot_op),
+          ~space: pille_expr_meta.space)
+  | '':
+      field normalized = '_'
+
   syntax_class MaybeInout:
     kind: ~sequence
     fields:
+      [op, ...]
       present :~ Boolean
-      [op, ...]
   | '$(inout_op :: pille_expr_meta.InoutOp)':
-      field present = #true
       field [op, ...] = [inout_op]
+      field present = #true
   | '':
+      field [op, ...] = []
       field present = #false
-      field [op, ...] = []
-
-  syntax_class ArgNameAndType:
-    kind: ~group
-    fields:
-      name :~ maybe(Identifier)
-      type_bind :~ const_bind_meta.Packed
-      [op, ...]
-  | '$(const_op :: pille_expr_meta.ConstOp) $(const_bind :: Group)':
-      field name = #false
-      field type_bind = const_bind_meta.parse('Const($const_bind)').relocate_span([const_bind])
-      field [op, ...] = [const_op]
-  | '$(name :: Identifier)':
-      field type_bind = const_bind_meta.parse('_'.relocate(name))
-      field [op, ...] = []
-  | '$(name :: Identifier) $(annot_op :: pille_expr_meta.AnnotOp) $(type_bind :: const_bind_meta.Parsed)':
-      field [op, ...] = [annot_op]
 
   syntax_class Arg:
     kind: ~group
     fields:
       is_inout :~ Boolean
+      implicit_key :~ maybe(Syntax.matched_of(implicit_meta.ResolveKey))
       name :~ maybe(Identifier)
-      type_bind :~ const_bind_meta.Packed
-  | '$(maybe_inout :: MaybeInout) $(nat :: ArgNameAndType)':
-      field is_inout = maybe_inout.present
-      field name = nat.name
+      type_bind :~ Term
+
+  | '$(using_op :: pille_expr_meta.UsingOp) \
+     $(implicit_key :: implicit_meta.ResolveKey) \
+     $(maybe_alias :: MaybeImplicitAlias) \
+     $(type_bind_ :: MaybeTypeBind)':
+      field is_inout = #false
+      field name = maybe_alias.name
       field type_bind:
         syntax_meta.track_origin(
-          nat.type_bind,
-          ~add: [syntax_meta.flip_introduce(
-                   each [maybe_inout.op, ...,
-                         nat.op, ...]),
-                 ...],
+          type_bind_,
+          syntax_meta.flip_introduce(using_op),
+          ~space: pille_expr_meta.space)
+
+  | '$(const_op :: pille_expr_meta.ConstOp) \
+     $(const_bind :: const_bind_meta.Parsed)':
+      field is_inout = #false
+      field implicit_key = #false
+      field name = #false
+      field type_bind:
+        syntax_meta.track_origin(
+          '(Const($const_bind))'.relocate(const_bind),
+          syntax_meta.flip_introduce(const_op),
+          ~space: pille_expr_meta.space)
+
+  | '$(maybe_inout :: MaybeInout) \
+     $(name :: Identifier) \
+     $(type_bind_ :: MaybeTypeBind)':
+      field is_inout = maybe_inout.present
+      field implicit_key = #false
+      field type_bind:
+        syntax_meta.track_origin(
+          type_bind_,
+          [syntax_meta.flip_introduce(maybe_inout.op), ...],
           ~space: pille_expr_meta.space)
 
   syntax_class MaybeResType:
@@ -124,15 +152,27 @@ meta:
 
   syntax_class Impl:
     kind: ~multi
-    fields: [ww, ...] body
+    fields:
+      [ww_opt, ...]
+      transparent :~ Boolean
+      body
   | '$(_ :: OptionsAndBody: open)':
-      match_def '$(ww :: WhenWhereOption); ...' = '$option; ...'
+      def ([ww_opt_, ...], [other_opt, ...]):
+        [option, ...].partition(_) <| fun(opt):
+          opt matches '$('~when' || '~where') $_ ...'
+      field [ww_opt, ...] = [ww_opt_, ...]
+      match_def '$(group_option_sequence
+                   | '~transparent':
+                       field transparent = #true)':
+        '$other_opt; ...'
 
 defn.macro '#%method($selector, $symbol_name_formatter) \
             ($(receiver :: Arg)) \
             ($(arg :: Arg), ...) \
             $(res_type :: MaybeResType) \
-            : $(impl :: Impl)':
+            : $(_ :: Impl: open)':
+  when receiver.implicit_key
+  | syntax_meta.error("receiver cannot be implicit", receiver)
 
   fun make_arg_name_sym(arg :~ Syntax.matched_of(Arg)):
     guard arg.name | Symbol.uninterned_from_string("_")
@@ -152,97 +192,206 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
   let receiver_name_sym = make_arg_name_sym(receiver)
   let [arg_name_sym, ...] = [make_arg_name_sym(arg), ...]
 
-  let receiver_and_arg_types_binding:
-    const_bind_meta.pack_parallel_bindings(
-      [receiver.type_bind, arg.type_bind, ...])
-
-  let const_binding:
-    const_bind_meta.pack_conjunction(
-      [receiver_and_arg_types_binding,
-       impl.ww, ...])
-
-  let body_concr_expr:
-    'pille_expr.concretize(
-       $(local_defn_meta.encapsulate_body(
-           impl.body)))'
-
-  let inout_mask:
-    for fold(mask = 0):
-      each:
-        ag in [receiver, arg, ...]
-        idx in 0..
-      if ag.is_inout
-      | mask bits.or (1 bits.(<<) idx)
-      | mask
-
   'define_method(
      $selector,
      $symbol_name_formatter,
      #'$receiver_name_sym,
+     $receiver.is_inout,
      [#'$arg_name_sym, ...],
-     $inout_mask,
-     fun(types :~ List):
-       $(const_bind_meta.compile(
-           const_binding,
-           'types',
-           'block:
-              $(bind_arg_ref(receiver, receiver_name_sym, 'types[0]'))
-              $(bind_arg_ref(arg, arg_name_sym, 'types[$(index(arg) + 1)]'))
-              ...
-              values(
-                $res_type.rhombus_expr,
-                fun():
-                  pille_expr.concretize(
-                    $(local_defn_meta.encapsulate_body(
-                        impl.body)))) ')))'
+     [$(!arg.implicit_key), ...],
+     [$arg.is_inout, ...],
+     $transparent,
+     fun(callsite_implicit_env, formal_types :~ List):
+       $(recur roll(
+           to_bind :~ [[Syntax.matched_of(Arg), Symbol], ...]:
+             [[receiver, receiver_name_sym], [arg, arg_name_sym], ...],
+           implicit_value_ids :~ [Identifier, ...] = [],
+           formal_idx :~ Nat = 0,
+         ):
+           match to_bind
+           | [[hd, hd_name_sym], &tl]:
+               match hd.implicit_key
+               | ik!!:
+                   let key_id = Syntax.make_temp_id(#'key)
+                   let value_id = Syntax.make_temp_id(#'value)
+                   let value_type_id = Syntax.make_temp_id(#'value_type)
+                   let ref_concr_id = Syntax.make_temp_id(#'ref_concr)
+                   let inner = roll(tl, implicit_value_ids ++ [value_id], formal_idx)
+                   'block:
+                      let $key_id = $ik.rhombus_expr
+                      let $value_id = ImplicitKey.resolve_value($key_id, callsite_implicit_env)
+                      let $value_type_id = Expr.type($value_id)
+                      let $ref_concr_id = concretize_let_ref(#'$hd_name_sym, $value_type_id)
+                      const_bind.compile(
+                        $hd.type_bind,
+                        $value_type_id,
+                        ImplicitKey.with_value(
+                          $key_id,
+                          $ref_concr_id,
+                          fun():
+                            $(if hd.name
+                              | '«pille_expr.macro '($hd.name)':
+                                    '$(pille_expr_meta.pack_concretize(ref_concr_id))'»'
+                              | '')
+                            $inner))'
+               | #false:
+                   let inner = roll(tl, implicit_value_ids, formal_idx + 1)
+                   'const_bind.compile(
+                      $hd.type_bind,
+                      formal_types[$formal_idx],
+                      block:
+                        $(bind_arg_ref(hd, hd_name_sym, 'formal_types[$formal_idx]'))
+                        $inner)'
+           | []:
+               'compile_ww(
+                  [$ww_opt, ...],
+                  values(
+                    [$(each implicit_value_ids), ...],
+                    $res_type.rhombus_expr,
+                    block:
+                      let body_implicit_env = ImplicitKey.snapshot_env()
+                      fun():
+                        ImplicitKey.with_env(
+                          body_implicit_env,
+                          fun():
+                            pille_expr.concretize(
+                              $(local_defn_meta.encapsulate_body(body))))))'))'
 
+// HACK
+expr.macro
+| 'compile_ww([], $body)':
+    body
+| 'compile_ww([$(opt :: WhenWhereOption), ...], $body)':
+    const_bind_meta.compile(
+      const_bind_meta.pack_conjunction([opt, ...]),
+      '#void',
+      body)
+
+// TODO: clean this up
 fun define_method(
   selector,
   format_symbol_name,
-  receiver_name_sym,
-  arg_name_syms :~ List,
-  inout_mask,
-  bind_result_type_and_body,
+  receiver_name_sym :~ Symbol,
+  receiver_is_inout,
+  [arg_name_sym, ...],
+  [arg_is_formal, ...],
+  [arg_is_inout, ...],
+  is_transparent,
+  match_signature :~ Function.assume_of((Map, [Type, ...]) -> values([Expr, ...], maybe(Type), () -> Expr)),
 ):
+  let num_formal_args:
+    math.sum(if arg_is_formal | 1 | 0, ...)
+
+  let with_implicit_env:
+    if is_transparent
+    | fun(thunk): thunk()
+    | ImplicitKey.with_empty_env
+
+  let maybe_cached:
+    if is_transparent
+    | fun(key, f): f(key)
+    | let mutable cache = caches.keyed.init()
+      fun(key, f):
+        caches.keyed.get_or_compute(
+          ~get_cache: fun(): cache,
+          ~set_cache: (cache := _),
+          key,
+          f)
+
+  let raw_inout_mask:
+    for fold(mask = 0):
+      each:
+        is_inout in [receiver_is_inout, arg_is_inout, ...]
+        idx in 0..
+      if is_inout
+      | mask bits.or (1 bits.(<<) idx)
+      | mask
+
+  let (method_inout_mask, _):
+    for fold(mask = 0, idx = 0):
+      each:
+        is_inout in [receiver_is_inout, arg_is_inout, ...]
+        is_formal in [#true, arg_is_formal, ...]
+      keep_when is_formal
+      values(
+        if is_inout
+        | mask bits.or (1 bits.(<<) idx)
+        | mask,
+        idx + 1)
+
   method.define(
     selector,
-    fun(receiver_type :~ Type, arg_types :~ [Type, ...]):
-      guard arg_types.length() == arg_name_syms.length()
+    fun(receiver_type :~ Type, formal_arg_types :~ [Type, ...]):
+      let callsite_implicit_env = ImplicitKey.snapshot_env()
+
+      guard formal_arg_types.length() == num_formal_args
       | #false
 
-      let (res_type :~ maybe(Type), concretize_body :~ Function.assume_of(() -> Expr)):
-        bind_result_type_and_body([receiver_type, &arg_types])
+      let (
+        implicit_vals :~ [Expr, ...],
+        res_type :~ maybe(Type),
+        concretize_body :~ Function.assume_of(() -> Expr),
+      ):
+        with_implicit_env(_) <| fun():
+          match_signature(callsite_implicit_env, [receiver_type, &formal_arg_types])
 
-      let (res_type, raw_call_low) = match res_type
-      | res_type!!:
-          values(
-            res_type,
-            lowering.create_internal_function(
-              format_symbol_name(receiver_type, arg_types),
-              res_type.repr,
-              [[receiver_name_sym, receiver_type.repr],
-               [each arg_name_syms, (each arg_types).repr], ...],
-              ~inout_mask,
-              fun():
-                let (body_type, body_low) = concretize_body().unpack_rvalue()
-                let res_coe = resolve_coercer(body_type, res_type)
-                res_coe ∘ body_low))
-      | #false:
-          let (body_type, body_low) = concretize_body().unpack_rvalue()
-          values(
-            body_type,
-            lowering.create_internal_function(
-              format_symbol_name(receiver_type, arg_types),
-              body_type.repr,
-              [[receiver_name_sym, receiver_type.repr],
-               [each arg_name_syms, (each arg_types).repr], ...],
-              ~inout_mask,
-              fun(): body_low))
+      let arg_types :~ [Type, ...]:
+        let mutable formal_idx = 0
+        let mutable implicit_idx = 0
+        for List (is_formal in [arg_is_formal, ...]):
+          if is_formal
+          | let ty = formal_arg_types[formal_idx]
+            formal_idx := formal_idx + 1
+            ty
+          | let ty = implicit_vals[implicit_idx].type
+            implicit_idx := implicit_idx + 1
+            ty
+
+      // FIXME: lower inline when transparent
+      let [res_type, raw_call_low]:
+        maybe_cached([receiver_type, arg_types], _) <| fun(_):
+          match res_type
+          | res_type!!:
+              [res_type,
+               lowering.create_internal_function(
+                 format_symbol_name(receiver_type, arg_types),
+                 res_type.repr,
+                 [[receiver_name_sym, receiver_type.repr],
+                  [arg_name_sym, (each arg_types).repr], ...],
+                 ~inout_mask: raw_inout_mask,
+                 fun():
+                   let (body_type, body_low) = concretize_body().unpack_rvalue()
+                   let res_coe = resolve_coercer(body_type, res_type)
+                   fun(env):
+                     res_coe(env, body_low(env)))]
+          | #false:
+              let (body_type, body_low) = concretize_body().unpack_rvalue()
+              [body_type,
+               lowering.create_internal_function(
+                 format_symbol_name(receiver_type, arg_types),
+                 body_type.repr,
+                 [[receiver_name_sym, receiver_type.repr],
+                  [arg_name_sym, (each arg_types).repr], ...],
+                 ~inout_mask: raw_inout_mask,
+                 fun(): body_low)]
 
       method.Concretized(
         ~result_type:
           res_type,
-        ~inout_mask,
+        ~inout_mask:
+          method_inout_mask,
         ~lower_call:
-          fun([], arg_vals):
-            raw_call_low(arg_vals)))
+          let implicit_lows = [(each implicit_vals).lower_rvalue, ...]
+          fun(env, explicit_vals :~ List):
+            raw_call_low(
+              block:
+                let mutable explicit_idx = 0
+                let mutable implicit_idx = 0
+                for List (is_explicit in [#true, arg_is_formal, ...]):
+                  if is_explicit
+                  | let val = explicit_vals[explicit_idx]
+                    explicit_idx := explicit_idx + 1
+                    val
+                  | let val = implicit_lows[implicit_idx](env)
+                    implicit_idx := implicit_idx + 1
+                    val)))

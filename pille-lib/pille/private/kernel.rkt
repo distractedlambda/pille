@@ -20,6 +20,7 @@ import:
   "kernel/expr_forms.rhm" open
   "kernel/fun.rhm" open
   "kernel/if.rhm" open
+  "kernel/implicit.rhm" open
   "kernel/labeled_expr.rhm" open
   "kernel/labeled_expr_forms.rhm" open
   "kernel/local_defn.rhm" open
@@ -86,6 +87,7 @@ export:
 
   only_space global_defn:
     coercion
+    implicit
     method
     property
     struct
@@ -102,6 +104,7 @@ export:
     const_annot
     const_bind
     const_expr
+    implicit
     labeled_expr
     local_defn
     special_name
@@ -122,6 +125,7 @@ export:
     all_from("kernel/expr_forms.rhm")
     all_from("kernel/fun.rhm")
     all_from("kernel/if.rhm")
+    all_from("kernel/implicit.rhm")
     all_from("kernel/labeled_expr.rhm")
     all_from("kernel/labeled_expr_forms.rhm")
     all_from("kernel/local_defn.rhm")
@@ -136,6 +140,7 @@ export:
       const_annot_meta
       const_bind_meta
       const_expr_meta
+      implicit_meta
       local_defn_meta
 
     rename:

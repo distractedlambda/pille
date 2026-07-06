@@ -1,0 +1,92 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/annot.rhm" open
+  "../util/equatable_by_identity.rhm" open
+  "caches.rhm"
+  "exn.rhm" open
+  "expr.rhm" open
+  "type_fwd.rhm" open
+
+class.together:
+  class Species(
+    display_name :: String,
+    validator :: [Any, ...] -> _Type -> ~any,
+  ):
+    ~name: ImplicitKey.Species
+
+    equatable_by_identity
+
+    private field cache:
+      caches.keyed.init()
+
+    method key(indices :: [Any, ...]) :~ ImplicitKey:
+      caches.keyed.get_or_compute(
+        ~get_cache: fun(): cache,
+        ~set_cache: (cache := _),
+        indices,
+        fun(indices):
+          _ImplicitKey(this, indices, validator(indices)))
+
+  class ImplicitKey(
+    species :~ Species,
+    indices :~ [Any, ...],
+    private validator :~ Function.assume_of(_Type -> ~any),
+  ):
+    internal _ImplicitKey
+
+    constructor ~error
+
+    equatable_by_identity
+
+    method validate_value_type(ty :: _Type) :~ Void:
+      validator(ty)
+      #void
+
+    method resolve_value(env :: Map = current_env()) :: Expr:
+      env.get(this, _) <| fun():
+        error(
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "no value bound for implicit",
+          error.val(~label: "implicit", this))
+
+    method with_value(
+      value :: Expr,
+      thunk :: Function.of_arity(0),
+    ) :~ Any.like_result(thunk):
+      validator(value.type)
+      parameterize {
+        current_env: current_env() ++ {this: value},
+      }: thunk()
+
+    private implements Printable
+    private override describe(_, rec):
+      match indices
+      | []:
+          species.display_name
+      | [idx, ...]:
+          PrintDesc.list(
+            PrintDesc.concat(species.display_name, "("),
+            [rec(idx), ...],
+            ")")
+
+export ImplicitKey
+alias 'ImplicitKey.Species': 'Species'
+
+Parameter.def current_env :~ Map.of(ImplicitKey, Expr):
+  Map.by(===){}
+
+fun ImplicitKey.snapshot_env() :~ Map:
+  current_env()
+
+fun ImplicitKey.with_env(
+  env :: Map,
+  thunk :: Function.of_arity(0),
+) :~ Any.like_result(thunk):
+  parameterize {current_env: env}:
+    thunk()
+
+fun ImplicitKey.with_empty_env(
+  thunk :: Function.of_arity(0),
+) :~ Any.like_result(thunk):
+  ImplicitKey.with_env(Map.by(===){}, thunk)

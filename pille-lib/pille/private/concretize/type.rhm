@@ -122,30 +122,23 @@ export class Type():
 
   //============================================================================
   final method concretized_method(selector :: Any, arg_types :: [Type, ...]) :~ method.Concretized:
-    caches.keyed.get_or_compute(
-      ~get_cache: fun(): method_cache,
-      ~set_cache: (method_cache := _),
-      Pair(selector, arg_types),
-      fun(Pair(selector, arg_types)):
-        let profile = Profile.require_current()
-        let candidates = profile.methods.maybe[selector] || []
-        try ~escape_as esc:
-          let exns = for fold(exns :~ List = []) (candidate in candidates):
-            try:
-              candidate(this, arg_types) ?> esc
-              exns
-              ~catch exn :: Exn.Fail.Concretize.Recoverable:
-                exns ++ [exn]
-          error(
-            ~exn: Exn.Fail.Concretize.Recoverable,
-            "no matching method",
-            error.val(~label: "receiver type", this),
-            error.val(~label: "selector", selector),
-            error.vals(~label: "argument types", arg_types),
-            error.cause(each exns),
-            ...))
-
-  private field method_cache = caches.keyed.init()
+    let profile = Profile.require_current()
+    let candidates = profile.methods.maybe[selector] || []
+    try ~escape_as esc:
+      let exns = for fold(exns :~ List = []) (candidate in candidates):
+        try:
+          candidate(this, arg_types) ?> esc
+          exns
+          ~catch exn :: Exn.Fail.Concretize.Recoverable:
+            exns ++ [exn]
+      error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "no matching method",
+        error.val(~label: "receiver type", this),
+        error.val(~label: "selector", selector),
+        error.vals(~label: "argument types", arg_types),
+        error.cause(each exns),
+        ...)
 
   //============================================================================
   annot.def RhombusToPilleWriter:

@@ -2,20 +2,25 @@
 
 import:
   "../util/annot.rhm" open
-  "type.rhm" open
+  "type_fwd.rhm" open
   pille/llvm
 
 //============================================================================
+annot.delayed_declare _Rvalue
+
+//============================================================================
 export except_space class: Expr
-class Expr(~type: type :: Type):
+class Expr(~type: type :: _Type):
   nonfinal
 
   constructor ~error
 
   abstract property lower_rvalue :~ Function.assume_of((env :: Map) -> maybe(llvm.Value))
 
+  abstract method as_rvalue() :~ _Rvalue
+
   final method unpack_rvalue() :~ values(
-    Type,
+    _Type,
     Function.assume_of((env :: Map) -> maybe(llvm.Value)),
   ):
     values(type, lower_rvalue)
@@ -26,18 +31,29 @@ class Expr.Rvalue(
     lower :: (env :: Map) -> maybe(llvm.Value),
 ):
   extends Expr
+
   override property lower_rvalue:
     lower
+
+  override as_rvalue():
+    this
+
+annot.delayed_complete _Rvalue: Expr.Rvalue
 
 //============================================================================
 class Expr.Lvalue(
   ~lower_coordinates:
     lower_coordinates :: (env :: Map) -> Any,
   ~lower_read:
-    lower_read :: (coordinates :: Any) -> maybe(llvm.Value),
+    lower_read :: (env :: Map, coordinates :: Any) -> maybe(llvm.Value),
   ~lower_write:
-    lower_write :: (coordinates :: Any, value :: maybe(llvm.Value)) -> ~any,
+    lower_write :: (env :: Map, coordinates :: Any, value :: maybe(llvm.Value)) -> ~any,
 ):
   extends Expr
+
   override property lower_rvalue:
-    lower_read ∘ lower_coordinates
+    fun(env):
+      lower_read(env, lower_coordinates(env))
+
+  override as_rvalue():
+    Expr.Rvalue(~type, ~lower: lower_rvalue)

@@ -175,8 +175,8 @@ class StructType(
         let from_rhombus_low = from_rhombus_concr.lower_call
         fun(slot):
           let carrier_val = carrier_read_low(slot)
-          let [from_rhombus_val] = from_rhombus_low([], [#false, carrier_val])
-          from_rhombus_coe(from_rhombus_val),
+          let [from_rhombus_val] = from_rhombus_low({}, [#false, carrier_val])
+          from_rhombus_coe({}, from_rhombus_val),
       ~write_from_pille:
         let to_rhombus_low = to_rhombus_concr.lower_call
         let carrier_write_low = carrier_interop.write_from_pille
@@ -226,7 +226,7 @@ fun define_struct_methods(
             tuple_type.elements[field_idx],
           ~lower_call:
             let slot = tuple_type.slots[field_idx]
-            fun([], [receiver_val]):
+            fun(env, [receiver_val]):
               [lowering.packing.get(receiver_val, slot)]))
 
     // Write
@@ -245,12 +245,12 @@ fun define_struct_methods(
             let tuple_type = receiver_type.backing_tuple_type
             let slot = tuple_type.slots[field_idx]
             let new_value_coe = resolve_coercer(new_value_type, tuple_type.elements[field_idx])
-            fun([], [receiver_val, new_value_val]):
+            fun(env, [receiver_val, new_value_val]):
               [#false,
                lowering.packing.set(
                  receiver_val,
                  slot,
-                 new_value_coe(new_value_val))]))
+                 new_value_coe({}, new_value_val))]))
 
 //==============================================================================
 // Baseline `$new` implementation
@@ -265,5 +265,5 @@ method.define(
       ~result_type:
         struct_type,
       ~lower_call:
-        fun([], [#false, arg_val, ...]):
-          [lowering.packing.pack([field_coe(arg_val), ...])]))
+        fun(env, [#false, arg_val, ...]):
+          [lowering.packing.pack([field_coe({}, arg_val), ...])]))

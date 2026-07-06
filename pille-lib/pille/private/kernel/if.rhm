@@ -46,7 +46,7 @@ fun concretize_if(
 
   // Apply boolean coercion
   let test_coe = resolve_coercer(test_type, BooleanType())
-  let test_low = test_coe ∘ test_low
+  let test_low = fun(env): test_coe(env, test_low(env))
 
   let (then_type, then_low) = concretize_then().unpack_rvalue()
   let (else_type, else_low) = concretize_else().unpack_rvalue()
@@ -82,8 +82,8 @@ fun concretize_if(
             fun(): low(env))
           values(result_val, builder.insertion_block)
 
-        let (then_val, then_exit_bb) = lower_prong(then_bb, coe_then ∘ then_low)
-        let (else_val, else_exit_bb) = lower_prong(else_bb, coe_else ∘ else_low)
+        let (then_val, then_exit_bb) = lower_prong(then_bb, fun(env): coe_then(env, then_low(env)))
+        let (else_val, else_exit_bb) = lower_prong(else_bb, fun(env): coe_else(env, else_low(env)))
 
         // If the merge block wasn't forced, it means that both prongs diverged,
         // so the whole `if` expression has diverged

@@ -1,0 +1,158 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/per_profile.rhm" open
+  "../util/syntax.rhm" open
+  "const_bind.rhm" open
+  "const_bind_forms.rhm" open
+  "const_expr.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "local_defn.rhm" open
+  "local_defn_forms.rhm" open
+  pille/concretize open
+  pille/lowering
+
+export only_space namespace:
+  meta: pille_expr_meta
+
+//==============================================================================
+space.transform _implicit:
+  space_path pille/implicit
+  bridge_definer bridge
+  meta_namespace _implicit_meta:
+    reflection space
+    description "implicit"
+
+export alias 'implicit':
+  ~only_space space
+  '_implicit'
+
+export namespace implicit
+
+meta export namespace implicit_meta
+
+//==============================================================================
+meta syntax_class implicit_meta.ResolveSpecies:
+  kind: ~sequence
+  fields:
+    name :~ Name
+    rhombus_key_factory :~ Term
+    num_indices :~ Nat
+| '$(name :: Name)':
+    // FIXME: prevent accidental capture from expr bindings
+    def [key_factory_id :~ Identifier, num_indices_]:
+      syntax_meta.value(name, _implicit_meta.space)
+    field rhombus_key_factory:
+      syntax_meta.track_origin(
+        key_factory_id.relocate_span([name]),
+        ~add: syntax_meta.flip_introduce(name),
+        ~space: _implicit_meta.space)
+    field num_indices:
+      num_indices_
+
+//==============================================================================
+meta syntax_class MaybeIndices:
+  kind: ~sequence
+| '($index, ...)'
+| '': field [index, ...] = []
+
+meta syntax_class implicit_meta.ResolveKey:
+  kind: ~sequence
+  fields: species rhombus_expr
+| '$('$(species :: implicit_meta.ResolveSpecies) $(indices :: MaybeIndices)' && stx)':
+    unless species.num_indices == Function.count(indices.index, ...)
+    | syntax_meta.error(
+        @str{wrong number of indices for implicit
+              expected @species.num_indices, received @(Function.count(indices.index, ...))},
+        stx, indices)
+    field rhombus_expr:
+      '($(species.rhombus_key_factory)([const_expr.eval($indices.index), ...]))'
+        .relocate_span([stx])
+
+//==============================================================================
+meta syntax_class MaybeValueTypeBind:
+  kind: ~sequence
+| '$(op :: pille_expr_meta.AnnotOp) $(bind :: SimpleNonemptySequence)'
+| '': field bind = '_'
+
+export defn.macro 'implicit \
+                   $(name :: IdentifierName) \
+                   $(indices :: MaybeIndices) \
+                   $(value_type_bind :: MaybeValueTypeBind) \
+                   $(maybe_block group_option_sequence
+                     | '~name $(block_or_tail display_name :: Name)')':
+  '«def key_factory = block:
+      make_key_factory(
+        $(to_string((display_name || name).name_to_symbol())),
+        make_validator([$indices.index, ...], $value_type_bind.bind))
+
+    _implicit.bridge $name:
+      ['key_factory', $(Function.count(indices.index, ...))]»'
+
+expr.macro 'make_validator([$(index_bind :: const_bind_meta.Parsed), ...], $value_type_bind)':
+  'fun(indices):
+     $(const_bind_meta.compile(
+         const_bind_meta.pack_parallel_bindings([index_bind, ...]),
+         'indices',
+         'make_value_type_validator($value_type_bind)'))'
+
+expr.macro 'make_value_type_validator($(value_type_bind :: const_bind_meta.Parsed))':
+  'fun(val_type):
+     $(const_bind_meta.compile(
+         value_type_bind,
+         'val_type',
+         '#void'))'
+
+fun make_key_factory(display_name, validator):
+  let profile_species = PerProfile()
+  fun(indices):
+    let species :~ ImplicitKey.Species:
+      profile_species.get_or_init(_) <| fun():
+        ImplicitKey.Species(display_name, validator)
+    species.key(indices)
+
+//==============================================================================
+export pille_expr.macro 'summon $(key :: implicit_meta.ResolveKey)':
+  pille_expr_meta.pack_concretize(
+    'ImplicitKey.resolve_value($key.rhombus_expr)')
+
+//==============================================================================
+export local_defn.block_macro 'using $(key :: implicit_meta.ResolveKey) \
+                                     $(value :: local_defn_meta.BindingInit)
+                               $(tl :: NonemptyMulti)':
+  let '$(body :: pille_expr_meta.Parsed)' = local_defn_meta.encapsulate_body(tl)
+  pille_expr_meta.pack_concretize(
+    'concretize_implicit_let(
+       $key.rhombus_expr,
+       $(pille_expr_meta.unpack_concretize(value)),
+       fun(): $(pille_expr_meta.unpack_concretize(body)))')
+
+fun concretize_implicit_let(
+  key :~ ImplicitKey,
+  value :~ Expr,
+  concretize_body :~ Function.assume_of(() -> Expr),
+) :~ Expr:
+  let value_name = Symbol.uninterned_from_string(key.species.display_name)
+  let value_low = value.lower_rvalue
+  let value_ref = concretize_let_ref(value_name, value.type)
+  let body = key.with_value(value_ref, concretize_body)
+  let body_low = body.lower_rvalue
+  Expr.Rvalue(
+    ~type:
+      body.type,
+    ~lower:
+      fun(env :~ Map):
+        let value_val = value_low(env)
+        lowering.name(value_val, value_name)
+        let env = env ++ {value_name: value_val}
+        body_low(env))
+
+//==============================================================================
+export pille_expr.macro 'using':
+  ~op_stx: op
+  syntax_meta.error("not an expression form", op)
+
+meta syntax_class pille_expr_meta.UsingOp:
+  kind: ~sequence
+| '$(bound_as pille_expr_meta.space: 'using')'

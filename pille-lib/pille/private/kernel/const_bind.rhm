@@ -242,6 +242,12 @@ space.enforest const_bind:
       '«const_expr.macro '($metavar)':
           '$(const_expr_meta.pack_rhombus_expr('$rhm_id'))'»'
 
+  export:
+    compile
+
+  expr.macro 'compile($(bnd :: const_bind_meta.Parsed), $tgt, $body)':
+    const_bind_meta.compile(bnd, tgt, body)
+
 fun check_repeat_metavar_occurrence(srcloc, old_val, new_val):
   unless old_val == new_val
   | error(

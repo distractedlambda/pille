@@ -30,7 +30,7 @@ method.define(
       ~result_type:
         ConstType(result),
       ~lower_call:
-        fun([], [#false, ...]):
+        fun(env, [#false, ...]):
           [#false]))
 
 //==============================================================================

@@ -11,12 +11,10 @@ export class Concretized(
     result_type :: _Type,
   ~inout_mask:
     inout_mask :: Nat = 0,
-  ~implicit_args:
-    implicit_args :: [[Symbol, _Type], ...] = [],
   ~lower_call:
     lower_call :: (
-      implicit_args :: [maybe(llvm.Value), ...],
-      formal_args :: [maybe(llvm.Value), ...],
+      env :: Map,
+      explicit_vals :: [maybe(llvm.Value), ...],
     ) -> [maybe(llvm.Value), maybe(llvm.Value), ...])
 
 //============================================================================

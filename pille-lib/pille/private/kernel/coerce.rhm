@@ -9,11 +9,11 @@ import:
 
 //==============================================================================
 annot.def Coercer:
-  maybe(llvm.Value) -> maybe(llvm.Value)
+  (Map, maybe(llvm.Value)) -> maybe(llvm.Value)
 
 export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
   guard !(from_type === to_type)
-  | fun(val): val
+  | fun(_, val): val
 
   let method_concr :~ method.Concretized = try:
     from_type.concretized_method(
@@ -46,6 +46,6 @@ export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
 
   let call_low = method_concr.lower_call
 
-  fun(from_val):
-    let [result_val] = call_low([], [from_val, #false])
+  fun(env, from_val):
+    let [result_val] = call_low(env, [from_val, #false])
     result_val

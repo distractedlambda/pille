@@ -76,7 +76,7 @@ fun concretize_annotated(lhs :~ Expr, rhs, rhs_srcloc):
   let coe = resolve_coercer(lhs_type, rhs)
   Expr.Rvalue(
     ~type: rhs,
-    ~lower: coe ∘ lhs_low)
+    ~lower: fun(env): coe(env, lhs_low(env)))
 
 //==============================================================================
 export pille_expr.macro 'faux($(ty_exp :: const_expr_meta.Parsed))':
@@ -157,8 +157,8 @@ fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
     ~lower:
       fun(env):
         let coords = lhs_coordinates_low(env)
-        let rhs_val = rhs_low(env) |> rhs_coe
-        lhs_write_low(coords, rhs_val)
+        let rhs_val = rhs_coe(env, rhs_low(env))
+        lhs_write_low(env, coords, rhs_val)
         #false)
 
 //==============================================================================
@@ -259,7 +259,6 @@ fun concretize_method_call(
   receiver_srcloc,
   [arg_srcloc, ...],
 ):
-  // TODO: implicits
   let method_concr:
     receiver_concr.type.concretized_method(
       name,
@@ -278,7 +277,7 @@ fun concretize_method_call(
           [concr.lower_coordinates, concr.lower_read, concr.lower_write]
       | ~else:
           let (_, low) = concr.unpack_rvalue()
-          [low, fun(val): val, #false]
+          [low, fun(_, val): val, #false]
 
   Expr.Rvalue(
     ~type: method_concr.result_type,
@@ -287,19 +286,18 @@ fun concretize_method_call(
       let call_low = method_concr.lower_call
       fun(env):
         let [coords, ...] = [coords_low(env), ...]
-        let in_vals = [in_low(coords), ...]
-        let [result, &out_vals] = call_low([], in_vals)
+        let in_vals = [in_low(env, coords), ...]
+        let [result, &out_vals] = call_low(env, in_vals)
         for fold(out_val_idx = 0):
           each:
             coords in [coords, ...]
             out_low in [out_low, ...]
           keep_when out_low
-          out_low(coords, out_vals[out_val_idx])
+          out_low(env, coords, out_vals[out_val_idx])
           out_val_idx + 1
         result)
 
 fun concretize_property_ref(receiver_concr :~ Expr, name):
-  // TODO: implicits
   try ~escape_as esc:
     let read_concr:
       receiver_concr.type.concretized_method(
@@ -333,12 +331,12 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
             ~type: read_concr.result_type,
             ~lower_coordinates: receiver_low,
             ~lower_read:
-              fun(receiver_val):
-                let [result] = read_low([], [receiver_val])
+              fun(env, receiver_val):
+                let [result] = read_low(env, [receiver_val])
                 result,
             ~lower_write:
-              fun(receiver_val, new_val):
-                write_low([], [receiver_val, new_val]))
+              fun(env, receiver_val, new_val):
+                write_low(env, [receiver_val, new_val]))
       | 1:
           guard.let Expr.Lvalue(
             ~lower_coordinates: receiver_coord_low,
@@ -349,15 +347,15 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
             ~type: read_concr.result_type,
             ~lower_coordinates: receiver_coord_low,
             ~lower_read:
-              fun(receiver_coords):
-                let receiver_val = receiver_read_low(receiver_coords)
-                let [result] = read_low([], [receiver_val])
+              fun(env, receiver_coords):
+                let receiver_val = receiver_read_low(env, receiver_coords)
+                let [result] = read_low(env, [receiver_val])
                 result,
             ~lower_write:
-              fun(receiver_coords, new_val):
-                let receiver_val = receiver_read_low(receiver_coords)
-                let [_, new_receiver_val] = write_low([], [receiver_val, new_val])
-                receiver_write_low(receiver_coords, new_receiver_val))
+              fun(env, receiver_coords, new_val):
+                let receiver_val = receiver_read_low(env, receiver_coords)
+                let [_, new_receiver_val] = write_low(env, [receiver_val, new_val])
+                receiver_write_low(env, receiver_coords, new_receiver_val))
       | _:
           error(
             ~exn: Exn.Fail.Concretize,
@@ -371,7 +369,7 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
       ~lower:
         fun(env):
           let receiver_val = receiver_low(env)
-          let [result] = read_low([], [receiver_val])
+          let [result] = read_low(env, [receiver_val])
           result)
 
 //==============================================================================
@@ -389,7 +387,7 @@ export pille_expr.macro '$callee #%comp {$arg, ...}':
 //==============================================================================
 export pille_expr.macro 'inout':
   ~op_stx: op
-  syntax_meta.error(op)
+  syntax_meta.error("not an expression form", op)
 
 meta syntax_class pille_expr_meta.InoutOp:
   kind: ~sequence
@@ -405,7 +403,6 @@ export pille_expr.macro '$lhs #%index [$(key :: pille_expr_meta.Parsed), ...]':
        [$(pille_expr_meta.unpack_concretize(key)), ...])')
 
 fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
-  // TODO: implicits
   let [[key_type, key_low], ...]:
     [List.of_values(key_concr.unpack_rvalue()),
      ...]
@@ -443,12 +440,12 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
               fun(env):
                 [receiver_low(env), key_low(env), ...],
             ~lower_read:
-              fun(coords):
-                let [result] = read_low([], coords)
+              fun(env, coords):
+                let [result] = read_low(env, coords)
                 result,
             ~lower_write:
-              fun(coords, new_val):
-                write_low([], [&coords, new_val]))
+              fun(env, coords, new_val):
+                write_low(env, [&coords, new_val]))
       | 1:
           guard.let Expr.Lvalue(
             ~lower_coordinates: receiver_coord_low,
@@ -461,15 +458,15 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
               fun(env):
                 [receiver_coord_low(env), key_low(env), ...],
             ~lower_read:
-              fun([receiver_coords, key_val, ...]):
-                let receiver_val = receiver_read_low(receiver_coords)
-                let [result] = read_low([], [receiver_val, key_val, ...])
+              fun(env, [receiver_coords, key_val, ...]):
+                let receiver_val = receiver_read_low(env, receiver_coords)
+                let [result] = read_low(env, [receiver_val, key_val, ...])
                 result,
             ~lower_write:
-              fun([receiver_coords, key_val, ...], new_val):
-                let receiver_val = receiver_read_low(receiver_coords)
-                let [_, new_receiver_val] = write_low([], [receiver_val, key_val, ..., new_val])
-                receiver_write_low(receiver_coords, new_receiver_val))
+              fun(env, [receiver_coords, key_val, ...], new_val):
+                let receiver_val = receiver_read_low(env, receiver_coords)
+                let [_, new_receiver_val] = write_low(env, [receiver_val, key_val, ..., new_val])
+                receiver_write_low(env, receiver_coords, new_receiver_val))
       | _:
           error(
             ~exn: Exn.Fail.Concretize,
@@ -480,5 +477,5 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
       ~type: read_concr.result_type,
       ~lower:
         fun(env):
-          let [result] = read_low([], [receiver_low(env), key_low(env), ...])
+          let [result] = read_low(env, [receiver_low(env), key_low(env), ...])
           result)

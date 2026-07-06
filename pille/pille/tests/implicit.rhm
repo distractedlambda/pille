@@ -1,0 +1,40 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+pille.implicit scale :: Const(_ :: nat)
+
+pille.fun apply_scale(lhs, using scale ~as rhs):
+  lhs * rhs
+
+pille.fun apply_scale_twice(x, using scale):
+  apply_scale(apply_scale(x))
+
+pille.fun apply_scale_twice_transparent(x):
+  ~transparent
+  apply_scale(apply_scale(x))
+
+check:
+  pille:
+    using scale = 2
+    summon scale
+  ~is 2
+
+check:
+  pille:
+    using scale = 2
+    apply_scale(4)
+  ~is 8
+
+check:
+  pille:
+    using scale = 2
+    apply_scale_twice(4)
+  ~is 16
+
+check:
+  pille:
+    using scale = 2
+    apply_scale_twice_transparent(4)
+  ~is 16

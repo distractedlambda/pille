@@ -91,7 +91,7 @@ fun concretize_labeled_block(
         NeverType(),
       ~lower:
         fun(env :~ Map):
-          let arg_vals = [arg_coe(arg_low(env)), ...]
+          let arg_vals = [arg_coe(env, arg_low(env)), ...]
 
           let builder = lowering.builder()
           let src_bb = builder.insertion_block
@@ -155,7 +155,7 @@ fun concretize_labeled_block(
           env ++ {
             break_key:
               fun(break_val):
-                let break_val = break_coe(break_val)
+                let break_val = break_coe(env, break_val)
                 when break_val | exit_vals.add([break_val, builder.insertion_block])
                 builder.create_br(exit_bb.force())
                 lowering.signal_termination()}
@@ -170,7 +170,7 @@ fun concretize_labeled_block(
               when res_val | exit_vals.add([res_val, builder.insertion_block])
               builder.create_br(exit_bb.force()),
           fun():
-            body_low(env) |> body_coe)
+            body_coe(env, body_low(env)))
 
         guard exit_bb.is_forced()
         | lowering.signal_termination()

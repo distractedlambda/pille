@@ -12,6 +12,7 @@ decl.macro 'reexport: $path; ...':
 reexport:
   "private/concretize/exn.rhm"
   "private/concretize/expr.rhm"
+  "private/concretize/implicit.rhm"
   "private/concretize/memory_layout.rhm"
   "private/concretize/repr.rhm"
   "private/concretize/type.rhm"
