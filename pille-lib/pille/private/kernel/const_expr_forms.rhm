@@ -124,13 +124,13 @@ export const_expr.macro '$lhs is_a $(rhs :: const_annot_meta.AfterInfixParsed('i
   values(
     const_expr_meta
       .pack_rhombus_expr(
-        'is_a(
+        'is_a_impl(
            $(const_expr_meta.unpack_rhombus_expr(lhs)),
            $(const_annot_meta.unpack_rhombus_predicate(rhs)))')
       .relocate_span([lhs, op, rhs]),
     '$rhs.tail ...')
 
-fun is_a(val, pred) :: Any.to_boolean:
+fun is_a_impl(val, pred) :: Any.to_boolean:
   pred(val)
 
 //==============================================================================
