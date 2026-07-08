@@ -42,7 +42,7 @@ export const_bind.macro '#%parens($child)':
 
 //==============================================================================
 export const_bind.macro '#%literal $(value :: const_expr_meta.Literal)':
-  const_bind_meta.pack_equal_to(value)
+  const_bind_meta.pack_equal_to('#%literal $value')
 
 //==============================================================================
 export const_bind.macro '$lhs :: $(rhs :: const_annot_meta.AfterInfixParsed('::')) $()':
