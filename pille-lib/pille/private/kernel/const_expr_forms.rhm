@@ -210,3 +210,34 @@ const_bind.macro '$lhs matches $rhs':
   ~stronger_than: ~other
   ~associativity: ~none
   syntax_meta.error(stx)
+
+//==============================================================================
+export const_expr.macro 'match $(target :: const_expr_meta.Parsed)
+                         | $(hd_bind :: const_bind_meta.Parsed): $(hd_body :: Group)
+                         | $(tl_bind :: const_bind_meta.Parsed): $(tl_body :: Group)
+                         | ...':
+  let [bind, ...] = [hd_bind, tl_bind, ...]
+  let [body, ...] = [hd_body, tl_body, ...]
+  const_expr_meta.pack_rhombus_expr(
+    'match_impl(
+       $(const_expr_meta.unpack_rhombus_expr(target)),
+       [fun(tgt): $(const_bind_meta.compile(
+                      bind,
+                      'tgt',
+                      'fun(): const_expr.eval($body)')),
+        ...])')
+
+fun match_impl(target, cases :~ List):
+  try ~escape_as ret:
+    let exns = for List (case in cases):
+      try ~escape_as continue:
+        let eval_body = try:
+          case(target)
+          ~catch exn :: Exn.Fail.Concretize.Recoverable:
+            continue(exn)
+        ret(eval_body())
+    error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "no matching case",
+      error.cause(each exns),
+      ...)
