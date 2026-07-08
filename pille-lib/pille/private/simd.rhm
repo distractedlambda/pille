@@ -259,7 +259,7 @@ method (mask :: Simd(Boolean, n)).sparse_assign(inout dst :: δ && SparseSimd(_,
   let src = src :: δ
   when ub.checked | check_mask_covers(mask, src)
   dst := δ{prim.select(mask, src.$sparse_data, dst.$sparse_data),
-           mask ∨ src.$sparse_mask}
+           mask ∨ dst.$sparse_mask}
 
 //==============================================================================
 fun check_mask_covers(mask :: Simd(Boolean, n), smd :: SparseSimd(_, n)) :: Void:
