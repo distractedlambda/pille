@@ -14,3 +14,8 @@ export const_bind.macro 'CoercesTo($δ)':
 
 export const_bind.macro 'CoercesFrom($σ)':
   'δ :: type when type_of(faux($σ) :: δ)'
+
+export const_expr.macro '$σ coerces_to $δ':
+  ~order: equivalence
+  ~associativity: ~none
+  '$σ matches CoercesTo($δ)'
