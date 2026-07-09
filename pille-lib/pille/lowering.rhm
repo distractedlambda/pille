@@ -6,6 +6,7 @@ import:
   "private/runtime/profile.rhm" open
   "private/util/assert.rhm" open
   "private/util/defer.rhm" open
+  lib("ffi/unsafe.rkt") as ffi
   pille/llvm
 
 //==============================================================================
@@ -76,7 +77,7 @@ export namespace packing:
         assert(!element)
         packed
     | Slot.self:
-        assert(packed?.type == element?.type)
+        assert(ffi.#{ptr-equal?}(packed?.type, element?.type))
         element
     | idx :: Nat:
         builder().create_insert_value(packed, element, idx)
