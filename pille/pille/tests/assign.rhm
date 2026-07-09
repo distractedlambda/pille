@@ -1,0 +1,17 @@
+#lang rhombus/static/and_meta
+
+import:
+  pille/hosted open
+
+pille.struct NegateOnAssign:
+  value :: Int(32)
+
+pille.method (inout dst :: NegateOnAssign).$assign(src :: NegateOnAssign):
+  dst.value := -src.value
+
+check:
+  pille:
+    var noa = NegateOnAssign{0}
+    noa := NegateOnAssign{42}
+    noa.value
+  ~is -42

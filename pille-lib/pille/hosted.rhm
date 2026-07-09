@@ -2,12 +2,12 @@
 
 module only_pille_spaces ~lang pille:
   export:
-    only_space const_annot const_bind const_expr expr labeled_expr local_defn:
+    only_space const_annot const_bind const_expr expr labeled_expr local_defn special_name:
       all_from(pille)
 
 module except_pille_spaces ~lang pille:
   export:
-    except_space const_annot const_bind const_expr expr labeled_expr local_defn:
+    except_space const_annot const_bind const_expr expr labeled_expr local_defn special_name:
       all_from(pille)
 
 import:

@@ -140,6 +140,49 @@ meta syntax_class pille_expr_meta.AssignOp:
 | '$(bound_as pille_expr_meta.space: ':=')'
 
 fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
+  try ~escape_as ret:
+    let assign_method_concr :~ method.Concretized = try:
+      lhs.type.concretized_method(
+        special_name.symbol(assign),
+        [rhs.type])
+      ~catch exn :: Exn.Fail.Concretize.Recoverable:
+        ret(concretize_raw_assignment(lhs, rhs, lhs_srcloc))
+
+    let rhs_low = rhs.lower_rvalue
+    let call_low = assign_method_concr.lower_call
+
+    let lower = match assign_method_concr.inout_mask
+    | 0:
+        let lhs_low = lhs.lower_rvalue
+        fun(env):
+          let lhs_val = lhs_low(env)
+          let rhs_val = rhs_low(env)
+          call_low(env, [lhs_val, rhs_val])
+          #false
+    | 1:
+        guard.let lhs :: Expr.Lvalue = lhs
+        | error(
+            ~srcloc: lhs_srcloc,
+            ~exn: Exn.Fail.Concretize.Recoverable,
+            "expression is not assignable")
+        let lhs_coords_low = lhs.lower_coordinates
+        let lhs_read_low = lhs.lower_read
+        let lhs_write_low = lhs.lower_write
+        fun(env):
+          let lhs_coords = lhs_coords_low(env)
+          let lhs_init_val = lhs_read_low(env, lhs_coords)
+          let rhs_val = rhs_low(env)
+          let [_, lhs_new_val] = call_low(env, [lhs_init_val, rhs_val])
+          lhs_write_low(env, lhs_coords, lhs_new_val)
+          #false
+    | _:
+        error(
+          ~exn: Exn.Fail.Concretize,
+          "'$assign' method cannot take new value as 'inout'")
+
+    Expr.Rvalue(~type: VoidType(), ~lower)
+
+fun concretize_raw_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
   let (rhs_type, rhs_low) = rhs.unpack_rvalue()
   let rhs_coe = resolve_coercer(rhs_type, lhs.type)
 

@@ -34,6 +34,7 @@ bind.macro 'special_name.symbol($(name :: Identifier))':
   's when s === special_name.symbol($name)'
 
 //==============================================================================
+export special_name.def assign
 export special_name.def call
 export special_name.def coerce_to
 export special_name.def from_rhombus
