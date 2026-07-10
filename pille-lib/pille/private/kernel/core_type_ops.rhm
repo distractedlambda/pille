@@ -1,6 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
+  "coerce.rhm" open
   "const_annot_forms.rhm" open
   "const_bind_forms.rhm" open
   "const_expr_forms.rhm" open
@@ -8,6 +9,7 @@ import:
   "core_types.rhm" open
   "special_name.rhm" open
   pille/concretize open
+  pille/lowering
 
 //==============================================================================
 // Const(f :: function).$call(arg :: Const(v), ...)
@@ -32,6 +34,53 @@ method.define(
       ~lower_call:
         fun(env, [#false, ...]):
           [#false]))
+
+//==============================================================================
+// Tuple `$assign` implementation
+method.define(
+  special_name.symbol(assign),
+  fun(receiver_type, arg_types :~ [Type, ...]):
+    guard.let receiver_type :: TupleType = receiver_type | #false
+    guard.let [arg_type] = arg_types | #false
+    let arg_coe = resolve_coercer(arg_type, receiver_type)
+    let [slot, ...] = receiver_type.slots
+    let [lower_elem_update, ...] = for List (elem_type in receiver_type.elements):
+      try ~escape_as esc:
+        let assign_method_concr :~ method.Concretized = try:
+          elem_type.concretized_method(
+            special_name.symbol(assign),
+            [elem_type])
+          ~catch _ :: Exn.Fail.Concretize.Recoverable:
+            esc(fun(_, _, arg_elem_val): arg_elem_val)
+        let call_low = assign_method_concr.lower_call
+        match assign_method_concr.inout_mask
+        | 0:
+            fun(env, recv_elem_val, arg_elem_val):
+              call_low(env, [recv_elem_val, arg_elem_val])
+              recv_elem_val
+        | 1:
+            fun(env, recv_elem_val, arg_elem_val):
+              let [_, new_elem_val] = call_low(env, [recv_elem_val, arg_elem_val])
+              new_elem_val
+        | _:
+            error(
+              ~exn: Exn.Fail.Concretize,
+              "'$assign' method cannot take new value as 'inout'")
+    method.Concretized(
+      ~result_type:
+        VoidType(),
+      ~inout_mask:
+        1, // CONSIDER: make non-inout if no element is?
+      ~lower_call:
+        fun(env, [recv_val, arg_val]):
+          let arg_val = arg_coe(env, arg_val)
+          [#false,
+           lowering.packing.pack(
+             [lower_elem_update(
+                env,
+                lowering.packing.get(recv_val, slot),
+                lowering.packing.get(arg_val, slot)),
+              ...])]))
 
 //==============================================================================
 export const.fun tuple_length(α && AnyTuple):

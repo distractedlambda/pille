@@ -267,3 +267,23 @@ method.define(
       ~lower_call:
         fun(env, [#false, arg_val, ...]):
           [lowering.packing.pack([field_coe({}, arg_val), ...])]))
+
+//==============================================================================
+// Baseline `$assign` implementation
+method.define(
+  special_name.symbol(assign),
+  fun(receiver_type, arg_types :~ [Type, ...]):
+    guard.let receiver_type :: _StructType = receiver_type | #false
+    guard.let [arg_type] = arg_types | #false
+    let arg_coe = resolve_coercer(arg_type, receiver_type)
+    let tuple_type = receiver_type.backing_tuple_type
+    let tuple_assign = tuple_type.concretized_method(
+      special_name.symbol(assign),
+      [tuple_type])
+    let tuple_assign_low = tuple_assign.lower_call
+    method.Concretized(
+      ~result_type: tuple_assign.result_type,
+      ~inout_mask: tuple_assign.inout_mask,
+      ~lower_call:
+        fun(env, [recv_val, arg_val]):
+          tuple_assign_low(env, [recv_val, arg_coe(env, arg_val)])))

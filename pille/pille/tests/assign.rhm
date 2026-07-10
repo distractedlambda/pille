@@ -9,9 +9,23 @@ pille.struct NegateOnAssign:
 pille.method (inout dst :: NegateOnAssign).$assign(src :: NegateOnAssign):
   dst.value := -src.value
 
+pille.struct Pair(α, β):
+  first :: α
+  second :: β
+
+pille.fun make_pair(first :: α, second :: β):
+  Pair(α, β){first, second}
+
 check:
   pille:
     var noa = NegateOnAssign{0}
     noa := NegateOnAssign{42}
     noa.value
   ~is -42
+
+check:
+  pille:
+    var p = make_pair(0 :: Int(32), NegateOnAssign{0})
+    p := make_pair(42 :: Int(32), NegateOnAssign{42})
+    [p.first, p.second.value]
+  ~is [42, -42]
