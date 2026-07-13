@@ -244,9 +244,13 @@ space.enforest const_bind:
 
   export:
     compile
+    parallel_bindings
 
   expr.macro 'compile($(bnd :: const_bind_meta.Parsed), $tgt, $body)':
     const_bind_meta.compile(bnd, tgt, body)
+
+  macro 'parallel_bindings($(bnd :: const_bind_meta.Parsed), ...)':
+    const_bind_meta.pack_parallel_bindings([bnd, ...])
 
 fun check_repeat_metavar_occurrence(srcloc, old_val, new_val):
   unless old_val == new_val

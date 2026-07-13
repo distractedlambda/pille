@@ -21,8 +21,8 @@ meta:
     kind: ~sequence
     fields:
       present :~ Boolean
-      [arg :~ const_bind_meta.Packed, ...]
-  | '($(arg :: const_bind_meta.Parsed), ...)':
+      [arg, ...]
+  | '($arg, ...)':
       field present = #true
   | '':
       field present = #false
@@ -59,16 +59,16 @@ meta:
 export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $(body :: Body)':
   let display_name = body.display_name || name
 
-  'def species:
+  'def species = block:
      StructSpecies(
        #'$(display_name.name_to_symbol()),
        $(!const_args.present),
        $(Function.count(body.field, ...)),
        fun(const_arg_vals):
-         $(const_bind_meta.compile(
-             const_bind_meta.pack_parallel_bindings([const_args.arg, ...]),
-             'const_arg_vals',
-             '[$body.field.rhombus_type_expr, ...]')))
+         const_bind.compile(
+           const_bind.parallel_bindings($const_args.arg, ...),
+           const_arg_vals,
+           [$body.field.rhombus_type_expr, ...]))
 
    define_struct_methods(
      species,
