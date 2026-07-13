@@ -107,6 +107,13 @@ export operator lhs !== rhs:
   !(lhs === rhs)
 
 //==============================================================================
+export special_name.def contains
+
+export operator lhs in rhs:
+  ~order: equivalence
+  rhs.$contains(lhs)
+
+//==============================================================================
 export only_space expr:
   rename:
     ¬ as not
@@ -116,3 +123,4 @@ export only_space expr:
     != as ≠
     <= as ≤
     >= as ≥
+    in as ∈

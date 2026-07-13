@@ -25,6 +25,7 @@ reexport:
   "private/never.rhm"
   "private/panic.rhm"
   "private/pointer.rhm"
+  "private/range.rhm"
   "private/simd.rhm"
   "private/tuple.rhm"
   "private/type_traits.rhm"
