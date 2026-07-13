@@ -67,6 +67,9 @@ import:
   rhombus/static/meta open:
     only_space impo expo operator_order space_clause unmeta.space_meta_clause
 
+  meta:
+    rhombus/static open
+
 export:
   all_from(rhombus/static/meta)
 
@@ -136,6 +139,8 @@ export:
     all_from("kernel/ub_policy.rhm")
 
   meta:
+    all_from(rhombus/static)
+
     only_space namespace:
       const_annot_meta
       const_bind_meta
