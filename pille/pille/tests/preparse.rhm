@@ -1,0 +1,30 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+check:
+  pille:
+    pille.expr.preparse answer: 42
+    answer
+  ~is 42
+
+check:
+  pille:
+    var x :: Int(32) = 40
+    pille.expr.preparse inc_x:
+      x := x + 1
+    inc_x
+    inc_x
+    x
+  ~is 42
+
+check:
+  pille:
+    pille.expr.preparse inc(x):
+      x := x + 1
+    var y :: Int(32) = 40
+    inc(y)
+    inc(y)
+    y
+  ~is 42

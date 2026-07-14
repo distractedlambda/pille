@@ -27,6 +27,7 @@ import:
   "kernel/local_defn_forms.rhm" open
   "kernel/method.rhm" open
   "kernel/operator.rhm" open
+  "kernel/preparse.rhm" open
   "kernel/special_name.rhm" open
   "kernel/struct.rhm" open
   "kernel/ub_policy.rhm" open
@@ -134,6 +135,7 @@ export:
     all_from("kernel/local_defn.rhm")
     all_from("kernel/local_defn_forms.rhm")
     all_from("kernel/method.rhm")
+    all_from("kernel/preparse.rhm")
     all_from("kernel/special_name.rhm")
     all_from("kernel/struct.rhm")
     all_from("kernel/ub_policy.rhm")

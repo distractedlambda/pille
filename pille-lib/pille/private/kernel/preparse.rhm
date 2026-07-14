@@ -1,0 +1,50 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "expr.rhm" open
+  "local_defn.rhm" open
+
+export only_space namespace:
+  pille_expr
+
+meta syntax_class MaybeArgs:
+  kind: ~sequence
+| '($(arg :: Identifier), ...)':
+    field present = #true
+| '':
+    field present = #false
+    field [arg, ...] = []
+
+local_defn.block_macro 'pille_expr.preparse $(name :: IdentifierName) $(args :: MaybeArgs):
+                          $(body :: NonemptyMulti)
+                        $(tl :: NonemptyMulti)':
+  cond
+  | args.present:
+      let [arg_concr_id, ...] = [Syntax.make_temp_id(args.arg), ...]
+      let [arg_stx_id, ...] = [Syntax.make_temp_id(args.arg), ...]
+      pille_expr_meta.pack_concretize(
+        '«block:
+            let concr_body = fun($arg_concr_id, ...):
+              pille_expr.macro '($args.arg)':
+                '$(pille_expr_meta.pack_concretize(arg_concr_id))'
+              ...
+              pille_expr.concretize(
+                $(local_defn_meta.encapsulate_body(body)))
+            pille_expr.macro '($name)($('$')($arg_stx_id :: pille_expr_meta.Parsed), ...)':
+              pille_expr_meta.pack_concretize(
+                'concr_body(
+                   $('$')(pille_expr_meta.unpack_concretize($arg_stx_id)),
+                   ...)')
+            pille_expr.concretize(
+              $(local_defn_meta.encapsulate_body(tl)))»')
+  | ~else:
+      let '$(body_p :: pille_expr_meta.Parsed)' = local_defn_meta.encapsulate_body(body)
+      pille_expr_meta.pack_concretize(
+        '«block:
+            let concr_body = fun():
+              $(pille_expr_meta.unpack_concretize(body_p))
+            pille_expr.macro '($name)':
+              '$(pille_expr_meta.pack_concretize('concr_body()'))'
+            pille_expr.concretize(
+              $(local_defn_meta.encapsulate_body(tl)))»')

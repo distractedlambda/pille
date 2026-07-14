@@ -19,11 +19,11 @@ import:
   "private/kernel/local_defn_forms.rhm":
     expose:
       concretize_let_ref
+  pille
   pille/concretize open
   pille/llvm
   pille/lowering
   rhombus/delay open
-  self!except_pille_spaces as pille
   self!only_pille_spaces open
 
 export:
