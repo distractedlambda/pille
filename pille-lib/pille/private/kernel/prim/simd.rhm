@@ -157,3 +157,137 @@ fun concretize_vp_binop(intrinsic_name, lhs :~ Expr, rhs :~ Expr, mask :~ Expr):
           intrinsic_name,
           [lhs_llvm_type],
           [lhs_val, rhs_val, mask_val, evl]))
+
+//==============================================================================
+export pille_expr.macro 'masked_load(
+                           $(ptr :: pille_expr_meta.Parsed),
+                           $(align :: const_expr_meta.Parsed),
+                           $(mask :: pille_expr_meta.Parsed),
+                           $(passthru :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_masked_load(
+       $(pille_expr_meta.unpack_concretize(ptr)),
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(mask)),
+       $(pille_expr_meta.unpack_concretize(passthru)))')
+
+fun concretize_masked_load(ptr :~ Expr, align, mask :~ Expr, passthru :~ Expr):
+  let ptr_low = ptr.lower_rvalue
+  let mask_low = mask.lower_rvalue
+  let passthru_low = passthru.lower_rvalue
+  Expr.Rvalue(
+    ~type: passthru.type,
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        let ptr_val = ptr_low(env)
+        let mask_val = mask_low(env)
+        let passthru_val = passthru_low(env)
+        builder.create_intrinsic_call(
+          "llvm.masked.load",
+          [passthru_val!!.type, ptr_val!!.type],
+          [ptr_val,
+           llvm.ConstantInt(builder.int_type(32), align),
+           mask_val,
+           passthru_val]))
+
+//==============================================================================
+export pille_expr.macro 'masked_store(
+                           $(val :: pille_expr_meta.Parsed),
+                           $(ptr :: pille_expr_meta.Parsed),
+                           $(align :: const_expr_meta.Parsed),
+                           $(mask :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_masked_store(
+       $(pille_expr_meta.unpack_concretize(val)),
+       $(pille_expr_meta.unpack_concretize(ptr)),
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(mask)))')
+
+fun concretize_masked_store(val :~ Expr, ptr :~ Expr, align, mask :~ Expr):
+  let val_low = val.lower_rvalue
+  let ptr_low = ptr.lower_rvalue
+  let mask_low = mask.lower_rvalue
+  Expr.Rvalue(
+    ~type: VoidType(),
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        let val_val = val_low(env)
+        let ptr_val = ptr_low(env)
+        let mask_val = mask_low(env)
+        builder.create_intrinsic_call(
+          "llvm.masked.store",
+          [val_val!!.type, ptr_val!!.type],
+          [val_val,
+           ptr_val,
+           llvm.ConstantInt(builder.int_type(32), align),
+           mask_val])
+        #false)
+
+//==============================================================================
+export pille_expr.macro 'masked_gather(
+                           $(ptrs :: pille_expr_meta.Parsed),
+                           $(align :: const_expr_meta.Parsed),
+                           $(mask :: pille_expr_meta.Parsed),
+                           $(passthru :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_masked_gather(
+       $(pille_expr_meta.unpack_concretize(ptrs)),
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(mask)),
+       $(pille_expr_meta.unpack_concretize(passthru)))')
+
+fun concretize_masked_gather(ptrs :~ Expr, align, mask :~ Expr, passthru :~ Expr):
+  let ptrs_low = ptrs.lower_rvalue
+  let mask_low = mask.lower_rvalue
+  let passthru_low = passthru.lower_rvalue
+  Expr.Rvalue(
+    ~type: passthru.type,
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        let ptrs_val = ptrs_low(env)
+        let mask_val = mask_low(env)
+        let passthru_val = passthru_low(env)
+        builder.create_intrinsic_call(
+          "llvm.masked.gather",
+          [passthru_val!!.type, ptrs_val!!.type],
+          [ptrs_val,
+           llvm.ConstantInt(builder.int_type(32), align),
+           mask_val,
+           passthru_val]))
+
+//==============================================================================
+export pille_expr.macro 'masked_scatter(
+                           $(vals :: pille_expr_meta.Parsed),
+                           $(ptrs :: pille_expr_meta.Parsed),
+                           $(align :: const_expr_meta.Parsed),
+                           $(mask :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_masked_scatter(
+       $(pille_expr_meta.unpack_concretize(vals)),
+       $(pille_expr_meta.unpack_concretize(ptrs)),
+       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(pille_expr_meta.unpack_concretize(mask)))')
+
+fun concretize_masked_scatter(vals :~ Expr, ptrs :~ Expr, align, mask :~ Expr):
+  let vals_low = vals.lower_rvalue
+  let ptrs_low = ptrs.lower_rvalue
+  let mask_low = mask.lower_rvalue
+  Expr.Rvalue(
+    ~type: VoidType(),
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        let vals_val = vals_low(env)
+        let ptrs_val = ptrs_low(env)
+        let mask_val = mask_low(env)
+        builder.create_intrinsic_call(
+          "llvm.masked.scatter",
+          [vals_val!!.type, ptrs_val!!.type],
+          [vals_val,
+           ptrs_val,
+           llvm.ConstantInt(builder.int_type(32), align),
+           mask_val])
+        #false)

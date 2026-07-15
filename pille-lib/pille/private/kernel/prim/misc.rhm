@@ -42,6 +42,26 @@ fun concretize_poison(type :~ Type):
             llvm.PoisonValue(repr.llvm_type(lowering.builder().context)))
 
 //==============================================================================
+export pille_expr.macro 'zeroes($(texp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_zeroes(
+       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+
+fun concretize_zeroes(type :~ Type):
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      match type.repr
+      | Repr.Erased():
+          fun(_):
+            #false
+      | repr:
+          fun(_):
+            llvm.SizedType.null_value(
+              repr.llvm_type(
+                lowering.builder().context)))
+
+//==============================================================================
 export pille_expr.macro 'constant_int($(texp :: const_expr_meta.Parsed),
                                       $(vexp :: const_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
@@ -59,6 +79,24 @@ fun concretize_constant_int(type :~ Type, value):
         llvm.ConstantInt(
           repr.llvm_type(lowering.builder().context),
           value))
+
+//==============================================================================
+export pille_expr.macro 'iota($(texp :: const_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_iota($(const_expr_meta.unpack_rhombus_expr(texp)))')
+
+fun concretize_iota(type :~ Type):
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      match type.repr
+      | Repr.Simd(elem && Repr.Bits(_), len):
+          fun(_):
+            let builder = lowering.builder()
+            let elem_llvm_type = elem.llvm_type(builder.context)
+            builder.create_vector(
+              [llvm.ConstantInt(elem_llvm_type, each 0..len),
+               ...]))
 
 //==============================================================================
 export pille_expr.macro 'unreachable':

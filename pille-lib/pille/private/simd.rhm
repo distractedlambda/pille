@@ -4,7 +4,9 @@ import:
   "cond.rhm" open
   "const_ops.rhm" open
   "generic_ops.rhm" open
+  "int.rhm" open
   "panic.rhm" open
+  "pointer.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
@@ -30,6 +32,16 @@ unify(Simd(α, n), β):
 
 unify(Simd(α, n), Simd(β, n)):
   Simd(unify(α, β), n)
+
+//==============================================================================
+// TODO move this somewhere else
+export struct Iota
+
+export expr.macro 'iota':
+  'Iota{}'
+
+coercion (src :: Iota) :: δ && Simd(BinaryInteger, _):
+  prim.iota(δ)
 
 //==============================================================================
 method (rhs :: α && Simd(Bitwise, _)).$not() :: α:
@@ -128,6 +140,92 @@ method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
       γ{res[0], mask}
 
 //==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: SparseSimd(RawPtr, n),
+  offset :: SparseSimd(Int(_), n),
+) :: SparseSimd(RawPtr, n):
+  when ub.checked | check_mask_covers(mask, ptr)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeInt, n)
+  let data = cond
+  | ub.allowed:
+      prim.ptradd ~inbounds (ptr.$sparse_data, offset.$sparse_data)
+  | ub.suppressed:
+      prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
+  | ub.checked:
+      let new = prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
+      let overflow = offset.$sparse_data > 0 && new ≤ ptr.$sparse_data
+      let underflow = offset.$sparse_data < 0 && new ≥ ptr.$sparse_data
+      when mask.select(overflow ∨ underflow, #false).any() | panic()
+      new
+  SparseSimd(RawPtr, n){data, mask}
+
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: SparseSimd(RawPtr, n),
+  offset :: SparseSimd(UInt(_), n),
+) :: SparseSimd(RawPtr, n):
+  when ub.checked | check_mask_covers(mask, ptr)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeUInt, n)
+  let data = cond
+  | ub.allowed:
+      prim.ptradd ~inbounds ~nuw (ptr.$sparse_data, offset.$sparse_data)
+  | ub.suppressed:
+      prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
+  | ub.checked:
+      let new = prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
+      let overflow = new < ptr.$sparse_data
+      when mask.select(overflow, #false).any() | panic()
+      new
+  SparseSimd(RawPtr, n){data, mask}
+
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: SparseSimd(RawPtr, n),
+  const offset :: int,
+) :: SparseSimd(RawPtr, n):
+  when ub.checked | check_mask_covers(mask, ptr)
+  cond
+  | offset == 0:
+      ptr
+  | offset > 0:
+      mask.sparse_add(ptr, offset :: SparseSimd(NativeUInt, n))
+  | offset < 0:
+      mask.sparse_add(ptr, offset :: SparseSimd(NativeInt, n))
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: φ && SparseSimd(PtrTo(α), n),
+  offset :: SparseSimd(Int(_), n),
+) :: φ:
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeInt, n)
+  let offset = mask.sparse_mul(offset, strideof(α))
+  prim.retype(
+    mask.sparse_add(
+      prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
+      offset),
+    ~to: φ)
+
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: φ && SparseSimd(PtrTo(α), n),
+  offset :: SparseSimd(UInt(_), n),
+) :: φ:
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeUInt, n)
+  let offset = mask.sparse_mul(offset, strideof(α))
+  prim.retype(
+    mask.sparse_add(
+      prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
+      offset),
+    ~to: φ)
+
+method (mask :: Simd(Boolean, n)).sparse_add(
+  ptr :: φ && SparseSimd(PtrTo(α), n),
+  const offset :: int,
+) :: φ:
+  prim.retype(
+    mask.sparse_add(
+      prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
+      offset * strideof(α)),
+    ~to: φ)
+
+//==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
   ~where γ && SparseSimd(Int(_), n) = unify(α, β)
   let lhs = lhs :: γ
@@ -163,6 +261,34 @@ method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
       let res = prim.usub_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when (mask ∧ res[1]).any() | panic()
       γ{res[0], mask}
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_sub(
+  ptr :: SparseSimd(RawPtr, n),
+  amount :: SparseSimd(BinaryInteger, n),
+) :: SparseSimd(RawPtr, n):
+  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(NativeInt, n)
+  mask.sparse_add(ptr, mask.sparse_neg(amount))
+
+method (mask :: Simd(Boolean, n)).sparse_sub(
+  ptr :: SparseSimd(RawPtr, n),
+  const amount :: int,
+) :: SparseSimd(RawPtr, n):
+  mask.sparse_add(ptr, -amount)
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_sub(
+  ptr :: φ && SparseSimd(PtrTo(_), n),
+  amount :: SparseSimd(BinaryInteger, n),
+) :: φ:
+  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(NativeInt, n)
+  mask.sparse_add(ptr, mask.sparse_neg(amount))
+
+method (mask :: Simd(Boolean, n)).sparse_sub(
+  ptr :: φ && SparseSimd(PtrTo(_), n),
+  const amount :: int,
+) :: SparseSimd(RawPtr, n):
+  mask.sparse_add(ptr, -amount)
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
@@ -236,6 +362,163 @@ method (mask :: Simd(Boolean, n)).sparse_xor(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   γ{prim.xor(lhs.$sparse_data, rhs.$sparse_data),
     mask}
+
+//==============================================================================
+fun check_align
+| (ptr :: RawPtr, const align :: alignment) :: Void:
+    // FIXME: deduplicate this code
+    unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
+    | panic()
+| (mask :: Simd(Boolean, n), ptrs :: Simd(RawPtr, n), const align :: alignment) :: Void:
+    let ptr_ints = prim.ptrtoint(ptrs, ~to: Simd(NativeUInt, n))
+    let misalignments = ptr_ints ∧ (align - 1)
+    let misaligned = mask.select(misalignments != 0, #false)
+    when misaligned.any() | panic()
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_load(
+  ptr :: RawPtr,
+  const α :: type,
+) :: SparseSimd(α, n):
+  mask.sparse_load(ptr, α, alignof(α))
+
+method (mask :: Simd(Boolean, n)).sparse_load(
+  ptr :: RawPtr,
+  const α :: type,
+  const align :: alignment,
+) :: SparseSimd(α, n):
+  // FIXME: null check, other related stuff
+  let data = cond
+  | ub.allowed:
+      prim.masked_load(ptr, align, mask, prim.poison(Simd(α, n)))
+  | ub.suppressed:
+      prim.masked_load(ptr, 1, mask, prim.zeroes(Simd(α, n)))
+  | ub.checked:
+      check_align(ptr, align)
+      prim.masked_load(ptr, align, mask, prim.poison(Simd(α, n)))
+  SparseSimd(α, n){data, mask}
+
+method (mask :: Simd(Boolean, n)).sparse_load(ptr :: PtrTo(α)) :: SparseSimd(α, n):
+  mask.sparse_load(ptr.raw, α)
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_load(
+  ptrs :: SparseSimd(RawPtr, n),
+  const α :: type,
+) :: SparseSimd(α, n):
+  mask.sparse_load(ptrs, α, alignof(α))
+
+method (mask :: Simd(Boolean, n)).sparse_load(
+  ptrs :: SparseSimd(RawPtr, n),
+  const α :: type,
+  const align :: alignment,
+) :: SparseSimd(α, n):
+  // FIXME: null check, other related stuff
+  let data = cond
+  | ub.allowed:
+      prim.masked_gather(ptrs.$sparse_data, align, mask, prim.poison(Simd(α, n)))
+  | ub.suppressed:
+      prim.masked_gather(ptrs.$sparse_data, 1, mask, prim.zeroes(Simd(α, n)))
+  | ub.checked:
+      check_mask_covers(mask, ptrs)
+      check_align(mask, ptrs.$sparse_data, align)
+      prim.masked_gather(ptrs.$sparse_data, align, mask, prim.poison(Simd(α, n)))
+  SparseSimd(α, n){data, mask}
+
+method (mask :: Simd(Boolean, n)).sparse_load(ptrs :: SparseSimd(PtrTo(α), n)) :: SparseSimd(α, n):
+  mask.sparse_load(
+    prim.retype(ptrs, ~to: SparseSimd(RawPtr, n)),
+    α)
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptr :: RawPtr,
+  value :: SparseSimd(α, n),
+) :: Void:
+  mask.sparse_store(ptr, value, alignof(α))
+
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptr :: RawPtr,
+  value :: SparseSimd(_, n),
+  const align :: alignment,
+) :: Void:
+  // FIXME: null check, other related stuff
+  cond
+  | ub.allowed:
+      prim.masked_store(value.$sparse_data, ptr, align, mask)
+  | ub.suppressed:
+      prim.masked_store(value.$sparse_data, ptr, 1, mask)
+  | ub.checked:
+      check_mask_covers(mask, value)
+      check_align(ptr, align)
+      prim.masked_store(value.$sparse_data, ptr, align, mask)
+
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptr :: PtrMut(α),
+  value :: SparseSimd(α, n),
+) :: Void:
+  mask.sparse_store(ptr.raw, value)
+
+//==============================================================================
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptrs :: SparseSimd(RawPtr, n),
+  value :: SparseSimd(α, n),
+) :: Void:
+  mask.sparse_store(ptrs, value, alignof(α))
+
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptrs :: SparseSimd(RawPtr, n),
+  value :: SparseSimd(_, n),
+  const align :: alignment,
+) :: Void:
+  // FIXME: null check, other related stuff
+  cond
+  | ub.allowed:
+      prim.masked_scatter(value.$sparse_data, ptrs, align, mask)
+  | ub.suppressed:
+      prim.masked_scatter(value.$sparse_data, ptrs, 1, mask)
+  | ub.checked:
+      check_mask_covers(mask, ptrs)
+      check_mask_covers(mask, value)
+      check_align(mask, ptrs.$sparse_data, align)
+      prim.masked_scatter(value.$sparse_data, ptrs, align, mask)
+
+method (mask :: Simd(Boolean, n)).sparse_store(
+  ptrs :: SparseSimd(PtrMut(α), n),
+  value :: SparseSimd(α, n),
+) :: Void:
+  mask.sparse_store(
+    prim.retype(ptrs, ~to: SparseSimd(RawPtr, n)),
+    value)
+
+//==============================================================================
+struct SparseCastExact(α, n):
+  mask :: Simd(Boolean, n)
+  src :: SparseSimd(α, n)
+
+method (mask :: Simd(Boolean, n)).sparse_cast_exact(src :: SparseSimd(α, n)):
+  when ub.checked | check_mask_covers(mask, src)
+  SparseCastExact(α, n){mask, src}
+
+coercion (cast :: SparseCastExact(Int(w1), n)) :: δ && SparseSimd(Int(w2), n):
+  cond
+  | w1 ≤ w2:
+      cast.src
+  | ub.allowed:
+      δ{prim.trunc_nsw(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
+        cast.mask}
+  | ub.suppressed:
+      δ{prim.trunc(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
+        cast.mask}
+  | ub.checked:
+      let src_data = cast.src.$sparse_data
+      let in_bounds = src_data ≥ Int(w2).min_value && src_data ≤ Int(w2).max_value
+      if cast.mask.select(in_bounds, #true).all()
+      | δ{prim.trunc_nsw(src_data, ~to: Simd(Int(w2), n)),
+          cast.mask}
+      | panic()
+
+// TODO: other casts
 
 //==============================================================================
 method (mask :: μ && Simd(Boolean, n)).sparse_refine_mask(test :: SparseSimd(Boolean, n)) :: μ:
