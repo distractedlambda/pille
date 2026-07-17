@@ -47,13 +47,13 @@ export class_clause.macro 'interned $(fs :: FieldsSpec)':
              fun(val :~ Internal, rec :~ Function.of_arity(1)):
                Equatable.hash_code_combine(rec(val. $field), ...)
 
-         def instances = WeakMutableMap.by(equal_fields){}
+         def instances = MutableMap.by(equal_fields){}
          def instances_lock = Semaphore(1)
 
          constructor($field, ...):
            intern($internal_ctor_call, instances, instances_lock)»')'
 
-fun intern(candidate, instances :~ WeakMutableMap, lock :~ Semaphore):
+fun intern(candidate, instances :~ MutableMap, lock :~ Semaphore):
   let existing = instances.maybe[candidate]
   guard !existing | existing
 
