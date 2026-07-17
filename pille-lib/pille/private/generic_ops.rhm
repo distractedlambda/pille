@@ -14,9 +14,11 @@ global_defn.macro 'generic_binops:
    operator
    | lhs $op rhs:
        ~order: $order
+       ~transparent
        lhs.$ $special_name(rhs)
    | (lhs :: α) $op (rhs :: β):
        ~where γ = unify(α, β)
+       ~transparent
        (lhs :: γ).$ $special_name(rhs :: γ)
    ...'
 
@@ -56,12 +58,15 @@ global_defn.macro 'generic_binpreops:
    operator
    | $op rhs:
        ~order: $order
+       ~transparent
        rhs.$ $prefix_special_name()
    | lhs $op rhs:
        ~order: $order
+       ~transparent
        lhs.$ $infix_special_name(rhs)
    | (lhs :: α) $op (rhs :: β):
        ~where γ = unify(α, β)
+       ~transparent
        (lhs :: γ).$ $infix_special_name(rhs :: γ)
    ...'
 
@@ -82,6 +87,7 @@ export special_name.def not
 
 export operator ¬rhs:
   ~order: bitwise_negation
+  ~transparent
   rhs.$not()
 
 //==============================================================================
@@ -111,6 +117,7 @@ export special_name.def contains
 
 export operator lhs in rhs:
   ~order: equivalence
+  ~transparent
   rhs.$contains(lhs)
 
 //==============================================================================
