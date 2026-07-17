@@ -328,7 +328,7 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
   ) :: Value:
     let vec_type = VectorType(val.type, length)
     let poison_vec = PoisonValue(vec_type)
-    let val_in_0 = create_insert_element(poison_vec, val, 0)
+    let val_in_0 = create_insert_element(poison_vec, val, ConstantInt(int_type(32), 0))
     create_shuffle_vector(
       ~name,
       val_in_0,
@@ -336,10 +336,11 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
       VectorType(int_type(32), length).null_value)
 
   method create_vector(elements :: Listable.to_list && [Value, Value, ...]) :: Value:
+    let idx_type = int_type(32)
     let elem_type = elements[0].type
     let res_type = VectorType(elem_type, elements.length())
     for fold(res = PoisonValue(res_type)) (elem in elements, idx in 0..):
-      create_insert_element(res, elem, idx)
+      create_insert_element(res, elem, ConstantInt(idx_type, idx))
 
   method create_extract_value(
     ~name: name :: ReadableString || Symbol = "",
