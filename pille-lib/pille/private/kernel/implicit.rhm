@@ -46,7 +46,7 @@ meta syntax_class implicit_meta.ResolveSpecies:
     field rhombus_key_factory:
       syntax_meta.track_origin(
         key_factory_id.relocate_span([name]),
-        ~add: syntax_meta.flip_introduce(name),
+        ~add: /* syntax_meta.flip_introduce(name) */ [],
         ~space: _implicit_meta.space)
     field num_indices:
       num_indices_
