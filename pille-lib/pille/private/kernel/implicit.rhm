@@ -60,15 +60,15 @@ meta syntax_class MaybeIndices:
 meta syntax_class implicit_meta.ResolveKey:
   kind: ~sequence
   fields: species rhombus_expr
-| '$('$(species :: implicit_meta.ResolveSpecies) $(indices :: MaybeIndices)' && stx)':
+| '$(species :: implicit_meta.ResolveSpecies) $(indices :: MaybeIndices)':
     unless species.num_indices == Function.count(indices.index, ...)
     | syntax_meta.error(
         @str{wrong number of indices for implicit
               expected @species.num_indices, received @(Function.count(indices.index, ...))},
-        stx, indices)
+        indices)
     field rhombus_expr:
       '($(species.rhombus_key_factory)([const_expr.eval($indices.index), ...]))'
-        .relocate_span([stx])
+        .relocate_span([species, indices])
 
 //==============================================================================
 meta syntax_class MaybeValueTypeBind:
