@@ -137,7 +137,7 @@ fun concretize_implicit_let(
   value :~ Expr,
   concretize_body :~ Function.assume_of(() -> Expr),
 ) :~ Expr:
-  let value_name = Symbol.uninterned_from_string(key.species.display_name)
+  let value_name = Symbol.gen(key.species.display_name)
   let value_low = value.lower_rvalue
   let value_ref = concretize_let_ref(value_name, value.type)
   let body = key.with_value(value_ref, concretize_body)

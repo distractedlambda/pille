@@ -16,7 +16,7 @@ export alias 'special_name':
 //==============================================================================
 defn.macro 'special_name.def $(name :: Identifier)':
   '«def symbol:
-      Symbol.uninterned_from_string($("$" ++ to_string(name.name_to_symbol())))
+      Symbol.gen($("$" ++ to_string(name.name_to_symbol())))
 
     _special_name.bridge $name:
       'symbol'»'
