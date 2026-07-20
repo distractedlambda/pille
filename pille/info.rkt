@@ -4,7 +4,8 @@
 
 (define deps
   '("base"
-    "pille-lib"))
+    "pille-lib"
+    "pille-spmd-lib"))
 
 (define build-deps
   '("racket-doc"

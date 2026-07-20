@@ -1,0 +1,27 @@
+#lang rhombus/static
+
+import:
+  ffi open
+  pille/hosted open
+  pille/spmd
+
+module impls ~lang pille/spmd:
+  export fun set_42(using program_mask, ptr :: PtrMut(BinaryInteger), len :: BinaryInteger) :: Void:
+    var idx :: Varying(NativeUInt) = program_index
+    while (idx < len):
+      ptr[idx] := 42
+      idx := idx + program_count
+
+import self!impls
+
+check:
+  let len = 57
+  let buf = new uint32_t[len]
+  pille(buf :: PtrMut(UInt(32)), len :: NativeUInt):
+    using spmd.program_mask = spmd.Unmasked(8){}
+    impls.set_42(buf, len)
+  for List (i in 0..len):
+    mem buf[i]
+  ~is:
+    for List(i in 0..57):
+      42
