@@ -31,7 +31,11 @@ fun concretize_compare_op(lhs :~ Expr, rhs :~ Expr, builder_fn):
   assert(lhs_type === rhs_type)
   Expr.Rvalue(
     ~type:
-      BooleanType(),
+      match lhs_type
+      | SimdType(_, length):
+          SimdType(BooleanType(), length)
+      | _:
+          BooleanType(),
     ~lower:
       fun(env):
         let lhs_val = lhs_low(env)
