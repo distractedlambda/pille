@@ -245,17 +245,12 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
            | []:
                'compile_ww(
                   [$ww_opt, ...],
-                  values(
+                  prepare_concretize_body(
                     [$(each implicit_value_ids), ...],
-                    $res_type.rhombus_expr,
-                    block:
-                      let body_implicit_env = ImplicitKey.snapshot_env()
-                      fun():
-                        ImplicitKey.with_env(
-                          body_implicit_env,
-                          fun():
-                            pille_expr.concretize(
-                              $(local_defn_meta.encapsulate_body(body))))))'))'
+                    $(if res_type.rhombus_expr
+                      | 'check_result_type($(res_type.rhombus_expr), $(res_type.srcloc()))'
+                      | '#false'),
+                    fun(): pille_expr.concretize($(local_defn_meta.encapsulate_body(body)))))'))'
 
 // HACK
 expr.macro
@@ -266,6 +261,30 @@ expr.macro
       const_bind_meta.pack_conjunction([opt, ...]),
       '#void',
       body)
+
+fun check_result_type(val, srcloc):
+  unless val is_a Type
+  | error(
+      ~srcloc,
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "result-type expression did not yield a type",
+      error.val(val))
+  val
+
+fun prepare_concretize_body(implicits, res_type, concr_body):
+  let concr_body:
+    if res_type
+    | fun():
+        let body = concr_body()
+        let body_low = Expr.lower_rvalue(body)
+        let coe = resolve_coercer(Expr.type(body), res_type)
+        Expr.Rvalue(
+          ~type: res_type,
+          ~lower: fun(env): coe(env, body_low(env)))
+    | concr_body
+  let body_implicit_env = ImplicitKey.snapshot_env()
+  let concr_body = fun(): ImplicitKey.with_env(body_implicit_env, concr_body)
+  values(implicits, res_type, concr_body)
 
 // TODO: clean this up
 fun define_method(
