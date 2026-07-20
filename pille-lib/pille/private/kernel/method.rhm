@@ -1,6 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
+  "../util/assert.rhm" open
   "../util/syntax.rhm" open
   "coerce.rhm" open
   "const_bind_forms.rhm" open
@@ -13,6 +14,7 @@ import:
   "special_name.rhm" open
   "when_where.rhm" open
   pille/concretize open
+  pille/llvm
   pille/lowering
   rhombus/delay open
 
@@ -286,7 +288,8 @@ fun prepare_concretize_body(implicits, res_type, concr_body):
   let concr_body = fun(): ImplicitKey.with_env(body_implicit_env, concr_body)
   values(implicits, res_type, concr_body)
 
-// TODO: clean this up
+// TODO: This is terrifying, fragile, and may already be wrong in subtle and unknown ways
+//       It needs to be rewritten
 fun define_method(
   selector,
   format_symbol_name,
@@ -306,16 +309,14 @@ fun define_method(
     | fun(thunk): thunk()
     | ImplicitKey.with_empty_env
 
-  let maybe_cached:
-    if is_transparent
-    | fun(key, f): f(key)
-    | let mutable cache = caches.keyed.init()
-      fun(key, f):
-        caches.keyed.get_or_compute(
-          ~get_cache: fun(): cache,
-          ~set_cache: (cache := _),
-          key,
-          f)
+  let cached:
+    let mutable cache = caches.keyed.init()
+    fun(key, f):
+      caches.keyed.get_or_compute(
+        ~get_cache: fun(): cache,
+        ~set_cache: (cache := _),
+        key,
+        f)
 
   let raw_inout_mask:
     for fold(mask = 0):
@@ -354,6 +355,8 @@ fun define_method(
         with_implicit_env(_) <| fun():
           match_signature(callsite_implicit_env, [receiver_type, &formal_arg_types])
 
+      let implicit_lows = [(each implicit_vals).lower_rvalue, ...]
+
       let arg_types :~ [Type, ...]:
         let mutable formal_idx = 0
         let mutable implicit_idx = 0
@@ -366,51 +369,94 @@ fun define_method(
             implicit_idx := implicit_idx + 1
             ty
 
-      // FIXME: lower inline when transparent
-      let [res_type, raw_call_low]:
-        maybe_cached([receiver_type, arg_types], _) <| fun(_):
-          match res_type
-          | res_type!!:
-              [res_type,
-               lowering.create_internal_function(
-                 format_symbol_name(receiver_type, arg_types),
-                 res_type.repr,
-                 [[receiver_name_sym, receiver_type.repr],
-                  [arg_name_sym, (each arg_types).repr], ...],
-                 ~inout_mask: raw_inout_mask,
-                 fun():
-                   let (body_type, body_low) = concretize_body().unpack_rvalue()
-                   let res_coe = resolve_coercer(body_type, res_type)
-                   fun(env):
-                     res_coe(env, body_low(env)))]
-          | #false:
-              let (body_type, body_low) = concretize_body().unpack_rvalue()
-              [body_type,
-               lowering.create_internal_function(
-                 format_symbol_name(receiver_type, arg_types),
-                 body_type.repr,
-                 [[receiver_name_sym, receiver_type.repr],
-                  [arg_name_sym, (each arg_types).repr], ...],
-                 ~inout_mask: raw_inout_mask,
-                 fun(): body_low)]
+      let raw_sig:
+        [[receiver_name_sym, receiver_type.repr],
+         [arg_name_sym, (each arg_types).repr], ...]
+
+      let [res_type, raw_call_low] = cond
+      | is_transparent:
+          let body = concretize_body()
+          let body_low = body.lower_rvalue
+          [body.type,
+           fun(env, raw_arg_vals :~ List):
+             let builder = lowering.builder()
+             let env = for fold(env :~ Map = env):
+               each:
+                 incoming_val in raw_arg_vals
+                 [name_sym, repr] in raw_sig
+                 raw_idx in 0..
+               skip_when repr is_a Repr.Erased
+               let env_val = cond
+               | raw_inout_mask bits.(?) raw_idx:
+                   lowering.name(incoming_val, @str{@(name_sym).in})
+                   let alloca:
+                     let cur_bb = builder.insertion_block!!
+                     builder.position_at_start(cur_bb.parent!!.basic_blocks.first!!)
+                     let alloca = builder.create_alloca(repr.llvm_type(builder.context))
+                     builder.position_at_end(cur_bb)
+                     alloca
+                   lowering.name(alloca, @str{@(name_sym).alloca})
+                   builder.create_store(incoming_val, alloca)
+                   alloca
+               | ~else:
+                   lowering.name(incoming_val, name_sym)
+                   incoming_val
+               env ++ {name_sym: env_val}
+             let res = body_low(env)
+             let out_vals:
+               for List ([name_sym, repr] in raw_sig, raw_idx in 0..):
+                 keep_when raw_inout_mask bits.(?) raw_idx
+                 guard repr is_a Repr.Sized | #false
+                 let alloca = env[name_sym]
+                 assert(alloca is_a llvm.AllocaInst)
+                 let out_val = builder.create_load(repr.llvm_type(builder.context), alloca)
+                 lowering.name(out_val, @str{@(name_sym).out})
+                 out_val
+             [res, &out_vals]]
+
+      | ~else:
+          cached([receiver_type, arg_types], _) <| fun(_):
+            let symbol_name:
+              format_symbol_name(receiver_type, arg_types)
+
+            let [res_type, internal_call_low] = match res_type
+            | res_type!!:
+                [res_type,
+                 lowering.create_internal_function(
+                   symbol_name,
+                   res_type.repr,
+                   raw_sig,
+                   ~inout_mask: raw_inout_mask,
+                   fun(): concretize_body().lower_rvalue)]
+            | #false:
+                let body = concretize_body()
+                [body.type,
+                 lowering.create_internal_function(
+                   symbol_name,
+                   body.type.repr,
+                   raw_sig,
+                   ~inout_mask: raw_inout_mask,
+                   fun(): body.lower_rvalue)]
+
+            [res_type,
+             fun(env, raw_arg_vals):
+               internal_call_low(raw_arg_vals)]
 
       method.Concretized(
-        ~result_type:
-          res_type,
-        ~inout_mask:
-          method_inout_mask,
+        ~result_type: res_type,
+        ~inout_mask: method_inout_mask,
         ~lower_call:
-          let implicit_lows = [(each implicit_vals).lower_rvalue, ...]
-          fun(env, explicit_vals :~ List):
-            raw_call_low(
-              block:
-                let mutable explicit_idx = 0
-                let mutable implicit_idx = 0
-                for List (is_explicit in [#true, arg_is_formal, ...]):
-                  if is_explicit
-                  | let val = explicit_vals[explicit_idx]
-                    explicit_idx := explicit_idx + 1
-                    val
-                  | let val = implicit_lows[implicit_idx](env)
-                    implicit_idx := implicit_idx + 1
-                    val)))
+           fun(env, explicit_vals :~ List):
+             raw_call_low(
+               env,
+               block:
+                 let mutable explicit_idx = 0
+                 let mutable implicit_idx = 0
+                 for List (is_explicit in [#true, arg_is_formal, ...]):
+                   if is_explicit
+                   | let val = explicit_vals[explicit_idx]
+                     explicit_idx := explicit_idx + 1
+                     val
+                   | let val = implicit_lows[implicit_idx](env)
+                     implicit_idx := implicit_idx + 1
+                     val)))
