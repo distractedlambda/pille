@@ -100,4 +100,5 @@ meta:
   export fun name_to_uninterned_symbol(name :~ Name) :~ Symbol:
     name
       |> Syntax.name_to_symbol
-      |> Symbol.gen
+      |> to_string
+      |> Symbol.uninterned_from_string

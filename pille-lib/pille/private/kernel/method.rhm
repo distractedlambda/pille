@@ -177,7 +177,7 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
   | syntax_meta.error("receiver cannot be implicit", receiver)
 
   fun make_arg_name_sym(arg :~ Syntax.matched_of(Arg)):
-    guard arg.name | Symbol.gen("_")
+    guard arg.name | Symbol.uninterned_from_string("_")
     name_to_uninterned_symbol(arg.name)
 
   fun bind_arg_ref(arg :~ Syntax.matched_of(Arg), name_sym, type_expr):
