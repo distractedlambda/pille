@@ -723,14 +723,14 @@ method (mask :: Simd(Boolean, n)).sparse_store(
   // FIXME: null check, other related stuff
   cond
   | ub.allowed:
-      prim.masked_scatter(value.$sparse_data, ptrs, align, mask)
+      prim.masked_scatter(value.$sparse_data, ptrs.$sparse_data, align, mask)
   | ub.suppressed:
-      prim.masked_scatter(value.$sparse_data, ptrs, 1, mask)
+      prim.masked_scatter(value.$sparse_data, ptrs.$sparse_data, 1, mask)
   | ub.checked:
       check_mask_covers(mask, ptrs)
       check_mask_covers(mask, value)
       check_align(mask, ptrs.$sparse_data, align)
-      prim.masked_scatter(value.$sparse_data, ptrs, align, mask)
+      prim.masked_scatter(value.$sparse_data, ptrs.$sparse_data, align, mask)
 
 method (mask :: Simd(Boolean, n)).sparse_store(
   ptrs :: SparseSimd(PtrMut(α), n),
@@ -807,7 +807,7 @@ method (mask :: Simd(Boolean, n)).sparse_assign(inout dst :: δ && SparseSimd(_,
   let src = src :: δ
   when ub.checked | check_mask_covers(mask, src)
   dst := δ{prim.select(mask, src.$sparse_data, dst.$sparse_data),
-           mask ∨ dst.$sparse_mask}
+           if ub.checked | mask ∨ dst.$sparse_mask | #void}
 
 //==============================================================================
 fun check_mask_covers(mask :: Simd(Boolean, n), smd :: SparseSimd(_, n)) :: Void:
