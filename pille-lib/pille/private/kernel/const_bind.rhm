@@ -46,20 +46,14 @@ space.enforest const_bind:
     identifier_parser fun(id):
       match id
       | '$(_ :: const_expr_meta.BoundNameStart)':
-          let '$(cexp :: const_expr_meta.Parsed)' = id
-          cexp
-            |> const_expr_meta.unpack_rhombus_expr
-            |> pack_equal_to
+          pack_equal_to('const_expr.eval($id)')
       | _:
           _pack('(~metavariable $id)').relocate(id)
 
     dotted_identifier_parser fun(nm):
       match nm
       | '$(_ :: const_expr_meta.BoundNameStart)':
-          let '$(cexp :: const_expr_meta.Parsed)' = nm
-          cexp
-            |> const_expr_meta.unpack_rhombus_expr
-            |> pack_equal_to
+          pack_equal_to('const_expr.eval($nm)')
       | _:
           syntax_meta.error("not a constant-binding form", nm)
 
