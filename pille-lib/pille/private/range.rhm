@@ -8,72 +8,30 @@ import:
   "type_traits.rhm" open
 
 //==============================================================================
-export namespace Range
+export struct Range(α):
+  start :: α
+  end :: α
 
-export struct Range(σ && Range.Bound, τ && Range.Bound):
-  start :: σ
-  stop :: τ
+export struct RangeFrom(α):
+  start :: α
 
-struct Range.Including(α):
-  value :: α
+export struct RangeTo(α):
+  end :: α
 
-struct Range.Excluding(α):
-  value :: α
-
-struct Range.Unbounded
-
-const_bind.macro 'Range.Bound':
-  'Range.Including(_) || Range.Excluding(_) || Range.Unbounded'
-
-fun Range.make(start :: σ && Range.Bound, stop :: τ && Range.Bound):
-  Range(σ, τ){start, stop}
-
-fun Range.including(value :: α):
-  Range.Including(α){value}
-
-fun Range.excluding(value :: α):
-  Range.Excluding(α){value}
-
-fun Range.unbounded():
-  Range.Unbounded{}
+export struct RangeFull
 
 //==============================================================================
-export const_bind.macro 'SequenceRange':
-  'Range(Range.Including(Integral) || Range.Excluding(Integral),
-         Range.Including(Integral) || Range.Excluding(Integral) || Range.Unbounded)'
+method (rng :: Range(_)).$contains(val):
+  ~transparent
+  (val ≥ rng.start) ∧ (val < rng.end)
 
-export const_bind.macro 'ListRange':
-  'Range(Range.Including(Integral) || Range.Excluding(Integral),
-         Range.Including(Integral) || Range.Excluding(Integral))'
+method (rng :: RangeFrom(_)).$contains(val):
+  ~transparent
+  val ≥ rng.start
 
-//==============================================================================
-method (rng :: Range(_, _)).$contains(val):
-  within_start(val, rng.start) && within_stop(val, rng.stop)
-
-fun within_start
-| (val, start :: Range.Including(_)):
-    val ≥ start.value
-| (val, start :: Range.Excluding(_)):
-    val > start.value
-| (val, start :: Range.Unbounded):
-    #true
-
-fun within_stop
-| (val, stop :: Range.Including(_)):
-    val ≤ stop.value
-| (val, stop :: Range.Excluding(_)):
-    val < stop.value
-| (val, stop :: Range.Unbounded):
-    #true
-
-//==============================================================================
-export const.fun RangeElement
-| (Range(Range.Including(α) || Range.Excluding(α), Range.Including(β) || Range.Excluding(β))):
-    unify(α, β)
-| (Range(Range.Including(α) || Range.Excluding(α), Range.Unbounded)):
-    α
-| (Range(Range.Unbounded, Range.Including(α) || Range.Excluding(α))):
-    α
+method (rng :: RangeTo(_)).$contains(val):
+  ~transparent
+  val < rng.end
 
 //==============================================================================
 meta syntax_class ForSequence:
@@ -82,22 +40,23 @@ meta syntax_class ForSequence:
     field rng:
       syntax_meta.track_origin(
         rng_,
-        ~add: in_op,
+        ~add: syntax_meta.flip_introduce(in_op),
         ~space: expr_meta.space)
 
 export expr.macro 'for ($(seq :: ForSequence)): $body':
   'block:
+     expr.preparse body($seq.ivar): $body
      let rng = $seq.rng
-     #'loop($seq.ivar = for_init(rng)):
-       unless $seq.ivar ∈ rng | break loop
-       block: $body
-       continue loop($seq.ivar + 1)' // FIXME: overflows with inclusive range to max int
-
-fun for_init
-| (rng :: ρ && SequenceRange && Range(Range.Including(_), _)) :: RangeElement(ρ):
-    rng.start.value
-| (rng :: ρ && SequenceRange && Range(Range.Excluding(_), _)) :: RangeElement(ρ):
-    (rng.start.value :: RangeElement(ρ)) + 1
+     const.match type_of(rng)
+     | Range(Const(v)):
+         #void
+     | Range(BinaryInteger):
+         #'loop(i = rng.start):
+           unless i < rng.end | break loop
+           body(i)
+           continue loop(i + 1)
+     | _:
+         const.error("unsupported range type")'
 
 //==============================================================================
 export expr.macro
@@ -108,13 +67,11 @@ export expr.macro
     match tl
     | '':
         values(
-          '(Range.make(Range.including($lhs), Range.unbounded()))'
-            .relocate_span([stx]),
+          '(make_range_from($lhs))'.relocate_span([stx]),
           '')
     | '$(rhs :: expr_meta.AfterInfixParsed('..'))':
         values(
-          '(Range.make(Range.including($lhs), Range.excluding($rhs)))'
-            .relocate_span([lhs, op, rhs]),
+          '(make_range($lhs, $rhs))'.relocate_span([lhs, op, rhs]),
           '$rhs.tail ...')
 | '.. $(tl :: Sequence) $()':
     ~op_stx: op
@@ -123,38 +80,22 @@ export expr.macro
     match tl
     | '':
         values(
-          '(Range.make(Range.unbounded(), Range.unbounded()))'
-            .relocate_span([stx]),
+          '(RangeFull{})'.relocate_span([stx]),
           '')
     | '$(rhs :: expr_meta.AfterPrefixParsed('..'))':
         values(
-          '(Range.make(Range.unbounded(), Range.excluding($rhs)))'
-            .relocate_span([op, rhs]),
+          '(make_range_to($rhs))'.relocate_span([op, rhs]),
           '$rhs.tail ...')
 
-export operator
-| lhs ..= rhs:
-    ~order: enumeration
-    Range.make(Range.including(lhs), Range.including(rhs))
-| ..= rhs:
-    ~order: enumeration
-    Range.make(Range.unbounded(), Range.including(rhs))
+fun make_range_from(start :: α):
+  ~transparent
+  RangeFrom(α){start}
 
-export expr.macro '$lhs <.. $(tl :: Sequence) $()':
-  ~op_stx: op
-  ~all_stx: stx
-  ~order: enumeration
-  match tl
-  | '':
-      values(
-        '(Range.make(Range.excluding($lhs), Range.unbounded()))'
-          .relocate_span([stx]),
-        '')
-  | '$(rhs :: expr_meta.AfterInfixParsed('<..'))':
-      values(
-        '(Range.make(Range.excluding($lhs), Range.excluding($rhs)))'
-          .relocate_span([lhs, op, rhs]))
+fun make_range(start :: α, stop :: β):
+  ~where γ = unify(α, β)
+  ~transparent
+  Range(γ){start, stop}
 
-export operator lhs <..= rhs:
-  ~order: enumeration
-  Range.make(Range.excluding(lhs), Range.including(rhs))
+fun make_range_to(stop :: α):
+  ~transparent
+  RangeTo(α){stop}
