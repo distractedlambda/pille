@@ -1,0 +1,59 @@
+#lang pille
+
+import:
+  "mask.rhm" open
+  "varying.rhm" open
+  pille
+
+//==============================================================================
+export expr.macro 'if $(test :: expr_meta.Parsed)
+                   | $then
+                   | $else':
+  'block:
+     expr.preparse then: $then
+     expr.preparse else: $else
+     let test = $test
+     const.match type_of(test)
+     | CoercesTo(Boolean):
+         pille.if test
+         | then
+         | else
+     | _:
+         let test :: Varying(Boolean) = test
+         let then_mask = make_then_mask(test)
+         pille.when then_mask.any()
+         | using program_mask = then_mask
+           then
+         let else_mask = make_else_mask(test)
+         pille.when else_mask.any()
+         | using program_mask = else_mask
+           else
+     #void'
+
+fun make_then_mask(using program_mask, test :: Varying(Boolean)):
+  simd_program_mask.sparse_refine_mask(test.$program_values)
+
+fun make_else_mask(using program_mask, test :: Varying(Boolean)):
+  let m = simd_program_mask
+  m.sparse_refine_mask(m.sparse_not(test.$program_values))
+
+//==============================================================================
+export expr.macro 'while $(test :: expr_meta.Parsed): $body':
+  'block:
+     expr.preparse body: $body
+     #'loop(mask = simd_program_mask):
+       using program_mask = mask
+       let test = $test
+       const.match type_of(test)
+       | CoercesTo(Boolean):
+           pille.if test
+           | body
+             continue loop(mask)
+           | break loop
+       | _:
+           let test :: Varying(Boolean) = test
+           let new_mask = mask.sparse_refine_mask(test.$program_values)
+           pille.unless new_mask.any() | break loop
+           using program_mask = new_mask
+           body
+           continue loop(new_mask)'

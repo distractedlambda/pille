@@ -1,0 +1,160 @@
+#lang pille
+
+import:
+  "mask.rhm" open
+
+//==============================================================================
+export special_name.def program_values
+
+//==============================================================================
+export struct #%Varying(α :: type, pc :: pos_int):
+  $program_values :: SparseSimd(α, pc)
+
+coercion (src :: α) :: δ && #%Varying(β, pc):
+  ~when !(α matches #%Varying(_, _))
+  ~when α coerces_to β
+  #%Varying(β, pc){src :: β}
+
+coercion (src :: #%Varying(α, pc)) :: δ && #%Varying(β, pc):
+  ~when SparseSimd(α, pc) coerces_to SparseSimd(β, pc)
+  δ{src.$program_values}
+
+unify(α, #%Varying(β, pc)):
+  ~when !(α matches #%Varying(_, _))
+  #%Varying(unify(α, β), pc)
+
+unify(#%Varying(α, pc), #%Varying(β, pc)):
+  #%Varying(unify(α, β), pc)
+
+//==============================================================================
+export const_expr.macro 'Varying($α)':
+  '#%Varying($α, program_count)'
+
+export expr.macro 'Varying($α)':
+  'const(Varying($α))'
+
+export const_bind.macro 'Varying($α)':
+  '#%Varying($α, program_count)'
+
+//==============================================================================
+export expr.macro 'program_index':
+  'get_program_index()'
+
+fun get_program_index(using program_mask) :: Varying(ι):
+  ~where ι = UInt(bit_length(program_count - 1))
+  Varying(ι){iota}
+
+//==============================================================================
+method (lhs :: α).$add(rhs :: α, using program_mask) :: α:
+  ~where Varying(BinaryInteger) = α
+  α{simd_program_mask.sparse_add(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$sub(rhs :: α, using program_mask) :: α:
+  ~where Varying(BinaryInteger) = α
+  α{simd_program_mask.sparse_sub(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$mul(rhs :: α, using program_mask) :: α:
+  ~where Varying(BinaryInteger) = α
+  α{simd_program_mask.sparse_mul(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$div_trunc(rhs :: α, using program_mask) :: α:
+  ~where Varying(BinaryInteger) = α
+  α{simd_program_mask.sparse_div_trunc(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$rem_trunc(rhs :: α, using program_mask) :: α:
+  ~where Varying(BinaryInteger) = α
+  α{simd_program_mask.sparse_rem_trunc(lhs.$program_values, rhs.$program_values)}
+
+//==============================================================================
+method (lhs :: α).$eq(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(Bitwise || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_eq(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$ne(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(Bitwise || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_ne(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$lt(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_lt(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$le(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_le(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$gt(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_lt(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: α).$ge(rhs :: α, using program_mask) :: Varying(Boolean):
+  ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
+  Varying(Boolean){simd_program_mask.sparse_le(lhs.$program_values, rhs.$program_values)}
+
+//==============================================================================
+method (lhs :: φ).$add(using program_mask, rhs :: Varying(BinaryInteger)) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_add(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: φ).$add(using program_mask, rhs :: ρ && BinaryInteger) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_add(
+      lhs.$program_values,
+      (rhs :: Varying(ρ)).$program_values)}
+
+method (lhs :: φ).$add(using program_mask, const rhs :: int) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_add(lhs.$program_values, rhs)}
+
+method (lhs :: φ && PtrTo(_)).$add(using program_mask, rhs :: Varying(BinaryInteger)) :: Varying(φ):
+  Varying(φ){
+    simd_program_mask.sparse_add(
+      (lhs :: Varying(φ)).$program_values,
+      rhs.$program_values)}
+
+//==============================================================================
+method (lhs :: φ).$sub(using program_mask, rhs :: Varying(BinaryInteger)) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_sub(lhs.$program_values, rhs.$program_values)}
+
+method (lhs :: φ).$sub(using program_mask, rhs :: ρ && BinaryInteger) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_sub(
+      lhs.$program_values,
+      (rhs :: Varying(ρ)).$program_values)}
+
+method (lhs :: φ).$sub(using program_mask, const rhs :: int) :: φ:
+  ~where Varying(PtrTo(_)) = φ
+  φ{simd_program_mask.sparse_sub(lhs.$program_values, rhs)}
+
+method (lhs :: φ && PtrTo(_)).$sub(using program_mask, rhs :: Varying(BinaryInteger)) :: Varying(φ):
+  Varying(φ){
+    simd_program_mask.sparse_sub(
+      (lhs :: Varying(φ)).$program_values,
+      rhs.$program_values)}
+
+//==============================================================================
+method (ptrs :: φ).$index_read(using program_mask) :: Varying(α):
+  ~where Varying(PtrTo(α)) = φ
+  Varying(α){simd_program_mask.sparse_load(ptrs.$program_values)}
+
+method (ptrs).$index_read(using program_mask, idx) :: Varying(α):
+  ~where Varying(PtrTo(α)) = type_of(ptrs + idx)
+  (ptrs + idx)[]
+
+method (ptrs :: φ).$index_write(using program_mask, value :: β) :: Void:
+  ~where Varying(PtrMut(α)) = φ
+  ~when β coerces_to Varying(α)
+  simd_program_mask.sparse_store(
+    ptrs.$program_values,
+    (value :: Varying(α)).$program_values)
+
+method (ptrs).$index_write(using program_mask, idx, value :: β) :: Void:
+  ~where Varying(PtrMut(α)) = type_of(ptrs + idx)
+  ~when β coerces_to Varying(α)
+  (ptrs + idx)[] := value
+
+//==============================================================================
+method (inout lhs :: α).$assign(rhs :: β, using program_mask) :: Void:
+  ~where Varying(_) = α
+  ~when β coerces_to α
+  simd_program_mask.sparse_assign(lhs.$program_values, (rhs :: α).$program_values)

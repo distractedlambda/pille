@@ -1,0 +1,11 @@
+#lang pille
+
+import:
+  pille/spmd
+
+export expr.macro 'spmd($pc): $body':
+  ~op_stx: op
+  'block:
+     using spmd.program_mask = spmd.Unmasked($pc){}
+     import pille/spmd open ~scope_like $op
+     block: $body'

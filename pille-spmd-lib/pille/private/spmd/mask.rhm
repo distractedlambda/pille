@@ -1,0 +1,34 @@
+#lang pille
+
+//==============================================================================
+export implicit program_mask :: Simd(Boolean, _) || Unmasked(_)
+
+export struct Unmasked(pc :: pos_int)
+
+//==============================================================================
+export expr.macro 'simd_program_mask':
+  'get_simd_program_mask()'
+
+fun get_simd_program_mask
+| (using program_mask :: Unmasked(pc)):
+    #true :: Simd(Boolean, pc)
+| (using program_mask):
+    program_mask
+
+//==============================================================================
+export const_expr.macro 'program_count':
+  'match type_of(program_mask)
+   | Simd(_, pc): pc
+   | Unmasked(pc): pc'
+
+//==============================================================================
+export expr.macro 'unmasked: $body':
+  'block:
+     using program_mask = Unmasked(program_count){}
+     block: $body'
+
+//==============================================================================
+export const_expr.macro 'currently_unmasked':
+  'match type_of(program_mask)
+   | Unmasked(_): #true
+   | _: #false'
