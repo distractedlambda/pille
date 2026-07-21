@@ -120,6 +120,8 @@ local_defn.expose_global_defn 'meta.bridge'
 local_defn.expose_global_defn 'pille_expr.macro'
 local_defn.expose_global_defn 'syntax_parameter.relet'
 
+export local_defn.expose_global_defn 'import'
+
 //==============================================================================
 fun concretize_seq(first :~ Expr, second :~ Expr):
   let (_, first_low) = first.unpack_rvalue()
