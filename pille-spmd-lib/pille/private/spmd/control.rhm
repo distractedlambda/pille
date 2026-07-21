@@ -38,6 +38,17 @@ fun make_else_mask(using program_mask, test :: Varying(Boolean)):
   m.sparse_refine_mask(m.sparse_not(test.$program_values))
 
 //==============================================================================
+export expr.macro 'when $(test :: Group) | $body':
+  'if $test
+   | $body
+   | #void'
+
+export expr.macro 'unless $(test :: Group) | $body':
+  'if $test
+   | #void
+   | $body'
+
+//==============================================================================
 export expr.macro 'while $(test :: expr_meta.Parsed): $body':
   'block:
      expr.preparse body: $body
@@ -57,3 +68,31 @@ export expr.macro 'while $(test :: expr_meta.Parsed): $body':
            using program_mask = new_mask
            body
            continue loop(new_mask)'
+
+//==============================================================================
+meta syntax_class ParForSequence:
+  kind: ~group
+| '$(ivar :: Identifier) $('$(bound_as expr_meta.space: '∈')' && in_op) $(rng_ :: expr_meta.Parsed)':
+    field rng:
+      syntax_meta.track_origin(
+        rng_,
+        ~add: syntax_meta.flip_introduce(in_op),
+        ~space: expr_meta.space)
+
+export expr.macro 'par_for ($(seq :: ParForSequence)): $body':
+  ~op_stx: op
+  'block:
+     expr.preparse body($seq.ivar): $body
+     const.assert(currently_unmasked)
+     let rng = $seq.rng
+     const.match type_of(rng)
+     | Range(BinaryInteger):
+         pille.when rng.start < rng.end
+         | var base_idx = rng.start
+           pille.while rng.end - base_idx ≥ program_count:
+             body(base_idx + program_index)
+             base_idx := base_idx + program_count
+           when program_index < rng.end - base_idx
+           | body(base_idx + program_index)
+     | _:
+         const.error("unsupported range type")'

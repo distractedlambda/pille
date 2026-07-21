@@ -10,10 +10,8 @@ check:
   let buf = new uint32_t[len]
   pille(buf :: PtrMut(UInt(32)), len :: NativeUInt):
     spmd(8):
-      var idx :: Varying(NativeUInt) = program_index
-      while (idx < len):
+      par_for (idx in 0..len):
         buf[idx] := 42
-        idx := idx + program_count
   for List (i in 0..len):
     mem buf[i]
   ~is:
