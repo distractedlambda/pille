@@ -34,14 +34,13 @@ unify(Simd(α, n), Simd(β, n)):
   Simd(unify(α, β), n)
 
 //==============================================================================
-// TODO move this somewhere else
-export struct Iota
+property (const σ && Simd(UInt(w), n)).iota :: σ:
+  ~when bit_length(n - 1) ≤ w
+  prim.iota(σ)
 
-export expr.macro 'iota':
-  'Iota{}'
-
-coercion (src :: Iota) :: δ && Simd(BinaryInteger, _):
-  prim.iota(δ)
+property (const σ && Simd(Int(w), n)).iota :: σ:
+  ~when bit_length(n - 1) < w
+  prim.iota(σ)
 
 //==============================================================================
 method (rhs :: α && Simd(Bitwise, _)).$not() :: α:

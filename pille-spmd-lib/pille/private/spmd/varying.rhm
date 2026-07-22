@@ -6,27 +6,9 @@ import:
 //==============================================================================
 export special_name.def program_values
 
-//==============================================================================
 export struct #%Varying(α :: type, pc :: pos_int):
   $program_values :: SparseSimd(α, pc)
 
-coercion (src :: α) :: δ && #%Varying(β, pc):
-  ~when !(α matches #%Varying(_, _))
-  ~when α coerces_to β
-  #%Varying(β, pc){src :: β}
-
-coercion (src :: #%Varying(α, pc)) :: δ && #%Varying(β, pc):
-  ~when SparseSimd(α, pc) coerces_to SparseSimd(β, pc)
-  δ{src.$program_values}
-
-unify(α, #%Varying(β, pc)):
-  ~when !(α matches #%Varying(_, _))
-  #%Varying(unify(α, β), pc)
-
-unify(#%Varying(α, pc), #%Varying(β, pc)):
-  #%Varying(unify(α, β), pc)
-
-//==============================================================================
 export const_expr.macro 'Varying($α)':
   '#%Varying($α, program_count)'
 
@@ -37,12 +19,83 @@ export const_bind.macro 'Varying($α)':
   '#%Varying($α, program_count)'
 
 //==============================================================================
-export expr.macro 'program_index':
-  'get_program_index()'
+export special_name.def seq_start
 
-fun get_program_index(using program_mask) :: Varying(ι):
-  ~where ι = UInt(bit_length(program_count - 1))
-  Varying(ι){iota}
+export struct #%SeqVarying(α && Uniform, pc :: pos_int):
+  $seq_start :: α
+
+export const_expr.macro 'SeqVarying($α)':
+  '#%SeqVarying($α, program_count)'
+
+export expr.macro 'SeqVarying($α)':
+  'const(SeqVarying($α))'
+
+export const_bind.macro 'SeqVarying($α)':
+  '#%SeqVarying($α, program_count)'
+
+//==============================================================================
+export const_bind.macro 'Uniform':
+  'α :: type when !(α matches (#%Varying(_, _) || #%SeqVarying(_, _)))'
+
+//==============================================================================
+coercion (src :: α && Uniform) :: δ && #%Varying(β, pc):
+  ~when α coerces_to β
+  #%Varying(β, pc){src :: β}
+
+unify(α && Uniform, #%Varying(β, pc)):
+  #%Varying(unify(α, β), pc)
+
+//==============================================================================
+coercion (src :: #%Varying(α, pc)) :: δ && #%Varying(β, pc):
+  ~when SparseSimd(α, pc) coerces_to SparseSimd(β, pc)
+  δ{src.$program_values}
+
+unify(#%Varying(α, pc), #%Varying(β, pc)):
+  #%Varying(unify(α, β), pc)
+
+//==============================================================================
+coercion (src :: #%SeqVarying(α, pc)) :: δ && #%SeqVarying(β, pc):
+  ~when α coerces_to β
+  δ{src.$seq_start}
+
+unify(#%SeqVarying(α, pc), #%SeqVarying(β, pc)):
+  #%SeqVarying(unify(α, β), pc)
+
+//==============================================================================
+method (src :: σ).$coerce_to(using program_mask, const δ && Varying(β && BinaryInteger)) :: δ:
+  ~where SeqVarying(α) = σ
+  ~when α coerces_to β
+  ((src.$seq_start :: β) :: Varying(β))
+    + Varying(β){Simd(β, program_count).iota}
+
+method (src :: σ).$coerce_to(using program_mask, const δ && Varying(β && PtrTo(_))) :: δ:
+  ~where SeqVarying(α && PtrTo(_)) = σ
+  ~when α coerces_to β
+  ((src.$seq_start :: β) :: Varying(β))
+    + Varying(NativeUInt){Simd(NativeUInt, program_count).iota}
+
+unify(#%SeqVarying(α, pc), #%Varying(β, pc)):
+  #%Varying(unify(α, β), pc)
+
+unify(#%SeqVarying(α, pc), β && Uniform):
+  #%Varying(unify(α, β), pc)
+
+//==============================================================================
+export expr.macro 'program_index':
+  '#%SeqVarying(Const(0), program_count){0}'
+
+//==============================================================================
+method (lhs :: #%SeqVarying(_, pc)).$add(rhs :: Uniform):
+  let sum = lhs.$seq_start + rhs
+  #%SeqVarying(type_of(sum), pc){sum}
+
+method (lhs :: Uniform).$add(rhs :: #%SeqVarying(_, pc)):
+  let sum = lhs + rhs.$seq_start
+  #%SeqVarying(type_of(sum), pc){sum}
+
+method (lhs :: #%SeqVarying(_, pc)).$sub(rhs :: Uniform):
+  let dif = lhs.$seq_start - rhs
+  #%SeqVarying(type_of(dif), pc){dif}
 
 //==============================================================================
 method (lhs :: α).$add(rhs :: α, using program_mask) :: α:
@@ -137,8 +190,12 @@ method (ptrs :: φ).$index_read(using program_mask) :: Varying(α):
   ~where Varying(PtrTo(α)) = φ
   Varying(α){simd_program_mask.sparse_load(ptrs.$program_values)}
 
+method (ptrs :: φ).$index_read(using program_mask) :: Varying(α):
+  ~where SeqVarying(PtrTo(α)) = φ
+  Varying(α){simd_program_mask.sparse_load(ptrs.$seq_start)}
+
 method (ptrs).$index_read(using program_mask, idx) :: Varying(α):
-  ~where Varying(PtrTo(α)) = type_of(ptrs + idx)
+  ~where Varying(PtrTo(α)) || SeqVarying(PtrTo(α)) = type_of(ptrs + idx)
   (ptrs + idx)[]
 
 method (ptrs :: φ).$index_write(using program_mask, value :: β) :: Void:
@@ -148,8 +205,15 @@ method (ptrs :: φ).$index_write(using program_mask, value :: β) :: Void:
     ptrs.$program_values,
     (value :: Varying(α)).$program_values)
 
+method (ptrs :: φ).$index_write(using program_mask, value :: β) :: Void:
+  ~where SeqVarying(PtrMut(α)) = φ
+  ~when β coerces_to Varying(α)
+  simd_program_mask.sparse_store(
+    ptrs.$seq_start,
+    (value :: Varying(α)).$program_values)
+
 method (ptrs).$index_write(using program_mask, idx, value :: β) :: Void:
-  ~where Varying(PtrMut(α)) = type_of(ptrs + idx)
+  ~where Varying(PtrMut(α)) || SeqVarying(PtrMut(α)) = type_of(ptrs + idx)
   ~when β coerces_to Varying(α)
   (ptrs + idx)[] := value
 
