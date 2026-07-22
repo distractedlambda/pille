@@ -6,6 +6,7 @@ import:
   "../util/equatable_by_identity.rhm" open
   "caches.rhm"
   "exn.rhm" open
+  "implicit.rhm" open
   "method.rhm"
   "repr.rhm" open
   "type_fwd.rhm" open
@@ -53,7 +54,8 @@ export class Type():
           this.unification_cache[other] := #'in_progress
           other.unification_cache[this] := #'in_progress
           let unified = try:
-            this.compute_bidirectional_unification_with(other)
+            ImplicitKey.with_empty_env(_) <| fun():
+              this.compute_bidirectional_unification_with(other)
             ~catch
             | exn :: Exn.Fail.Concretize.Recoverable:
                 this.unification_cache[other] := exn
