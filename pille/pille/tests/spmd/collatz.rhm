@@ -1,0 +1,37 @@
+#lang rhombus/static
+
+import:
+  ffi open
+  pille/hosted open
+  pille/spmd/embedded open
+
+let max_n = 100_000
+
+let reference:
+  for List (n in 1..=max_n):
+    recur loop(n :~ PosInt = n, iter :~ Nat = 0):
+      cond
+      | n == 1:
+          iter
+      | n rem 2 == 0:
+          loop(n div 2, iter + 1)
+      | ~else:
+          loop((3*n + 1) div 2, iter + 2)
+
+check:
+  let results = new uint32_t[max_n]
+  pille(results :: PtrMut(UInt(32)), max_n :: UInt(32)):
+    spmd(16):
+      par_for (i in 0..max_n):
+        var n :: Varying(UInt(32)) = i + 1
+        var iter :: Varying(UInt(32)) = 0
+        while n != 1:
+          if n rem_trunc 2 == 0
+          | n := n div_trunc 2
+            iter := iter + 1
+          | n := (3*n + 1) div_trunc 2
+            iter := iter + 2
+        results[i] := iter
+  for List(i in 0..max_n):
+    mem results[i]
+  ~is reference
