@@ -1,0 +1,6 @@
+#lang pille/private/kernel
+
+//==============================================================================
+property (val).is_optimization_constant :: Boolean:
+  ~transparent
+  prim.is_optimization_constant(val)

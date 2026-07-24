@@ -232,3 +232,23 @@ fun concretize_not(operand :~ Expr):
       fun(env):
         let operand_val = operand_low(env)
         lowering.builder().create_not(operand_val))
+
+//==============================================================================
+export pille_expr.macro 'is_optimization_constant($(exp :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_is_optimization_constant(
+       $(pille_expr_meta.unpack_concretize(exp)))')
+
+fun concretize_is_optimization_constant(operand :~ Expr):
+  let operand_low = operand.lower_rvalue
+  Expr.Rvalue(
+    ~type: BooleanType(),
+    ~lower:
+      fun(env):
+        let builder = lowering.builder()
+        guard.let operand_val!! = operand_low(env)
+        | llvm.ConstantInt(builder.int_type(1), 1)
+        builder.create_intrinsic_call(
+          "llvm.is.constant",
+          [operand_val.type],
+          [operand_val]))

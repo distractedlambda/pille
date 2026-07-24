@@ -5,6 +5,7 @@ import:
   "const_ops.rhm" open
   "generic_ops.rhm" open
   "int.rhm" open
+  "misc.rhm" open
   "panic.rhm" open
   "pointer.rhm" open
   "type_traits.rhm" open
@@ -395,18 +396,23 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{prim.vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+      γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let nonzero = rhs.$sparse_data != 0
       cond
       | ub.suppressed:
-          γ{prim.vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
+          γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
           unless mask.select(nonzero, #true).all() | panic()
-          γ{prim.vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+          γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
+
+fun opt_vp_udiv(lhs :: α, rhs :: α, mask):
+  if rhs.is_optimization_constant && (rhs != 0).all()
+  | mask.select(prim.udiv(lhs, rhs), prim.poison(α))
+  | prim.vp_udiv(lhs, rhs, mask)
 
 method (mask :: Simd(Boolean, n)).sparse_div_floor(lhs, rhs):
   mask.sparse_div_trunc(lhs, rhs)
@@ -420,18 +426,23 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{prim.vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
+      γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let nonzero = rhs.$sparse_data != 0
       cond
       | ub.suppressed:
-          γ{prim.vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
+          γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
           unless mask.select(nonzero, #true).all() | panic()
-          γ{prim.vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
+          γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
+
+fun opt_vp_urem(lhs :: α, rhs :: α, mask):
+  if rhs.is_optimization_constant && (rhs != 0).all()
+  | mask.select(prim.urem(lhs, rhs), prim.poison(α))
+  | prim.vp_urem(lhs, rhs, mask)
 
 method (mask :: Simd(Boolean, n)).sparse_rem_floor(lhs, rhs):
   mask.sparse_rem_trunc(lhs, rhs)
@@ -446,18 +457,23 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{prim.vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+      γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let safe = sdiv_safe(lhs.$sparse_data, rhs.$sparse_data)
       cond
       | ub.suppressed:
-          γ{prim.vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
+          γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
           unless mask.select(safe, #true).all() | panic()
-          γ{prim.vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+          γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
+
+fun opt_vp_sdiv(lhs :: α, rhs :: α, mask):
+  if rhs.is_optimization_constant && ((rhs != 0) ∧ (rhs != -1)).all()
+  | mask.select(prim.sdiv(lhs, rhs), prim.poison(α))
+  | prim.vp_sdiv(lhs, rhs, mask)
 
 method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
   ~where γ && SparseSimd(Int(w), n) = unify(α, β)
@@ -468,18 +484,23 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{prim.vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
+      γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let safe = sdiv_safe(lhs.$sparse_data, rhs.$sparse_data)
       cond
       | ub.suppressed:
-          γ{prim.vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
+          γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
           unless mask.select(safe, #true).all() | panic()
-          γ{prim.vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
+          γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
+
+fun opt_vp_srem(lhs :: α, rhs :: α, mask):
+  if rhs.is_optimization_constant && ((rhs != 0) ∧ (rhs != -1)).all()
+  | mask.select(prim.srem(lhs, rhs), prim.poison(α))
+  | prim.vp_srem(lhs, rhs, mask)
 
 fun sdiv_safe(lhs :: Simd(Int(w), n), rhs :: Simd(Int(w), n)):
   (rhs != 0) ∧ ((lhs != Int(w).min_value) ∨ (rhs != -1))

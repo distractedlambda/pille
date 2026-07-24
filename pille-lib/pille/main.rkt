@@ -22,6 +22,7 @@ reexport:
   "private/generic_ops.rhm"
   "private/int.rhm"
   "private/loop.rhm"
+  "private/misc.rhm"
   "private/never.rhm"
   "private/panic.rhm"
   "private/pointer.rhm"
