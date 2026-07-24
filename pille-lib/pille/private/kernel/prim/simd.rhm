@@ -183,13 +183,15 @@ fun concretize_masked_load(ptr :~ Expr, align, mask :~ Expr, passthru :~ Expr):
         let ptr_val = ptr_low(env)
         let mask_val = mask_low(env)
         let passthru_val = passthru_low(env)
-        builder.create_intrinsic_call(
-          "llvm.masked.load",
-          [passthru_val!!.type, ptr_val!!.type],
-          [ptr_val,
-           llvm.ConstantInt(builder.int_type(32), align),
-           mask_val,
-           passthru_val]))
+        let call:
+          builder.create_intrinsic_call(
+            "llvm.masked.load",
+            [passthru_val!!.type, ptr_val!!.type],
+            [ptr_val,
+             mask_val,
+             passthru_val])
+        call.set_argument_alignment(0, align)
+        call)
 
 //==============================================================================
 export pille_expr.macro 'masked_store(
@@ -216,13 +218,14 @@ fun concretize_masked_store(val :~ Expr, ptr :~ Expr, align, mask :~ Expr):
         let val_val = val_low(env)
         let ptr_val = ptr_low(env)
         let mask_val = mask_low(env)
-        builder.create_intrinsic_call(
-          "llvm.masked.store",
-          [val_val!!.type, ptr_val!!.type],
-          [val_val,
-           ptr_val,
-           llvm.ConstantInt(builder.int_type(32), align),
-           mask_val])
+        let call:
+          builder.create_intrinsic_call(
+            "llvm.masked.store",
+            [val_val!!.type, ptr_val!!.type],
+            [val_val,
+             ptr_val,
+             mask_val])
+        call.set_argument_alignment(1, align)
         #false)
 
 //==============================================================================
@@ -250,13 +253,15 @@ fun concretize_masked_gather(ptrs :~ Expr, align, mask :~ Expr, passthru :~ Expr
         let ptrs_val = ptrs_low(env)
         let mask_val = mask_low(env)
         let passthru_val = passthru_low(env)
-        builder.create_intrinsic_call(
-          "llvm.masked.gather",
-          [passthru_val!!.type, ptrs_val!!.type],
-          [ptrs_val,
-           llvm.ConstantInt(builder.int_type(32), align),
-           mask_val,
-           passthru_val]))
+        let call:
+          builder.create_intrinsic_call(
+            "llvm.masked.gather",
+            [passthru_val!!.type, ptrs_val!!.type],
+            [ptrs_val,
+             mask_val,
+             passthru_val])
+        call.set_argument_alignment(0, align)
+        call)
 
 //==============================================================================
 export pille_expr.macro 'masked_scatter(
@@ -283,11 +288,12 @@ fun concretize_masked_scatter(vals :~ Expr, ptrs :~ Expr, align, mask :~ Expr):
         let vals_val = vals_low(env)
         let ptrs_val = ptrs_low(env)
         let mask_val = mask_low(env)
-        builder.create_intrinsic_call(
-          "llvm.masked.scatter",
-          [vals_val!!.type, ptrs_val!!.type],
-          [vals_val,
-           ptrs_val,
-           llvm.ConstantInt(builder.int_type(32), align),
-           mask_val])
+        let call:
+          builder.create_intrinsic_call(
+            "llvm.masked.scatter",
+            [vals_val!!.type, ptrs_val!!.type],
+            [vals_val,
+             ptrs_val,
+             mask_val])
+        call.set_argument_alignment(1, align)
         #false)

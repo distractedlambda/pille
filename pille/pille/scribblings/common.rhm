@@ -4,7 +4,7 @@ import:
   rhombus/scribble/manual
 
 export def llvm_version:
-  "21.1.x"
+  "23.1.x"
 
 // A hack to typeset alts as an alternative:
 export manual.rhombus_typeset 'Z':

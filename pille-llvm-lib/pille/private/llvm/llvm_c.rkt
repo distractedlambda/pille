@@ -27,7 +27,7 @@
 (define-values (major-version minor-version patch-version)
   (LLVMGetVersion))
 
-(unless (and (= major-version 21) (>= minor-version 1))
+(unless (and (= major-version 23) (>= minor-version 1))
   (error "unsupported LLVM version"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -644,6 +644,12 @@
         [_uint = (treelist-length args)]
         _string/symbol/utf-8
         -> _LLVMValueRef))
+
+(define-llvm LLVMSetInstrParamAlignment
+  (_fun _LLVMValueRef
+        _uint
+        _uint
+        -> _void))
 
 (define-llvm LLVMGetInstructionCallConv
   (_fun _LLVMValueRef -> _uint))

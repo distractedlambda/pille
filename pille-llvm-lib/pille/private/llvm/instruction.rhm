@@ -117,6 +117,9 @@ export veneer CallInst(this :: satisfying(LLVMIsACallInst)):
   | call_conv := (value :: CallConv):
       LLVMSetInstructionCallConv(this, encode_call_conv(value))
 
+  method set_argument_alignment(idx :: Nat, alignment :: PosInt) :: Void:
+    LLVMSetInstrParamAlignment(this, idx + 1, alignment)
+
 //==============================================================================
 export veneer CastInst(this :: satisfying(LLVMIsACastInst)):
   extends UnaryInstruction
