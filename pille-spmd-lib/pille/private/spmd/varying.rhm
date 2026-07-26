@@ -9,13 +9,13 @@ export special_name.def program_values
 export struct #%Varying(α :: type, pc :: pos_int):
   $program_values :: SparseSimd(α, pc)
 
-export const_expr.macro 'Varying($α)':
+export specl_expr.macro 'Varying($α)':
   '#%Varying($α, program_count)'
 
 export expr.macro 'Varying($α)':
-  'const(Varying($α))'
+  'specl(Varying($α))'
 
-export const_bind.macro 'Varying($α)':
+export specl_bind.macro 'Varying($α)':
   '#%Varying($α, program_count)'
 
 //==============================================================================
@@ -24,17 +24,17 @@ export special_name.def seq_start
 export struct #%SeqVarying(α && Uniform, pc :: pos_int):
   $seq_start :: α
 
-export const_expr.macro 'SeqVarying($α)':
+export specl_expr.macro 'SeqVarying($α)':
   '#%SeqVarying($α, program_count)'
 
 export expr.macro 'SeqVarying($α)':
-  'const(SeqVarying($α))'
+  'specl(SeqVarying($α))'
 
-export const_bind.macro 'SeqVarying($α)':
+export specl_bind.macro 'SeqVarying($α)':
   '#%SeqVarying($α, program_count)'
 
 //==============================================================================
-export const_bind.macro 'Uniform':
+export specl_bind.macro 'Uniform':
   'α :: type when !(α matches (#%Varying(_, _) || #%SeqVarying(_, _)))'
 
 //==============================================================================
@@ -62,13 +62,13 @@ unify(#%SeqVarying(α, pc), #%SeqVarying(β, pc)):
   #%SeqVarying(unify(α, β), pc)
 
 //==============================================================================
-method (src :: σ).$coerce_to(using program_mask, const δ && Varying(β && BinaryInteger)) :: δ:
+method (src :: σ).$coerce_to(using program_mask, specl δ && Varying(β && BinaryInteger)) :: δ:
   ~where SeqVarying(α) = σ
   ~when α coerces_to β
   ((src.$seq_start :: β) :: Varying(β))
     + Varying(β){Simd(β, program_count).iota}
 
-method (src :: σ).$coerce_to(using program_mask, const δ && Varying(β && PtrTo(_))) :: δ:
+method (src :: σ).$coerce_to(using program_mask, specl δ && Varying(β && PtrTo(_))) :: δ:
   ~where SeqVarying(α && PtrTo(_)) = σ
   ~when α coerces_to β
   ((src.$seq_start :: β) :: Varying(β))
@@ -82,7 +82,7 @@ unify(#%SeqVarying(α, pc), β && Uniform):
 
 //==============================================================================
 export expr.macro 'program_index':
-  '#%SeqVarying(Const(0), program_count){0}'
+  '#%SeqVarying(Specl(0), program_count){0}'
 
 //==============================================================================
 method (lhs :: #%SeqVarying(_, pc)).$add(rhs :: Uniform):
@@ -154,7 +154,7 @@ method (lhs :: φ).$add(using program_mask, rhs :: ρ && BinaryInteger) :: φ:
       lhs.$program_values,
       (rhs :: Varying(ρ)).$program_values)}
 
-method (lhs :: φ).$add(using program_mask, const rhs :: int) :: φ:
+method (lhs :: φ).$add(using program_mask, specl rhs :: int) :: φ:
   ~where Varying(PtrTo(_)) = φ
   φ{simd_program_mask.sparse_add(lhs.$program_values, rhs)}
 
@@ -175,7 +175,7 @@ method (lhs :: φ).$sub(using program_mask, rhs :: ρ && BinaryInteger) :: φ:
       lhs.$program_values,
       (rhs :: Varying(ρ)).$program_values)}
 
-method (lhs :: φ).$sub(using program_mask, const rhs :: int) :: φ:
+method (lhs :: φ).$sub(using program_mask, specl rhs :: int) :: φ:
   ~where Varying(PtrTo(_)) = φ
   φ{simd_program_mask.sparse_sub(lhs.$program_values, rhs)}
 

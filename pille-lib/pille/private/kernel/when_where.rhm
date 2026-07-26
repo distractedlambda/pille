@@ -2,16 +2,16 @@
 
 import:
   "../util/syntax.rhm" open
-  "const_bind.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
 
 //==============================================================================
 meta:
   syntax_class WhereBindingParts:
     kind: ~group
     fields: lhs [op, ...] rhs
-  | '$lhs_hd $lhs_tl ... $(the_op :: const_expr_meta.EqualsOp) $(rhs :: Group)':
+  | '$lhs_hd $lhs_tl ... $(the_op :: specl_expr_meta.EqualsOp) $(rhs :: Group)':
       field lhs = '$lhs_hd $lhs_tl ...'
       field [op, ...] = [the_op]
   | '$(lhs :: Group): $(rhs :: Group)':
@@ -22,15 +22,15 @@ meta:
     fields: packed
     root_swap: packed group
   | '$(parts :: WhereBindingParts)':
-      match_def '$(lhs_parsed :: const_bind_meta.Parsed)' = parts.lhs
+      match_def '$(lhs_parsed :: specl_bind_meta.Parsed)' = parts.lhs
       field packed = syntax_meta.track_origin(
-        const_bind_meta
+        specl_bind_meta
           .pack_nested_binding(
             lhs_parsed,
-            const_expr_meta.as_rhombus_expr(parts.rhs))
+            specl_expr_meta.as_rhombus_expr(parts.rhs))
           .relocate_span([parts]),
         ~add: [syntax_meta.flip_introduce(parts.op), ...],
-        ~space: const_expr_meta.space)
+        ~space: specl_expr_meta.space)
 
   export syntax_class WhenWhereKeyword:
     kind: ~term
@@ -48,21 +48,21 @@ meta:
   | '~when: $(hd :: Group); $(tl :: Group); ...':
       def [test, ...] = [hd, tl, ...]
       field packed:
-        const_bind_meta.pack_conjunction(
-          [const_bind_meta.pack_side_condition(
-             const_expr_meta.as_rhombus_expr(
+        specl_bind_meta.pack_conjunction(
+          [specl_bind_meta.pack_side_condition(
+             specl_expr_meta.as_rhombus_expr(
                test)),
            ...])
 
   | '~when $(test :: Group)':
       field packed:
-        const_bind_meta.pack_side_condition(
-          const_expr_meta.as_rhombus_expr(
+        specl_bind_meta.pack_side_condition(
+          specl_expr_meta.as_rhombus_expr(
             test))
 
   | '~where: $(hd :: WhereBinding); $(tl :: WhereBinding); ...':
       field packed:
-        const_bind_meta.pack_conjunction(
+        specl_bind_meta.pack_conjunction(
           [hd, tl, ...])
 
   | '~where $(wb :: WhereBinding)':

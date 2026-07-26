@@ -3,10 +3,10 @@
 import:
   "../runtime/profile.rhm" open
   "../util/syntax.rhm" open
-  "const_bind.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
-  "const_ns.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_ns.rhm" open
   "core_types.rhm" open
   "expr.rhm" open
   "expr_forms.rhm" open
@@ -15,13 +15,13 @@ import:
 
 export:
   only_space namespace:
-    const
+    specl
 
 //==============================================================================
 meta:
   syntax_class MaybeAnnot:
     kind: ~sequence
-  | '$(_ :: const_expr_meta.AnnotOp) $_ ...'
+  | '$(_ :: specl_expr_meta.AnnotOp) $_ ...'
   | ''
 
   syntax_class Lhs:
@@ -35,21 +35,21 @@ meta:
       lhs
       [op, ...]
       rhs
-  | '$lhs_hd $lhs_tl ... $(eq_op :: const_expr_meta.EqualsOp) $(rhs :: Group)':
+  | '$lhs_hd $lhs_tl ... $(eq_op :: specl_expr_meta.EqualsOp) $(rhs :: Group)':
       match_def '$(lhs :: Lhs)' = '$lhs_hd $lhs_tl ...'
       field [op, ...] = [eq_op]
   | '$(lhs :: Lhs): $(rhs :: Group)':
       field [op, ...] = []
 
-defn.macro 'const.def $(spec :: Spec)':
+defn.macro 'specl.def $(spec :: Spec)':
   '«def forcer = block:
       make_forcer(
         fun():
-          const_expr.eval(
-            $(const_expr_meta.encapsulate(spec.rhs)) $spec.lhs.annot))
+          specl_expr.eval(
+            $(specl_expr_meta.encapsulate(spec.rhs)) $spec.lhs.annot))
 
-    const_expr.macro '($spec.lhs.name)':
-      '$(const_expr_meta.pack_rhombus_expr('forcer()'))'»'
+    specl_expr.macro '($spec.lhs.name)':
+      '$(specl_expr_meta.pack_rhombus_expr('forcer()'))'»'
 
 fun make_forcer(thunk):
   let mutable cache = caches.keyed.init()

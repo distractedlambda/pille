@@ -2,23 +2,23 @@
 
 import:
   "cond.rhm" open
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "int.rhm" open
   "panic.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
-fun check_align(ptr :: RawPtr, const align :: alignment) :: Void:
+fun check_align(ptr :: RawPtr, specl align :: alignment) :: Void:
   unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
   | panic()
 
 //==============================================================================
-method (ptr :: RawPtr).load(const α :: type) :: α:
+method (ptr :: RawPtr).load(specl α :: type) :: α:
   ptr.load(α, alignof(α))
 
 //==============================================================================
-method (ptr :: RawPtr).load(const α :: type, const align :: alignment) :: α:
+method (ptr :: RawPtr).load(specl α :: type, specl align :: alignment) :: α:
   // FIXME: null check, other related stuff
   cond
   | ub.allowed:
@@ -34,7 +34,7 @@ method (ptr :: RawPtr).store(value :: α) :: Void:
   ptr.store(value, alignof(α))
 
 //==============================================================================
-method (ptr :: RawPtr).store(value :: α, const align :: alignment) :: Void:
+method (ptr :: RawPtr).store(value :: α, specl align :: alignment) :: Void:
   cond
   | ub.allowed:
       prim.store(align, ptr, value)
@@ -71,7 +71,7 @@ method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
       | panic()
       | new
 
-method (ptr :: RawPtr).$add(const offset :: int) :: RawPtr:
+method (ptr :: RawPtr).$add(specl offset :: int) :: RawPtr:
   cond
   | offset == 0:
       ptr
@@ -84,7 +84,7 @@ method (ptr :: RawPtr).$add(const offset :: int) :: RawPtr:
 method (ptr :: RawPtr).$sub(amount :: BinaryInteger) :: RawPtr:
   ptr + (-(amount.cast_exact() :: NativeInt))
 
-method (ptr :: RawPtr).$sub(const amount :: int) :: RawPtr:
+method (ptr :: RawPtr).$sub(specl amount :: int) :: RawPtr:
   ptr + (-amount)
 
 //==============================================================================
@@ -118,11 +118,11 @@ export struct PtrMut(α :: type):
   $ptr_raw :: RawPtr
 
 //==============================================================================
-export const_bind.macro 'PtrTo($α)':
+export specl_bind.macro 'PtrTo($α)':
   '(φ && (Ptr(_) || PtrMut(_))) where:
-     $(const_bind_meta.encapsulate(α)) = PtrTarget(φ)'
+     $(specl_bind_meta.encapsulate(α)) = PtrTarget(φ)'
 
-const.fun PtrTarget
+specl.fun PtrTarget
 | (Ptr(α)): α
 | (PtrMut(α)): α
 
@@ -133,7 +133,7 @@ coercion (p :: PtrMut(α)) :: φ && Ptr(α):
 unify(PtrMut(α), Ptr(α)): Ptr(α)
 
 //==============================================================================
-method (const φ && PtrTo(α)).from_raw(raw :: RawPtr):
+method (specl φ && PtrTo(α)).from_raw(raw :: RawPtr):
   when ub.checked | check_align(raw, alignof(α))
   φ{raw}
 
@@ -148,7 +148,7 @@ property (inout ptr :: φ && PtrTo(_)).raw := (new_raw :: RawPtr):
 method (ptr :: PtrTo(_)).$to_rhombus():
   ptr.raw
 
-method (const φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
+method (specl φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
   φ.from_raw(raw)
 
 //==============================================================================
@@ -160,14 +160,14 @@ method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
   let offset = offset.cast_exact() :: NativeInt
   φ{ptr.raw + offset*strideof(α)}
 
-method (ptr :: φ && PtrTo(α)).$add(const offset :: int) :: φ:
+method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
   φ{ptr.raw + offset*strideof(α)}
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:
   ptr + (-(amount.cast_exact() :: NativeInt))
 
-method (ptr :: φ && PtrTo(α)).$sub(const amount :: int) :: φ:
+method (ptr :: φ && PtrTo(α)).$sub(specl amount :: int) :: φ:
   ptr + (-amount)
 
 //==============================================================================

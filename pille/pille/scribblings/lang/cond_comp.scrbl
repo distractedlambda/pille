@@ -6,14 +6,14 @@
 @title{Conditional Compilation}
 
 @doc(
-  expr.macro 'const.match $const_expr
-              | $const_bind:
+  expr.macro 'specl.match $specl_expr
+              | $specl_bind:
                   $body
                   ...
               | ...'
 ){}
 
 @doc(
-  const_expr.macro 'const.assert($const_expr)'
-  expr.macro 'const.assert($const_expr)'
+  specl_expr.macro 'specl.assert($specl_expr)'
+  expr.macro 'specl.assert($specl_expr)'
 ){}

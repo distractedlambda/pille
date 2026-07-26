@@ -49,11 +49,11 @@ the @tt{suppress} and @tt{check} policies are essentially
 the same.
 
 @doc(
-  const.def ub.checked :: boolean
-  const.def ub.suppressed :: boolean
-  const.def ub.allowed :: boolean
+  specl.def ub.checked :: boolean
+  specl.def ub.suppressed :: boolean
+  specl.def ub.allowed :: boolean
 ){
-  Constants which surface the active undefined behavior
+  Specialization values which surface the active undefined behavior
   policy; exactly @italic{one} of them will be
   @rhombus(#true) in any given concretization.
 }

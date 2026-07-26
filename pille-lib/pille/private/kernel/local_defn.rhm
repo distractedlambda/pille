@@ -2,9 +2,9 @@
 
 import:
   "../util/syntax.rhm" open
-  "const_annot.rhm" open
-  "const_bind.rhm" open
-  "const_expr.rhm" open
+  "specl_annot.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
   "expr.rhm" open
   "expr_forms.rhm" open
   pille/concretize open
@@ -16,9 +16,9 @@ meta import:
 
 export:
   only_space namespace:
-    const_annot
-    const_bind
-    const_expr
+    specl_annot
+    specl_bind
+    specl_expr
     meta
     pille_expr
     syntax_parameter
@@ -111,9 +111,9 @@ defn.macro
 | '«local_defn.expose_global_defn '$(name :: Name)'»':
     '«local_defn.expose_global_defn '$name': '$name'»'
 
-local_defn.expose_global_defn 'const_annot.macro'
-local_defn.expose_global_defn 'const_bind.macro'
-local_defn.expose_global_defn 'const_expr.macro'
+local_defn.expose_global_defn 'specl_annot.macro'
+local_defn.expose_global_defn 'specl_bind.macro'
+local_defn.expose_global_defn 'specl_expr.macro'
 local_defn.expose_global_defn 'local_defn.block_macro'
 local_defn.expose_global_defn 'local_defn.macro'
 local_defn.expose_global_defn 'meta.bridge'

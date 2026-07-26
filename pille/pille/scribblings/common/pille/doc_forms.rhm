@@ -8,10 +8,10 @@ export only_space namespace:
   expr
 
 //==============================================================================
-export namespace const
-export namespace const_annot
-export namespace const_bind
-export namespace const_expr
+export namespace specl
+export namespace specl_annot
+export namespace specl_bind
+export namespace specl_expr
 export namespace global_defn
 export namespace labeled_expr
 export namespace local_defn
@@ -63,9 +63,9 @@ defn.macro 'operator_macro_doc_forms:
    ...'
 
 operator_macro_doc_forms:
-  const_annot.macro "constant annotation" #{pille/const_annot}
-  const_bind.macro "constant binding" #{pille/const_bind}
-  const_expr.macro "constant expression" #{pille/const_expr}
+  specl_annot.macro "specialization annotation" #{pille/specl_annot}
+  specl_bind.macro "specialization binding" #{pille/specl_bind}
+  specl_expr.macro "specialization expression" #{pille/specl_expr}
   expr.macro "expression" #{pille/expr}
 
 //==============================================================================
@@ -103,8 +103,8 @@ export doc.bridge type:
     kind: ~group
     fields:
       name
-      const_args
-  | '$(_ :: IdentifierName) $(name :: IdentifierName) $(const_args :: MaybeConstArgs)'
+      specl_args
+  | '$(_ :: IdentifierName) $(name :: IdentifierName) $(specl_args :: MaybeConstArgs)'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -112,18 +112,18 @@ export doc.bridge type:
         "type",
     ~extract_space:
       fun(_):
-        [#'#{pille/const_expr}, #'#{pille/const_bind}, #'#{pille/expr}],
+        [#'#{pille/specl_expr}, #'#{pille/specl_bind}, #'#{pille/expr}],
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
-        maybe_const_args_metavars(stx.const_args),
+        maybe_specl_args_metavars(stx.specl_args),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let name_ts = typeset_name(stx.name, space, subst)
-        let const_args_ts = typeset_maybe_const_args(stx.const_args)
+        let specl_args_ts = typeset_maybe_specl_args(stx.specl_args)
         doc_meta.typeset_rhombusblock(
-          '$name_ts $const_args_ts',
+          '$name_ts $specl_args_ts',
           ~at: stx))
 
 //==============================================================================
@@ -147,11 +147,11 @@ export doc.bridge struct:
     kind: ~group
   | '$(struct :: IdentifierName) \
      $(name :: IdentifierName) \
-     $(const_args :: MaybeConstArgs) \
+     $(specl_args :: MaybeConstArgs) \
      $(_ :: MaybeBody: open)'
 
   fun typeset_field('$(stx :: Field)'):
-    '$(typeset_member_name(stx.name)) $(typeset_expr(stx.annot_op)) $(typeset_const_expr(stx.type))'
+    '$(typeset_member_name(stx.name)) $(typeset_expr(stx.annot_op)) $(typeset_specl_expr(stx.type))'
       .relocate_group(stx)
 
   fun typeset_body('$(stx :: Body)'):
@@ -163,52 +163,52 @@ export doc.bridge struct:
         "struct",
     ~extract_space:
       fun(_):
-        [#'#{pille/const_expr}, #'#{pille/const_bind}, #'#{pille/expr}],
+        [#'#{pille/specl_expr}, #'#{pille/specl_bind}, #'#{pille/expr}],
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
-        maybe_const_args_metavars(stx.const_args),
+        maybe_specl_args_metavars(stx.specl_args),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let struct_ts = typeset_global_defn(stx.struct)
         let name_ts = typeset_name(stx.name, space, subst)
-        let const_args_ts = typeset_maybe_const_args(stx.const_args)
+        let specl_args_ts = typeset_maybe_specl_args(stx.specl_args)
         let body_ts = (stx.body ?> typeset_body) || ''
         doc_meta.typeset_rhombusblock(
-          '$struct_ts $name_ts $const_args_ts $body_ts',
+          '$struct_ts $name_ts $specl_args_ts $body_ts',
           ~at: stx))
 
 //==============================================================================
-doc.bridge const.def:
+doc.bridge specl.def:
   syntax_class DocForm:
     kind: ~group
-  | '$(const_dot_def :: IdentifierName) \
+  | '$(specl_dot_def :: IdentifierName) \
      $(name :: IdentifierName) \
      $(res_annot :: MaybeResAnnot)'
 
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "constant definition",
+        "specialization definition",
     ~extract_space:
       fun(_):
-        #'#{pille/const_expr},
+        #'#{pille/specl_expr},
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
       doc_meta.head_extract_metavariables,
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let cdd_ts = typeset_global_defn(stx.const_dot_def)
+        let cdd_ts = typeset_global_defn(stx.specl_dot_def)
         let name_ts = typeset_name(stx.name, space, subst)
-        let res_annot_ts = typeset_const_expr(stx.res_annot)
+        let res_annot_ts = typeset_specl_expr(stx.res_annot)
         doc_meta.typeset_rhombusblock(
           '$cdd_ts $name_ts $res_annot_ts',
           ~at: stx))
 
 //==============================================================================
-doc.bridge const.fun:
+doc.bridge specl.fun:
   syntax_class Args:
     kind: ~term
     fields: [arg, ...]
@@ -217,13 +217,13 @@ doc.bridge const.fun:
   syntax_class DocForm:
     kind: ~group
     fields:
-      const_dot_fun
+      specl_dot_fun
       name
       args
       [arg, ...]
       res_annot
       block
-  | '$(const_dot_fun :: IdentifierName) \
+  | '$(specl_dot_fun :: IdentifierName) \
      $(name :: IdentifierName) \
      $(args :: Args: open) \
      $(res_annot :: MaybeResAnnot) \
@@ -232,26 +232,26 @@ doc.bridge const.fun:
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "constant function",
+        "specialization function",
     ~extract_space:
       fun(_):
-        #'#{pille/const_expr},
+        #'#{pille/specl_expr},
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
-          const_bind_metavars(stx.arg), ...,
+          specl_bind_metavars(stx.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let const_dot_fun_ts = typeset_global_defn(stx.const_dot_fun)
+        let specl_dot_fun_ts = typeset_global_defn(stx.specl_dot_fun)
         let name_ts = typeset_name(stx.name, space, subst)
-        let args_ts = '($(typeset_const_bind(stx.arg)), ...)'.relocate(stx.args)
-        let res_annot_ts = typeset_const_expr(stx.res_annot)
+        let args_ts = '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx.args)
+        let res_annot_ts = typeset_specl_expr(stx.res_annot)
         let block_ts = typeset_optional_block(stx.block)
         doc_meta.typeset_rhombusblock(
-          '$const_dot_fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
+          '$specl_dot_fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
           ~at: stx))
 
 //==============================================================================
@@ -382,18 +382,18 @@ export doc.bridge fun:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
           [stx.arg.name, ...],
-          const_bind_metavars(stx.arg.type), ...,
+          specl_bind_metavars(stx.arg.type), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let fun_ts = typeset_global_defn(stx.fun)
         let name_ts = typeset_name(stx.name, space, subst)
         let args_ts:
-          '($stx.arg.name $(typeset_expr(stx.arg.annot_op)) $(typeset_const_bind(stx.arg.type)),
+          '($stx.arg.name $(typeset_expr(stx.arg.annot_op)) $(typeset_specl_bind(stx.arg.type)),
             ...)'.relocate(stx.args)
         let res_annot_ts:
           if stx.res_annot.present
-          | '$(typeset_expr(stx.res_annot.op)) $(typeset_const_expr(stx.res_annot.annot))'
+          | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
           | ''
         let block_ts = typeset_optional_block(stx.block)
         doc_meta.typeset_rhombusblock(
@@ -401,41 +401,41 @@ export doc.bridge fun:
           ~at: stx))
 
 //==============================================================================
-doc.bridge const.operator:
+doc.bridge specl.operator:
   syntax_class DocForm:
     kind: ~group
-  | '$(const_dot_operator :: IdentifierName) $(_ :: OperatorCase: open)'
+  | '$(specl_dot_operator :: IdentifierName) $(_ :: OperatorCase: open)'
 
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "constant operator",
+        "specialization operator",
     ~extract_space:
       fun(_):
-        #'#{pille/const_expr},
+        #'#{pille/specl_expr},
     ~extract_name:
       fun('$(stx :: DocForm)', space):
         doc_meta.extract_name(stx.op_name, space),
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
-          const_bind_metavars(stx.operand), ...,
+          specl_bind_metavars(stx.operand), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let const_dot_operator_ts = typeset_global_defn(stx.const_dot_operator)
+        let specl_dot_operator_ts = typeset_global_defn(stx.specl_dot_operator)
         let op_name_ts = typeset_name(stx.op_name, space, subst)
-        let lhs_ts = typeset_const_bind(stx.lhs || '')
-        let rhs_ts = typeset_const_bind(stx.rhs || '')
+        let lhs_ts = typeset_specl_bind(stx.lhs || '')
+        let rhs_ts = typeset_specl_bind(stx.rhs || '')
         let pat_ts = '$lhs_ts $op_name_ts $rhs_ts'
         let pat_ts:
           if stx.pat_in_parens
           | '($pat_ts)'.relocate(stx.pat)
           | pat_ts
-        let res_annot_ts = typeset_const_expr(stx.res_annot)
+        let res_annot_ts = typeset_specl_expr(stx.res_annot)
         let block_ts = typeset_optional_block(stx.block)
         doc_meta.typeset_rhombusblock(
-          '$const_dot_operator_ts $pat_ts $res_annot_ts $block_ts',
+          '$specl_dot_operator_ts $pat_ts $res_annot_ts $block_ts',
           ~at: stx))
 
 //==============================================================================
@@ -473,7 +473,7 @@ export doc.bridge operator:
           | pat_ts
         let res_annot_ts:
           if stx.res_annot.present
-          | '$(typeset_expr(stx.res_annot.op)) $(typeset_const_expr(stx.res_annot.annot))'
+          | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
           | ''
         let block_ts = typeset_optional_block(stx.block)
         doc_meta.typeset_rhombusblock(
@@ -509,14 +509,14 @@ export doc.bridge coercion:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
           receiver_metavars(stx.receiver),
-          const_bind_metavars(stx.to_bind),
+          specl_bind_metavars(stx.to_bind),
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let coercion_ts = typeset_global_defn(stx.coercion)
         let receiver_ts = typeset_receiver(stx.receiver)
         let ann_op_ts = typeset_expr(stx.ann_op)
-        let to_bind_ts = typeset_const_bind(stx.to_bind)
+        let to_bind_ts = typeset_specl_bind(stx.to_bind)
         let block_ts = typeset_optional_block(stx.block)
         doc_meta.typeset_rhombusblock(
           '$coercion_ts $receiver_ts $ann_op_ts $to_bind_ts $block_ts',
@@ -534,23 +534,23 @@ export doc.bridge unify:
         "unification",
     ~extract_space:
       fun(_):
-        #'#{pille/const_expr},
+        #'#{pille/specl_expr},
     ~extract_name:
       fun(_, _):
         [],
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
-          const_bind_metavars(stx.fst_bind),
-          const_bind_metavars(stx.snd_bind),
+          specl_bind_metavars(stx.fst_bind),
+          specl_bind_metavars(stx.snd_bind),
           block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let unify_ts = typeset_global_defn(stx.unify)
-        let fst_bind_ts = typeset_const_bind(stx.fst_bind)
-        let snd_bind_ts = typeset_const_bind(stx.snd_bind)
+        let fst_bind_ts = typeset_specl_bind(stx.fst_bind)
+        let snd_bind_ts = typeset_specl_bind(stx.snd_bind)
         let binds_ts = '($fst_bind_ts, $snd_bind_ts)'.relocate(stx.binds)
-        let block_ts = typeset_block(~typeset_body: typeset_const_expr, stx.block)
+        let block_ts = typeset_block(~typeset_body: typeset_specl_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$unify_ts $binds_ts $block_ts',
           ~at: stx))

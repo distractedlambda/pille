@@ -2,7 +2,7 @@
 
 import:
   "../../util/assert.rhm" open
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open
   pille/concretize open

@@ -18,7 +18,7 @@ export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
   let method_concr :~ method.Concretized = try:
     from_type.concretized_method(
       special_name.symbol(coerce_to),
-      [ConstType(to_type)])
+      [SpeclType(to_type)])
     ~catch
     | exn :: Exn.Fail.Concretize.Recoverable:
         error(

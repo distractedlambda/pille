@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open
   pille/concretize open
@@ -9,13 +9,13 @@ import:
   pille/lowering
 
 //==============================================================================
-export pille_expr.macro 'load($(type :: const_expr_meta.Parsed),
-                              $(align :: const_expr_meta.Parsed),
+export pille_expr.macro 'load($(type :: specl_expr_meta.Parsed),
+                              $(align :: specl_expr_meta.Parsed),
                               $(ptr :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_load(
-       $(const_expr_meta.unpack_rhombus_expr(type)),
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(type)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(ptr)))')
 
 fun concretize_load(type :~ Type, align, ptr :~ Expr):
@@ -37,12 +37,12 @@ fun concretize_load(type :~ Type, align, ptr :~ Expr):
           #false)
 
 //==============================================================================
-export pille_expr.macro 'store($(align :: const_expr_meta.Parsed),
+export pille_expr.macro 'store($(align :: specl_expr_meta.Parsed),
                                $(ptr :: pille_expr_meta.Parsed),
                                $(val :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_store(
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(ptr)),
        $(pille_expr_meta.unpack_concretize(val)))')
 

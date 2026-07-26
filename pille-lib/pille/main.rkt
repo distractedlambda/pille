@@ -17,8 +17,8 @@ decl.macro 'reexport:
 reexport:
   "private/boolean.rhm"
   "private/cond.rhm"
-  "private/const_ops.rhm"
-  "private/const_type.rhm"
+  "private/specl_ops.rhm"
+  "private/specl_type.rhm"
   "private/generic_ops.rhm"
   "private/int.rhm"
   "private/loop.rhm"

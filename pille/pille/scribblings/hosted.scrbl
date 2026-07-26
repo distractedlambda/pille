@@ -16,8 +16,8 @@
     expr: block
     id: block
     pille_body: pille.block body ~at pille/expr
-    pille_const_bind: pille.const_bind const_bind ~space
-    pille_const_expr: pille.const_expr const_expr ~space)
+    pille_specl_bind: pille.specl_bind specl_bind ~space
+    pille_specl_expr: pille.specl_expr specl_expr ~space)
 
 @title{Hosted Execution}
 
@@ -34,14 +34,14 @@
   | ε
 
   grammar arg
-  | ~const $const_arg
+  | ~specl $specl_arg
   | $dyn_arg
 
-  grammar const_arg
-  | $pille_const_bind #,(rhm_expr(=)) $expr
+  grammar specl_arg
+  | $pille_specl_bind #,(rhm_expr(=)) $expr
   | $id
 
   grammar dyn_arg
-  | $id #,(pille_expr(::)) $pille_const_expr #,(rhm_expr(=)) $expr
-  | $id #,(pille_expr(::)) $pille_const_expr
+  | $id #,(pille_expr(::)) $pille_specl_expr #,(rhm_expr(=)) $expr
+  | $id #,(pille_expr(::)) $pille_specl_expr
 ){}

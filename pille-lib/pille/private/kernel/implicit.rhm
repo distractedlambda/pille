@@ -3,9 +3,9 @@
 import:
   "../runtime/per_profile.rhm" open
   "../util/syntax.rhm" open
-  "const_bind.rhm" open
-  "const_bind_forms.rhm" open
-  "const_expr.rhm" open
+  "specl_bind.rhm" open
+  "specl_bind_forms.rhm" open
+  "specl_expr.rhm" open
   "expr.rhm" open
   "expr_forms.rhm" open
   "local_defn.rhm" open
@@ -67,7 +67,7 @@ meta syntax_class implicit_meta.ResolveKey:
               expected @species.num_indices, received @(Function.count(indices.index, ...))},
         indices)
     field rhombus_expr:
-      '($(species.rhombus_key_factory)([const_expr.eval($indices.index), ...]))'
+      '($(species.rhombus_key_factory)([specl_expr.eval($indices.index), ...]))'
         .relocate_span([species, indices])
 
 //==============================================================================
@@ -94,16 +94,16 @@ export defn.macro 'implicit \
       ~all_stx: stx
       'summon $('$')stx'»'
 
-expr.macro 'make_validator([$(index_bind :: const_bind_meta.Parsed), ...], $value_type_bind)':
+expr.macro 'make_validator([$(index_bind :: specl_bind_meta.Parsed), ...], $value_type_bind)':
   'fun(indices):
-     $(const_bind_meta.compile(
-         const_bind_meta.pack_parallel_bindings([index_bind, ...]),
+     $(specl_bind_meta.compile(
+         specl_bind_meta.pack_parallel_bindings([index_bind, ...]),
          'indices',
          'make_value_type_validator($value_type_bind)'))'
 
-expr.macro 'make_value_type_validator($(value_type_bind :: const_bind_meta.Parsed))':
+expr.macro 'make_value_type_validator($(value_type_bind :: specl_bind_meta.Parsed))':
   'fun(val_type):
-     $(const_bind_meta.compile(
+     $(specl_bind_meta.compile(
          value_type_bind,
          'val_type',
          '#void'))'

@@ -3,19 +3,19 @@
 import:
   "../util/operator.rhm" open
   "../util/syntax.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
-  "const_fun.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_fun.rhm" open
 
 export:
   only_space namespace:
-    const
+    specl
 
 meta:
   fun is_annot_op(op):
-    op matches '$(_ :: const_expr_meta.AnnotOp)'
+    op matches '$(_ :: specl_expr_meta.AnnotOp)'
 
-defn.macro 'const.operator $(spec :: GenericOperatorSpec(is_annot_op))':
+defn.macro 'specl.operator $(spec :: GenericOperatorSpec(is_annot_op))':
   let macro_cases = MutableList[]
   let fun_defns = MutableList[]
 
@@ -26,7 +26,7 @@ defn.macro 'const.operator $(spec :: GenericOperatorSpec(is_annot_op))':
           'prefix_impl($('$')rhs)'»')
 
     fun_defns.add(
-      'const.fun prefix_impl:
+      'specl.fun prefix_impl:
          ~name: $spec.op_name
        | ($spec.prefix.rhs) $spec.prefix.res_annot:
            $spec.prefix.options.other_option; ...
@@ -40,7 +40,7 @@ defn.macro 'const.operator $(spec :: GenericOperatorSpec(is_annot_op))':
           'infix_impl($('$')lhs, $('$')rhs)'»')
 
     fun_defns.add(
-      'const.fun infix_impl:
+      'specl.fun infix_impl:
          ~name: $spec.op_name
        | ($spec.infix.lhs, $spec.infix.rhs) $spec.infix.res_annot:
            $spec.infix.options.other_option; ...
@@ -54,14 +54,14 @@ defn.macro 'const.operator $(spec :: GenericOperatorSpec(is_annot_op))':
           'postfix_impl($('$')lhs)'»')
 
     fun_defns.add(
-      'const.fun postfix_impl:
+      'specl.fun postfix_impl:
          ~name: $spec.op_name
        | ($spec.postfix.lhs) $spec.postfix.res_annot:
            $spec.postfix.options.other_option; ...
            $spec.postfix.body
        | ...')
 
-  'const_expr.macro:
+  'specl_expr.macro:
    | $(each macro_cases.snapshot())
    | ...
 

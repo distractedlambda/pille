@@ -8,10 +8,10 @@ export manual.nonterminal:
   arg_expr: expr expr ~space
   body: block ~at pille/expr
   callee_expr: expr expr ~space
-  const_annot: const_annot ~space
-  const_bind: const_bind ~space
-  const_expr: const_expr ~space
-  const_literal: #%literal ~at pille/const_expr
+  specl_annot: specl_annot ~space
+  specl_bind: specl_bind ~space
+  specl_expr: specl_expr ~space
+  specl_literal: #%literal ~at pille/specl_expr
   defined_name: rhm_meta.defn.macro ~defn
   dot_member_name: method ~defn
   expr: expr ~space

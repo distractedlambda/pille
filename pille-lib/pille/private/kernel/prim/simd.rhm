@@ -3,7 +3,7 @@
 import:
   "../../util/assert.rhm" open
   "../../util/list_of_values.rhm" open
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open
   pille/concretize open
@@ -12,11 +12,11 @@ import:
 
 //==============================================================================
 export pille_expr.macro 'splat($(elem :: pille_expr_meta.Parsed),
-                               $(length :: const_expr_meta.Parsed))':
+                               $(length :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_splat(
        $(pille_expr_meta.unpack_concretize(elem)),
-       $(const_expr_meta.unpack_rhombus_expr(length)))')
+       $(specl_expr_meta.unpack_rhombus_expr(length)))')
 
 fun concretize_splat(elem :~ Expr, length):
   let (elem_type, elem_low) = elem.unpack_rvalue()
@@ -161,13 +161,13 @@ fun concretize_vp_binop(intrinsic_name, lhs :~ Expr, rhs :~ Expr, mask :~ Expr):
 //==============================================================================
 export pille_expr.macro 'masked_load(
                            $(ptr :: pille_expr_meta.Parsed),
-                           $(align :: const_expr_meta.Parsed),
+                           $(align :: specl_expr_meta.Parsed),
                            $(mask :: pille_expr_meta.Parsed),
                            $(passthru :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_masked_load(
        $(pille_expr_meta.unpack_concretize(ptr)),
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(mask)),
        $(pille_expr_meta.unpack_concretize(passthru)))')
 
@@ -197,13 +197,13 @@ fun concretize_masked_load(ptr :~ Expr, align, mask :~ Expr, passthru :~ Expr):
 export pille_expr.macro 'masked_store(
                            $(val :: pille_expr_meta.Parsed),
                            $(ptr :: pille_expr_meta.Parsed),
-                           $(align :: const_expr_meta.Parsed),
+                           $(align :: specl_expr_meta.Parsed),
                            $(mask :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_masked_store(
        $(pille_expr_meta.unpack_concretize(val)),
        $(pille_expr_meta.unpack_concretize(ptr)),
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(mask)))')
 
 fun concretize_masked_store(val :~ Expr, ptr :~ Expr, align, mask :~ Expr):
@@ -231,13 +231,13 @@ fun concretize_masked_store(val :~ Expr, ptr :~ Expr, align, mask :~ Expr):
 //==============================================================================
 export pille_expr.macro 'masked_gather(
                            $(ptrs :: pille_expr_meta.Parsed),
-                           $(align :: const_expr_meta.Parsed),
+                           $(align :: specl_expr_meta.Parsed),
                            $(mask :: pille_expr_meta.Parsed),
                            $(passthru :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_masked_gather(
        $(pille_expr_meta.unpack_concretize(ptrs)),
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(mask)),
        $(pille_expr_meta.unpack_concretize(passthru)))')
 
@@ -267,13 +267,13 @@ fun concretize_masked_gather(ptrs :~ Expr, align, mask :~ Expr, passthru :~ Expr
 export pille_expr.macro 'masked_scatter(
                            $(vals :: pille_expr_meta.Parsed),
                            $(ptrs :: pille_expr_meta.Parsed),
-                           $(align :: const_expr_meta.Parsed),
+                           $(align :: specl_expr_meta.Parsed),
                            $(mask :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_masked_scatter(
        $(pille_expr_meta.unpack_concretize(vals)),
        $(pille_expr_meta.unpack_concretize(ptrs)),
-       $(const_expr_meta.unpack_rhombus_expr(align)),
+       $(specl_expr_meta.unpack_rhombus_expr(align)),
        $(pille_expr_meta.unpack_concretize(mask)))')
 
 fun concretize_masked_scatter(vals :~ Expr, ptrs :~ Expr, align, mask :~ Expr):

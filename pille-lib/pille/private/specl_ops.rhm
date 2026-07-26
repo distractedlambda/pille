@@ -4,10 +4,10 @@ import:
   pille/concretize open
 
 export only_space namespace:
-  const
+  specl
 
 //==============================================================================
-export const.fun const.error(message :: string):
+export specl.fun specl.error(message :: string):
   #%rhombus(message):
     import rhombus/static open
     error(
@@ -15,25 +15,25 @@ export const.fun const.error(message :: string):
       message)
 
 //==============================================================================
-export const.fun min(x :: real, y :: real):
+export specl.fun min(x :: real, y :: real):
   #%rhombus(x, y):
     import rhombus/static open
     math.min(x, y)
 
 //==============================================================================
-export const.fun max(x :: real, y :: real):
+export specl.fun max(x :: real, y :: real):
   #%rhombus(x, y):
     import rhombus/static open
     math.max(x, y)
 
 //==============================================================================
-export const.fun unify(α :: type, β :: type):
+export specl.fun unify(α :: type, β :: type):
   #%rhombus(α, β):
     import rhombus/static open
     Type.unify(α, β)
 
 //==============================================================================
-export const.fun sizeof(α :: type):
+export specl.fun sizeof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
@@ -45,7 +45,7 @@ export const.fun sizeof(α :: type):
       .size
 
 //==============================================================================
-export const.fun alignof(α :: type):
+export specl.fun alignof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
@@ -57,7 +57,7 @@ export const.fun alignof(α :: type):
       .alignment
 
 //==============================================================================
-export const.fun strideof(α :: type):
+export specl.fun strideof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
@@ -69,14 +69,14 @@ export const.fun strideof(α :: type):
       .stride
 
 //==============================================================================
-export const.operator (lhs :: number) + (rhs :: number):
+export specl.operator (lhs :: number) + (rhs :: number):
   ~order: addition
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs + rhs
 
 //==============================================================================
-export const.operator
+export specl.operator
 | - (rhs :: number):
     ~order: addition
     #%rhombus(rhs):
@@ -89,121 +89,121 @@ export const.operator
       lhs - rhs
 
 //==============================================================================
-export const.operator (lhs :: number) * (rhs :: number):
+export specl.operator (lhs :: number) * (rhs :: number):
   ~order: multiplication
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs * rhs
 
 //==============================================================================
-export const.operator (lhs :: number) / (rhs :: number):
+export specl.operator (lhs :: number) / (rhs :: number):
   ~order: multiplication
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs / rhs
 
-export const.operator (lhs :: real) div_trunc (rhs :: real):
+export specl.operator (lhs :: real) div_trunc (rhs :: real):
   ~order: multiplication
   #%rhombus(lhs, rhs):
     import rhombus open
     math.truncate(lhs / rhs)
 
-export const.operator (lhs :: real) div_floor (rhs :: real):
+export specl.operator (lhs :: real) div_floor (rhs :: real):
   ~order: multiplication
   #%rhombus(lhs, rhs):
     import rhombus open
     math.floor(lhs / rhs)
 
-export const.operator (lhs :: real) div_ceil (rhs :: real):
+export specl.operator (lhs :: real) div_ceil (rhs :: real):
   ~order: multiplication
   #%rhombus(lhs, rhs):
     import rhombus open
     math.ceiling(lhs / rhs)
 
 //==============================================================================
-export const.operator (lhs :: nonneg_real) % (rhs :: nonneg_real):
+export specl.operator (lhs :: nonneg_real) % (rhs :: nonneg_real):
   ~order: multiplication
   lhs rem_trunc rhs
 
-export const.operator (lhs :: real) rem_trunc (rhs :: real):
+export specl.operator (lhs :: real) rem_trunc (rhs :: real):
   ~order: multiplication
   lhs - rhs * (lhs div_trunc rhs)
 
-export const.operator (lhs :: real) rem_floor (rhs :: real):
+export specl.operator (lhs :: real) rem_floor (rhs :: real):
   ~order: multiplication
   lhs - rhs * (lhs div_floor rhs)
 
-export const.operator (lhs :: real) rem_ceil (rhs :: real):
+export specl.operator (lhs :: real) rem_ceil (rhs :: real):
   ~order: multiplication
   lhs - rhs * (lhs div_ceil rhs)
 
 //==============================================================================
-export const.operator (lhs :: number) ** (rhs :: number):
+export specl.operator (lhs :: number) ** (rhs :: number):
   ~order: exponentiation
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs ** rhs
 
 //==============================================================================
-export const.operator lhs == rhs:
+export specl.operator lhs == rhs:
   ~order: equivalence
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs == rhs
 
 //==============================================================================
-export const.operator lhs != rhs:
+export specl.operator lhs != rhs:
   ~order: equivalence
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs != rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename != as ≠
 
 //==============================================================================
-export const.operator (lhs :: comparable) < (rhs :: comparable):
+export specl.operator (lhs :: comparable) < (rhs :: comparable):
   ~order: order_comparison
   #%rhombus(lhs, rhs):
     import rhombus open
     lhs < rhs
 
 //==============================================================================
-export const.operator (lhs :: comparable) <= (rhs :: comparable):
+export specl.operator (lhs :: comparable) <= (rhs :: comparable):
   ~order: order_comparison
   #%rhombus(lhs, rhs):
     import rhombus open
     lhs <= rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename <= as ≤
 
 //==============================================================================
-export const.operator (lhs :: comparable) > (rhs :: comparable):
+export specl.operator (lhs :: comparable) > (rhs :: comparable):
   ~order: order_comparison
   #%rhombus(lhs, rhs):
     import rhombus open
     lhs > rhs
 
 //==============================================================================
-export const.operator (lhs :: comparable) >= (rhs :: comparable):
+export specl.operator (lhs :: comparable) >= (rhs :: comparable):
   ~order: order_comparison
   #%rhombus(lhs, rhs):
     import rhombus open
     lhs >= rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename >= as ≥
 
 //==============================================================================
-export const.operator !rhs:
+export specl.operator !rhs:
   ~order: logical_negation
   #%rhombus(rhs):
     import rhombus/static open
     !rhs
 
 //==============================================================================
-export const.operator
+export specl.operator
 | ¬(rhs :: boolean):
     ~order: bitwise_negation
     #%rhombus(rhs):
@@ -214,11 +214,11 @@ export const.operator
       import rhombus open
       bits.not(rhs)
 
-export only_space const_expr:
+export only_space specl_expr:
   rename ¬ as not
 
 //==============================================================================
-export const.operator
+export specl.operator
 | (lhs :: boolean) ∧ (rhs :: boolean):
     ~order: bitwise_conjunction
     #%rhombus(lhs, rhs):
@@ -229,11 +229,11 @@ export const.operator
       import rhombus open
       lhs bits.and rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename ∧ as and
 
 //==============================================================================
-export const.operator
+export specl.operator
 | (lhs :: boolean) ∨ (rhs :: boolean):
     ~order: bitwise_disjunction
     #%rhombus(lhs, rhs):
@@ -244,11 +244,11 @@ export const.operator
       import rhombus open
       lhs bits.or rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename ∨ as or
 
 //==============================================================================
-export const.operator
+export specl.operator
 | (lhs :: boolean) ⊻ (rhs :: boolean):
     ~order: bitwise_disjunction
     #%rhombus(lhs, rhs):
@@ -259,11 +259,11 @@ export const.operator
       import rhombus open
       lhs bits.xor rhs
 
-export only_space const_expr:
+export only_space specl_expr:
   rename ⊻ as xor
 
 //==============================================================================
-export const.fun bit_length(n :: int):
+export specl.fun bit_length(n :: int):
   #%rhombus(n):
     import rhombus/static open
     bits.length(n)

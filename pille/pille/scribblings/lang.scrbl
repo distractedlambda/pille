@@ -7,7 +7,7 @@
 @table_of_contents()
 
 @include_section("lang/overview.scrbl")
-@include_section("lang/const.scrbl")
+@include_section("lang/specl.scrbl")
 @include_section("lang/method.scrbl")
 @include_section("lang/coe.scrbl")
 @include_section("lang/basic.scrbl")

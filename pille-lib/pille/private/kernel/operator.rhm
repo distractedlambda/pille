@@ -2,8 +2,8 @@
 
 import:
   "../util/operator.rhm" open
-  "const_bind.rhm" open
-  "const_bind_forms.rhm" open // need `_` binding
+  "specl_bind.rhm" open
+  "specl_bind_forms.rhm" open // need `_` binding
   "expr.rhm" open
   "expr_forms.rhm" open
   "fun.rhm" open

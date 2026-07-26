@@ -1,7 +1,7 @@
 #lang pille/private/kernel
 
 import:
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
@@ -76,9 +76,9 @@ export generic_binpreops:
 
 //==============================================================================
 export operator
-| ! (const b :: boolean) :: Const(!b):
+| ! (specl b :: boolean) :: Specl(!b):
     ~order: logical_negation
-    const(!b)
+    specl(!b)
 | ! (rhs :: CoercesTo(Boolean)) :: Boolean:
     prim.not(rhs :: Boolean)
 

@@ -11,11 +11,11 @@
 ){}
 
 @doc(
-  expr.macro '$expr :: $const_expr'
+  expr.macro '$expr :: $specl_expr'
 ){}
 
 @doc(
-  global_defn.macro 'coercion $receiver #,(pille_expr(::)) $const_bind:
+  global_defn.macro 'coercion $receiver #,(pille_expr(::)) $specl_bind:
                        $option; ...
                        $body
                        ...'
@@ -25,28 +25,28 @@
 ){}
 
 @doc(
-  const_bind.macro 'CoercesFrom($const_expr)'
+  specl_bind.macro 'CoercesFrom($specl_expr)'
 ){
   Matches types which are valid coercion targets of the
-  source type given by @rhombus(const_expr).
+  source type given by @rhombus(specl_expr).
 }
 
 @doc(
-  const_bind.macro 'CoercesTo($const_expr)'
+  specl_bind.macro 'CoercesTo($specl_expr)'
 ){
   Matches types which can coerce to the type given by
-  @rhombus(const_expr).
+  @rhombus(specl_expr).
 }
 
 @section{Unification}
 @doc(
-  const.fun unify(α :: type, β :: type) :: type
+  specl.fun unify(α :: type, β :: type) :: type
 ){}
 
 @doc(
-  global_defn.macro 'unify($const_bind, $const_bind):
+  global_defn.macro 'unify($specl_bind, $specl_bind):
                        $option; ...
-                       $const_expr'
+                       $specl_expr'
 
   grammar option
   | $when_where_option

@@ -13,7 +13,7 @@ through:
   @item{@deftech{Parsing}, which uses a Rhombus-based
   macro-expansion process;},
   @item{@deftech{Concretization}, which determines types,
-  evaluates constant expressions, and bakes in
+  evaluates specialization expressions, and bakes in
   target-specific information;},
   @item{@deftech{Lowering}, which generates LLVM IR
   for the concretized program;},
@@ -38,7 +38,7 @@ There are two ``modes'' of Pille execution:
   degree. With the exception of parsing, Pille compilation
   occurs at the @italic{same} @phase_level_tech as
   execution, and dynamic Rhombus values can be promoted to
-  Pille @tech{constants}.},
+  Pille @tech{specialization values}.},
   @item{In @seclink("Standalone_Execution"){standalone
   execution}, Pille code is compiled into a target-native
   object file, which is then linked into a target-native
@@ -47,20 +47,20 @@ There are two ``modes'' of Pille execution:
   may even be destined for a target that the Racket system
   does not otherwise support.})
 
-@section{Constants}
-@deftech{Constants} are values that do not directly
+@section{Specialization Values}
+@deftech{Specialization values} are values that do not directly
 represent any machine-level data, but instead serve to
 control and guide @tech{concretization}. Concretization is
-also the only step which evaluates constant-level constructs
-(such as constant expressions).
+also the only step which evaluates specialization-level constructs
+(such as specialization expressions).
 
-@tech{Lowering} is able to reference constants
+@tech{Lowering} is able to reference specialization values
 computed by concretization, but does not directly manifest
-them in any standard way; in other words, constants are
+them in any standard way; in other words, specialization values are
 erased following lowering. This means that they do
 not need to be directly machine-representable, let alone
 representable in any fixed amount of memory. In practice,
-this means that constants are represented during
+this means that specialization values are represented during
 concretization as Rhombus values.
 
 @section{Dynamic Representations}
@@ -71,7 +71,7 @@ reprs, but any given repr uses a finite number of bits and
 has a fixed memory footprint (byte size and alignment).
 
 @section{Types and Dynamic Values}
-A @deftech{type} is a special kind of @tech{constant} that
+A @deftech{type} is a special kind of @tech{specialization value} that
 pairs a @tech{repr} with ``meaning''; a @deftech{dynamic
 value} is a type paired with a valid bit pattern for that
 type's repr.
@@ -80,13 +80,13 @@ The ``meaning'' given by a type is the combination of
 behaviors it specifies (methods, coercion rules, etc.), as
 well as the ways in which that type might be specially
 recognized by other constructs. For instance,
-@pille_const_expr(Int(32)) and @pille_const_expr(UInt(32))
+@pille_specl_expr(Int(32)) and @pille_specl_expr(UInt(32))
 are two types with equivalent reprs that nonetheless mean
 different things (signed v.s. unsigned integers), and the
 distinct meanings are captured in the @italic{behaviors}
-that the types specify (e.g. @pille_const_expr(Int(32)) will
+that the types specify (e.g. @pille_specl_expr(Int(32)) will
 sign-extend when coercing to a larger integer type, whereas
-@pille_const_expr(UInt(32)) will zero-extend).
+@pille_specl_expr(UInt(32)) will zero-extend).
 
 @tech{Concretization} performs guaranteed
 @defterm{monomorphization} of dynamic expressions, meaning

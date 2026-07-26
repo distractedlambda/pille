@@ -5,15 +5,15 @@ module reader ~lang rhombus/reader:
 
 import:
   "kernel/cond_comp.rhm" open
-  "kernel/const_annot.rhm" open
-  "kernel/const_annot_forms.rhm" open
-  "kernel/const_bind.rhm" open
-  "kernel/const_bind_forms.rhm" open
-  "kernel/const_def.rhm" open
-  "kernel/const_expr.rhm" open
-  "kernel/const_expr_forms.rhm" open
-  "kernel/const_fun.rhm" open
-  "kernel/const_operator.rhm" open
+  "kernel/specl_annot.rhm" open
+  "kernel/specl_annot_forms.rhm" open
+  "kernel/specl_bind.rhm" open
+  "kernel/specl_bind_forms.rhm" open
+  "kernel/specl_def.rhm" open
+  "kernel/specl_expr.rhm" open
+  "kernel/specl_expr_forms.rhm" open
+  "kernel/specl_fun.rhm" open
+  "kernel/specl_operator.rhm" open
   "kernel/core_type_forms.rhm" open
   "kernel/core_type_ops.rhm" open
   "kernel/expr.rhm" open
@@ -101,13 +101,13 @@ export:
     all_from(rhombus/static)
 
   only_space namespace:
-    const
+    specl
     ub
 
   only_space namespace space:
-    const_annot
-    const_bind
-    const_expr
+    specl_annot
+    specl_bind
+    specl_expr
     implicit
     labeled_expr
     local_defn
@@ -118,12 +118,12 @@ export:
     pille_fun as fun
     pille_operator as operator
 
-  only_space const_annot const_bind const_expr pille_expr labeled_expr local_defn special_name:
+  only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn special_name:
     all_from("kernel/cond_comp.rhm")
-    all_from("kernel/const_annot_forms.rhm")
-    all_from("kernel/const_bind.rhm")
-    all_from("kernel/const_bind_forms.rhm")
-    all_from("kernel/const_expr_forms.rhm")
+    all_from("kernel/specl_annot_forms.rhm")
+    all_from("kernel/specl_bind.rhm")
+    all_from("kernel/specl_bind_forms.rhm")
+    all_from("kernel/specl_expr_forms.rhm")
     all_from("kernel/core_type_forms.rhm")
     all_from("kernel/core_type_ops.rhm")
     all_from("kernel/expr_forms.rhm")
@@ -144,9 +144,9 @@ export:
     all_from(rhombus/static)
 
     only_space namespace:
-      const_annot_meta
-      const_bind_meta
-      const_expr_meta
+      specl_annot_meta
+      specl_bind_meta
+      specl_expr_meta
       implicit_meta
       local_defn_meta
 

@@ -13,7 +13,7 @@ export expr.macro 'if $(test :: expr_meta.Parsed)
      expr.preparse then: $then
      expr.preparse else: $else
      let test = $test
-     const.match type_of(test)
+     specl.match type_of(test)
      | CoercesTo(Boolean):
          pille.if test
          | then
@@ -55,7 +55,7 @@ export expr.macro 'while $(test :: expr_meta.Parsed): $body':
      #'loop(mask = simd_program_mask):
        using program_mask = mask
        let test = $test
-       const.match type_of(test)
+       specl.match type_of(test)
        | CoercesTo(Boolean):
            pille.if test
            | body
@@ -83,9 +83,9 @@ export expr.macro 'par_for ($(seq :: ParForSequence)): $body':
   ~op_stx: op
   'block:
      expr.preparse body($seq.ivar): $body
-     const.assert(currently_unmasked)
+     specl.assert(currently_unmasked)
      let rng = $seq.rng
-     const.match type_of(rng)
+     specl.match type_of(rng)
      | Range(BinaryInteger):
          pille.when rng.start < rng.end
          | var base_idx = rng.start
@@ -95,4 +95,4 @@ export expr.macro 'par_for ($(seq :: ParForSequence)): $body':
            when program_index < rng.end - base_idx
            | body(base_idx + program_index)
      | _:
-         const.error("unsupported range type")'
+         specl.error("unsupported range type")'

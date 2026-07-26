@@ -25,24 +25,24 @@
 
   grammar arg
   | $maybe_inout $id
-  | $maybe_inout $id #,(pille_expr(::)) $const_bind
-  | #,(pille_expr(const)) $const_bind
+  | $maybe_inout $id #,(pille_expr(::)) $specl_bind
+  | #,(pille_expr(specl)) $specl_bind
 
   grammar maybe_inout
   | #,(pille_expr(inout))
   | ε
 
   grammar maybe_res_type
-  | #,(pille_expr(::)) $const_expr
+  | #,(pille_expr(::)) $specl_expr
   | ε
 
   grammar option
   | $when_where_option
 
   grammar when_where_option
-  | ~when $const_expr
+  | ~when $specl_expr
   | ~when:
-      $const_expr
+      $specl_expr
       ...
   | ~where $where_bind
   | ~where:
@@ -50,8 +50,8 @@
       ...
 
   grammar where_bind
-  | $const_bind #,(pille_const_expr(=)) $const_expr
-  | $const_bind: $const_expr
+  | $specl_bind #,(pille_specl_expr(=)) $specl_expr
+  | $specl_bind: $specl_expr
 ){}
 
 @section{Defining Properties}

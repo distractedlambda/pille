@@ -4,14 +4,14 @@ meta import:
   "../util/annot.rhm" open
 
 export:
-  const_annot
-  meta: const_annot_meta
+  specl_annot
+  meta: specl_annot_meta
 
 //==============================================================================
-space.enforest const_annot:
-  space_path pille/const_annot
+space.enforest specl_annot:
+  space_path pille/specl_annot
   macro_definer macro
-  meta_namespace const_annot_meta:
+  meta_namespace specl_annot_meta:
     export:
       Packed
       pack_rhombus_predicate
@@ -19,8 +19,8 @@ space.enforest const_annot:
       unpack_rhombus_predicate
 
     reflection space
-    description "const annotation"
-    operator_description "const annotation operator"
+    description "specl annotation"
+    operator_description "specl annotation operator"
 
     parse_syntax_class Parsed
     parse_prefix_more_syntax_class AfterPrefixParsed
@@ -50,5 +50,5 @@ space.enforest const_annot:
   export:
     predicate
 
-  expr.macro 'predicate($(ann :: const_annot_meta.Parsed))':
-    const_annot_meta.unpack_rhombus_predicate(ann)
+  expr.macro 'predicate($(ann :: specl_annot_meta.Parsed))':
+    specl_annot_meta.unpack_rhombus_predicate(ann)

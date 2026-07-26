@@ -31,10 +31,10 @@ fun concretize_if(
 ):
   let (test_type, test_low) = test.unpack_rvalue()
 
-  // Handle constant test condition
-  guard test_type !matches ConstType(_ :: Boolean)
+  // Handle specl test condition
+  guard test_type !matches SpeclType(_ :: Boolean)
   | let (body_type, body_low):
-      if ConstType.value(test_type)
+      if SpeclType.value(test_type)
       | concretize_then().unpack_rvalue()
       | concretize_else().unpack_rvalue()
     Expr.Rvalue(

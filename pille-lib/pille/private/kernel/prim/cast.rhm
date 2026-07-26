@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../expr.rhm" open
   pille/concretize open
   pille/llvm
@@ -12,11 +12,11 @@ defn.macro 'cast_ops:
               ...':
   let [concretize_fn_name, ...] = [Syntax.make_temp_id(op_name), ...]
   '«pille_expr.macro '$op_name($('$')(src :: pille_expr_meta.Parsed),
-                               ~to: $('$')(dst_type :: const_expr_meta.Parsed))':
+                               ~to: $('$')(dst_type :: specl_expr_meta.Parsed))':
       pille_expr_meta.pack_concretize(
         '$concretize_fn_name(
            $('$')(pille_expr_meta.unpack_concretize(src)),
-           $('$')(const_expr_meta.unpack_rhombus_expr(dst_type)))')
+           $('$')(specl_expr_meta.unpack_rhombus_expr(dst_type)))')
     ...
 
     fun $concretize_fn_name(src, dst_type):

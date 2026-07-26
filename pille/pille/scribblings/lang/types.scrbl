@@ -6,106 +6,106 @@
 @title{Basic Types}
 
 @//=============================================================================
-@section(~tag: "Basic_Types_Constants"){Constants}
+@section(~tag: "Basic_Types_Specl"){Wrapping Specialization Values}
 
 @doc(
-  type Const(val :: any)
+  type Specl(val :: any)
 ){
-  Represents the @tech{constant} @rhombus(val), but as a
+  Represents the @tech{specialization value} @rhombus(val), but as a
   first-class @tech{dynamic value}. All
-  @pille_const_expr(Const) types have erased
+  @pille_specl_expr(Specl) types have erased
   representations, so their instances carry no actual
   information during execution.
 }
 
 @doc(
-  expr.macro 'const($const_expr)'
+  expr.macro 'specl($specl_expr)'
 ){
   Produces a value of type
-  @pille_const_expr(Const(const_expr)).
+  @pille_specl_expr(Specl(specl_expr)).
 }
 
 @doc(
-  method (const f :: function).$call(const v, ...)
-    :: Const(f(v, ...))
+  method (specl f :: function).$call(specl v, ...)
+    :: Specl(f(v, ...))
 ){
-  Allows calling constant functions (such as those defined by
-  @pille_global_defn(const.fun)) within ordinary expressions, provided that all
-  arguments are themselves constants.
+  Allows calling specialization functions (such as those defined by
+  @pille_global_defn(specl.fun)) within ordinary expressions, provided that all
+  arguments are themselves specialization values.
 }
 
 @doc(
-  method (const v1).$add(const v2)
-    :: Const(v1 + v2)
+  method (specl v1).$add(specl v2)
+    :: Specl(v1 + v2)
 
-  method (const v1).$sub(const v2)
-    :: Const(v1 - v2)
+  method (specl v1).$sub(specl v2)
+    :: Specl(v1 - v2)
 
-  method (const v).$neg()
-    :: Const(-v)
+  method (specl v).$neg()
+    :: Specl(-v)
 
-  method (const v1).$mul(const v2)
-    :: Const(v1 * v2)
+  method (specl v1).$mul(specl v2)
+    :: Specl(v1 * v2)
 
-  method (const v1).$div(const v2)
-    :: Const(v1 / v2)
+  method (specl v1).$div(specl v2)
+    :: Specl(v1 / v2)
 
-  method (const v1).$div_trunc(const v2)
-    :: Const(v1 div_trunc v2)
+  method (specl v1).$div_trunc(specl v2)
+    :: Specl(v1 div_trunc v2)
 
-  method (const v1).$div_floor(const v2)
-    :: Const(v1 div_floor v2)
+  method (specl v1).$div_floor(specl v2)
+    :: Specl(v1 div_floor v2)
 
-  method (const v1).$div_ceil(const v2)
-    :: Const(v1 div_ceil v2)
+  method (specl v1).$div_ceil(specl v2)
+    :: Specl(v1 div_ceil v2)
 
-  method (const v1).$div_floor(const v2)
-    :: Const(v1 div_floor v2)
+  method (specl v1).$div_floor(specl v2)
+    :: Specl(v1 div_floor v2)
 
-  method (const v1).$rem(const v2)
-    :: Const(v1 % v2)
+  method (specl v1).$rem(specl v2)
+    :: Specl(v1 % v2)
 
-  method (const v1).$rem_trunc(const v2)
-    :: Const(v1 rem_trunc v2)
+  method (specl v1).$rem_trunc(specl v2)
+    :: Specl(v1 rem_trunc v2)
 
-  method (const v1).$rem_floor(const v2)
-    :: Const(v1 rem_floor v2)
+  method (specl v1).$rem_floor(specl v2)
+    :: Specl(v1 rem_floor v2)
 
-  method (const v1).$rem_ceil(const v2)
-    :: Const(v1 rem_ceil v2)
+  method (specl v1).$rem_ceil(specl v2)
+    :: Specl(v1 rem_ceil v2)
 
-  method (const v).$not()
-    :: Const(¬v)
+  method (specl v).$not()
+    :: Specl(¬v)
 
-  method (const v1).$and(const v2)
-    :: Const(v1 ∧ v2)
+  method (specl v1).$and(specl v2)
+    :: Specl(v1 ∧ v2)
 
-  method (const v1).$or(const v2)
-    :: Const(v1 ∨ v2)
+  method (specl v1).$or(specl v2)
+    :: Specl(v1 ∨ v2)
 
-  method (const v1).$xor(const v2)
-    :: Const(v1 ⊻ v2)
+  method (specl v1).$xor(specl v2)
+    :: Specl(v1 ⊻ v2)
 
-  method (const v1).$eq(const v2)
-    :: Const(v1 == v2)
+  method (specl v1).$eq(specl v2)
+    :: Specl(v1 == v2)
 
-  method (const v1).$ne(const v2)
-    :: Const(v1 != v2)
+  method (specl v1).$ne(specl v2)
+    :: Specl(v1 != v2)
 
-  method (const v1).$lt(const v2)
-    :: Const(v1 < v2)
+  method (specl v1).$lt(specl v2)
+    :: Specl(v1 < v2)
 
-  method (const v1).$gt(const v2)
-    :: Const(v1 > v2)
+  method (specl v1).$gt(specl v2)
+    :: Specl(v1 > v2)
 
-  method (const v1).$le(const v2)
-    :: Const(v1 ≤ v2)
+  method (specl v1).$le(specl v2)
+    :: Specl(v1 ≤ v2)
 
-  method (const v1).$ge(const v2)
-    :: Const(v1 ≥ v2)
+  method (specl v1).$ge(specl v2)
+    :: Specl(v1 ≥ v2)
 ){
-  Forwards various generic operators to their constant counterparts when
-  operating on @pille_const_expr(Const) operands.
+  Forwards various generic operators to their specialization counterparts when
+  operating on @pille_specl_expr(Specl) operands.
 }
 
 @//=============================================================================
@@ -119,22 +119,22 @@
 }
 
 @doc(
-  coercion (const val :: boolean) :: Boolean
+  coercion (specl val :: boolean) :: Boolean
 ){
-  Coerces the constant @rhombus(val) to its
-  @pille_const_expr(Boolean) representation.
+  Coerces @rhombus(val) to its
+  @pille_specl_expr(Boolean) representation.
 }
 
 @doc(
-  unify(Const(_ :: boolean), Const(_ :: boolean)): Boolean
+  unify(Specl(_ :: boolean), Specl(_ :: boolean)): Boolean
 ){
-  Unifies @pille_const_expr(Const) types representing
-  @pille_const_annot(boolean)s to
-  @pille_const_expr(Boolean).
+  Unifies @pille_specl_expr(Specl) types representing
+  @pille_specl_annot(boolean)s to
+  @pille_specl_expr(Boolean).
 }
 
 @doc(
-  unify(Const(_ :: boolean), Boolean): Boolean
+  unify(Specl(_ :: boolean), Boolean): Boolean
 ){}
 
 @doc(
@@ -186,7 +186,7 @@
 @doc(
   type NativeInt
 ){
-  An alias for the @pille_const_expr(Int) type with the same
+  An alias for the @pille_specl_expr(Int) type with the same
   number of bits as a pointer.
 }
 
@@ -200,67 +200,67 @@
 @doc(
   type NativeUInt
 ){
-  An alias for the @pille_const_expr(UInt) type with the
+  An alias for the @pille_specl_expr(UInt) type with the
   same number of bits as a pointer.
 }
 
 @doc(
-  const_bind.macro 'BinaryInteger'
+  specl_bind.macro 'BinaryInteger'
 ){
-  Matches all @pille_const_expr(Int) and
-  @pille_const_expr(UInt) types.
+  Matches all @pille_specl_expr(Int) and
+  @pille_specl_expr(UInt) types.
 }
 
 @doc(
-  const_bind.macro 'Bitwise'
+  specl_bind.macro 'Bitwise'
 ){
-  Matches all @pille_const_bind(BinaryInteger) and
-  @pille_const_bind(Boolean) types.
+  Matches all @pille_specl_bind(BinaryInteger) and
+  @pille_specl_bind(Boolean) types.
 }
 
 @doc(
-  const_bind.macro 'Integral'
+  specl_bind.macro 'Integral'
 ){
-  Matches all @pille_const_expr(Int),
-  @pille_const_expr(UInt), and
-  @pille_const_bind(Const(_ :: int)) types.
+  Matches all @pille_specl_expr(Int),
+  @pille_specl_expr(UInt), and
+  @pille_specl_bind(Specl(_ :: int)) types.
 }
 
 @doc(
-  property (const Int(w)).min_value :: Const(-(2**(w - 1)))
+  property (specl Int(w)).min_value :: Specl(-(2**(w - 1)))
 
-  property (const Int(w)).max_value :: Const(2**(w - 1) - 1)
+  property (specl Int(w)).max_value :: Specl(2**(w - 1) - 1)
 
-  property (const UInt(w)).min_value :: Const(0)
+  property (specl UInt(w)).min_value :: Specl(0)
 
-  property (const UInt(w)).max_value :: Const(2**w - 1)
+  property (specl UInt(w)).max_value :: Specl(2**w - 1)
 ){}
 
 @doc(
   coercion (int :: Int(src_width)) :: Int(dst_width):
     ~when dst_width > src_width
 ){
-  Coerces @rhombus(int) to any @pille_const_expr(Int) type
+  Coerces @rhombus(int) to any @pille_specl_expr(Int) type
   of greater width, by sign-extension.
 }
 
 @doc(
   unify(Int(m), Int(n)): Int(max(m, n))
 ){
-  Unifies two @pille_const_expr(Int) types by picking the
+  Unifies two @pille_specl_expr(Int) types by picking the
   one of greater width.
 }
 
 @doc(
-  coercion (const val :: int) :: Int(dst_width):
+  coercion (specl val :: int) :: Int(dst_width):
     ~when dst_width > bit_length(val)
 ){
-  Coerces the constant @rhombus(val) to any
-  @pille_const_expr(Int) type which can represent it.
+  Coerces @rhombus(val) to any
+  @pille_specl_expr(Int) type which can represent it.
 }
 
 @doc(
-  unify(Const(v :: int), Int(w)):
+  unify(Specl(v :: int), Int(w)):
     Int(max(bit_length(v) + 1, w))
 ){}
 
@@ -268,27 +268,27 @@
   coercion (uint :: UInt(src_width)) :: UInt(dst_width):
     ~when dst_width > src_width
 ){
-  Coerces @rhombus(uint) to any @pille_const_expr(UInt) type
+  Coerces @rhombus(uint) to any @pille_specl_expr(UInt) type
   of greater width, by zero-extension.
 }
 
 @doc(
   unify(UInt(m), UInt(n)): UInt(max(m, n))
 ){
-  Unifies two @pille_const_expr(UInt) types by picking the
+  Unifies two @pille_specl_expr(UInt) types by picking the
   one of greater width.
 }
 
 @doc(
-  coercion (const val :: nat) :: UInt(dst_width):
+  coercion (specl val :: nat) :: UInt(dst_width):
     ~when dst_width ≥ bit_length(val)
 ){
-  Coerces the constant @rhombus(val) to any
-  @pille_const_expr(UInt) type which can represent it.
+  Coerces @rhombus(val) to any
+  @pille_specl_expr(UInt) type which can represent it.
 }
 
 @doc(
-  unify(Const(v :: nat), UInt(w)):
+  unify(Specl(v :: nat), UInt(w)):
     UInt(max(bit_length(v), w))
 ){}
 
@@ -296,37 +296,37 @@
   coercion (uint :: UInt(src_width)) :: Int(dst_width):
     ~when dst_width > src_width
 ){
-  Coerces @rhombus(uint) to any @pille_const_expr(Int) type
+  Coerces @rhombus(uint) to any @pille_specl_expr(Int) type
   of greater width, by zero-extension.
 }
 
 @doc(
   unify(UInt(m), Int(n)): Int(max(m + 1, n))
 ){
-  Unifies an @pille_const_expr(Int) type with a
-  @pille_const_expr(UInt) type by picking the narrowest
-  @pille_const_expr(Int) type that can represent any value
+  Unifies an @pille_specl_expr(Int) type with a
+  @pille_specl_expr(UInt) type by picking the narrowest
+  @pille_specl_expr(Int) type that can represent any value
   of either.
 }
 
 @doc(
-  unify(Const(v1 :: int), Const(v2 :: int)):
+  unify(Specl(v1 :: int), Specl(v2 :: int)):
     ~when v1 < 0 || v2 < 0
     Int(max(bit_length(v1), bit_length(v2)) + 1)
 ){
-  Unifies two @pille_const_expr(Const) types representing
-  @pille_const_annot(int)s (that are not both also
-  @pille_const_annot(nat)s) to the narrowest
-  @pille_const_expr(Int) type which can represent both.
+  Unifies two @pille_specl_expr(Specl) types representing
+  @pille_specl_annot(int)s (that are not both also
+  @pille_specl_annot(nat)s) to the narrowest
+  @pille_specl_expr(Int) type which can represent both.
 }
 
 @doc(
-  unify(Const(v1 :: nat), Const(v2 :: nat)):
+  unify(Specl(v1 :: nat), Specl(v2 :: nat)):
     UInt(bit_length(max(v1, v2)))
 ){
-  Unifies two @pille_const_expr(Const) types representing
-  @pille_const_annot(nat)s to the narrowest
-  @pille_const_expr(UInt) type which can represent both.
+  Unifies two @pille_specl_expr(Specl) types representing
+  @pille_specl_annot(nat)s to the narrowest
+  @pille_specl_expr(UInt) type which can represent both.
 }
 
 @doc(
@@ -346,7 +346,7 @@
 ){
   Implements the @pille_expr(+), @pille_expr(-), and
   @pille_expr(*) operations on
-  @pille_const_bind(BinaryInteger)s. Overflow/underflow
+  @pille_specl_bind(BinaryInteger)s. Overflow/underflow
   arising from any of these operations is @tech{managed
   undefined behavior}.
 }
@@ -370,7 +370,7 @@
 ){
   Implements the @pille_expr(+%), @pille_expr(-%), and
   @pille_expr(*%) operations on
-  @pille_const_bind(BinaryInteger)s. Overflow/underflow is
+  @pille_specl_bind(BinaryInteger)s. Overflow/underflow is
   guaranteed to be wrapping, so these methods never have
   undefined behavior.
 }
@@ -382,7 +382,7 @@
 ){
   Implements the @pille_expr(div_trunc) and
   @pille_expr(rem_trunc) operations on
-  @pille_const_expr(Int)s. It is @tech{managed undefined
+  @pille_specl_expr(Int)s. It is @tech{managed undefined
   behavior} for the @rhombus(rhs) to be @rhombus(0), or for
   the @rhombus(rhs) to be @rhombus(-1) at the same time that
   the @rhombus(lhs) is @pille_expr(Int(n).min_value).
@@ -395,7 +395,7 @@
 ){
   Implements the @pille_expr(div_trunc) and
   @pille_expr(div_floor) operations on
-  @pille_const_expr(UInt)s, with identical behavior. It is
+  @pille_specl_expr(UInt)s, with identical behavior. It is
   @tech{managed undefined behavior} for the @rhombus(rhs) to
   be @rhombus(0).
 }
@@ -409,7 +409,7 @@
 ){
   Implements the @pille_expr(%), @pille_expr(rem_trunc), and
   @pille_expr(rem_floor) operations on
-  @pille_const_expr(UInt)s, with identical behavior.  It is
+  @pille_specl_expr(UInt)s, with identical behavior.  It is
   @tech{managed undefined behavior} for the @rhombus(rhs) to
   be @rhombus(0).
 }
@@ -425,7 +425,7 @@
 ){
   Implements the @pille_expr(¬), @pille_expr(∧),
   @pille_expr(∨), and @pille_expr(⊻) operations on
-  @pille_const_bind(BinaryInteger)s. These never have
+  @pille_specl_bind(BinaryInteger)s. These never have
   undefined behavior.
 }
 
@@ -457,16 +457,16 @@
   Implements the @pille_expr(==), @pille_expr(!=),
   @pille_expr(<), @pille_expr(<=), @pille_expr(>), and
   @pille_expr(>=) operations on
-  @pille_const_bind(BinaryInteger)s.
+  @pille_specl_bind(BinaryInteger)s.
 }
 
 @doc(
-  coercion (cast :: CastExact(σ && Const(_ :: int)))
+  coercion (cast :: CastExact(σ && Specl(_ :: int)))
     :: CoercesFrom(σ) && BinaryInteger
 ){
   Implements value-preserving casts from
-  @pille_const_bind(Const(_ :: int)) types to
-  @pille_const_bind(BinaryInteger)s, which are the same as
+  @pille_specl_bind(Specl(_ :: int)) types to
+  @pille_specl_bind(BinaryInteger)s, which are the same as
   coercions from the source type.
 }
 
@@ -480,13 +480,13 @@
   coercion (cast :: CastExact(UInt(_))) :: Int(_)
 ){
   Implements value-preserving casts between
-  @pille_const_bind(BinaryInteger)s, where it is
+  @pille_specl_bind(BinaryInteger)s, where it is
   @tech{managed undefined behavior} if the destination type
   is unable to represent the source value.
 }
 
 @doc(
-  coercion (cast :: CastWrap(Const(_ :: int))) :: BinaryInteger
+  coercion (cast :: CastWrap(Specl(_ :: int))) :: BinaryInteger
 
   coercion (cast :: CastWrap(Int(_))) :: Int(_)
 
@@ -497,9 +497,9 @@
   coercion (cast :: CastWrap(UInt(_))) :: Int(_)
 ){
   Implements wrapping casts between
-  @pille_const_bind(BinaryInteger)s, and from
-  @pille_const_bind(Const(_ :: int)) types to
-  @pille_const_bind(BinaryInteger)s, where an out-of-range
+  @pille_specl_bind(BinaryInteger)s, and from
+  @pille_specl_bind(Specl(_ :: int)) types to
+  @pille_specl_bind(BinaryInteger)s, where an out-of-range
   source value silently wraps to the range of the
   destination type. This never has undefined behavior.
 }
@@ -512,15 +512,15 @@
 ){}
 
 @doc(
-  const_bind.macro 'AnyTuple'
+  specl_bind.macro 'AnyTuple'
 ){}
 
 @doc(
-  const.fun tuple_length(τ && AnyTuple) :: nat
+  specl.fun tuple_length(τ && AnyTuple) :: nat
 ){}
 
 @doc(
-  const.fun TupleElement(τ && AnyTuple, idx :: nat) :: type
+  specl.fun TupleElement(τ && AnyTuple, idx :: nat) :: type
 ){}
 
 @doc(
@@ -528,13 +528,13 @@
 ){}
 
 @doc(
-  method (tup :: τ && AnyTuple).$index_read(const idx :: nat)
+  method (tup :: τ && AnyTuple).$index_read(specl idx :: nat)
     :: TupleElement(τ, idx)
 ){}
 
 @doc(
   method (inout tup :: τ && AnyTuple).$index_write(
-    const idx :: nat,
+    specl idx :: nat,
     elem :: equal_to(TupleElement(τ, idx)),
   ) :: Void
 ){}
@@ -548,16 +548,16 @@
   A fixed-length array specialized for operations that
   process elements in parallel.
 
-  Uses of @pille_const_expr(Simd) types, and their
+  Uses of @pille_specl_expr(Simd) types, and their
   corresponding methods, serve as non-binding directives for
   @tech{code generation} to use the target's corresponding
   @wikipedia_simd registers and instructions. It is legal to
-  use @pille_const_expr(Simd) types or operations that the
+  use @pille_specl_expr(Simd) types or operations that the
   target does not natively support, in which case code
   generation will fall back to ``software'' implementations
   (often using smaller vectors or scalars).
 
-  The available operations on @pille_const_expr(Simd) types
+  The available operations on @pille_specl_expr(Simd) types
   are described in @seclink("SIMD_Operations"){their own
   section}.
 }
@@ -569,28 +569,28 @@
   type RawPtr
 ){
   A byte-oriented native pointer with few guarantees. A
-  @pille_const_expr(RawPtr) may or may not refer to
+  @pille_specl_expr(RawPtr) may or may not refer to
   validly-dereferencable memory.
 
-  In some regards a @pille_const_expr(RawPtr) is like a
-  @pille_const_expr(NativeUInt) representing a memory
-  address, but arithmetic on @pille_const_expr(RawPtr)s
+  In some regards a @pille_specl_expr(RawPtr) is like a
+  @pille_specl_expr(NativeUInt) representing a memory
+  address, but arithmetic on @pille_specl_expr(RawPtr)s
   carries additional restrictions to allow optimizers to
   better reason about aliasing.
 }
 
 @doc(
-  method (ptr :: RawPtr).load(const α :: type) :: α
+  method (ptr :: RawPtr).load(specl α :: type) :: α
 
   method (ptr :: RawPtr).load(
-    const α :: type,
-    const align :: alignment,
+    specl α :: type,
+    specl align :: alignment,
   ) :: α
 ){
   Loads a value of type @rhombus(α) from the memory at
   @rhombus(ptr), with an assumed alignment of
   @rhombus(align) (which defaults to
-  @pille_const_expr(alignof(α))).
+  @pille_specl_expr(alignof(α))).
 
   It is @tech{managed undefined behavior} for @rhombus(ptr)
   to not have at least the alignment given by
@@ -602,12 +602,12 @@
 
   method (ptr :: RawPtr).store(
     value :: α,
-    const align :: alignment,
+    specl align :: alignment,
   ) :: Void
 ){
   Stores @rhombus(value) to the memory at @rhombus(ptr),
   with an assumed alignment of @rhombus(align) (which
-  defaults to @pille_const_expr(alignof(α))).
+  defaults to @pille_specl_expr(alignof(α))).
 
   It is @tech{managed undefined behavior} for @rhombus(ptr)
   to not have at least the alignment given by
@@ -617,7 +617,7 @@
 @doc(
   method (ptr :: RawPtr).$add(offset :: Integral) :: RawPtr
 ){
-  Forms a new @pille_const_expr(RawPtr) by applying a
+  Forms a new @pille_specl_expr(RawPtr) by applying a
   byte-scale @rhombus(offset) to @rhombus(ptr).
 
   It is @tech{managed undefined behavior} for arithmetic
@@ -647,7 +647,7 @@
 }
 
 @doc(
-  method (ptr :: RawPtr).$sub(const amount :: int) :: RawPtr
+  method (ptr :: RawPtr).$sub(specl amount :: int) :: RawPtr
 ){
   Equivalent to:
   @rhombusblock(#,(pille_expr(ptr + (-amount))))
@@ -663,7 +663,7 @@
 ){
   Provides the @pille_expr(==), @pille_expr(!=),
   @pille_expr(<), @pille_expr(<=), @pille_expr(>), and
-  @pille_expr(>=) operations for @pille_const_expr(RawPtr)s.
+  @pille_expr(>=) operations for @pille_specl_expr(RawPtr)s.
 
   These operations never have undefined behavior, though the
   results of order comparisons between pointers into
@@ -679,13 +679,13 @@
   A native pointer providing read-only acccess to instances
   of @rhombus(α).
 
-  In contrast to a @pille_const_expr(RawPtr), a
-  @pille_const_expr(Ptr) is guaranteed to be aligned to at
-  least @pille_const_expr(alignof(α)). There are no
-  additional guarantees, however; a @pille_const_expr(Ptr)
+  In contrast to a @pille_specl_expr(RawPtr), a
+  @pille_specl_expr(Ptr) is guaranteed to be aligned to at
+  least @pille_specl_expr(alignof(α)). There are no
+  additional guarantees, however; a @pille_specl_expr(Ptr)
   may or may not point to dereferencable memory, and even if
   it does, it might not point to valid instances of
-  @rhombus(α). A @pille_const_expr(Ptr) is therefore more a
+  @rhombus(α). A @pille_specl_expr(Ptr) is therefore more a
   declaration of intent than a semantic guarantee.
 }
 
@@ -695,54 +695,54 @@
   A native pointer providing read-write acccess to instances
   of @rhombus(α).
 
-  In contrast to a @pille_const_expr(RawPtr), a
-  @pille_const_expr(PtrMut) is guaranteed to be aligned to
-  at least @pille_const_expr(alignof(α)). There are no
+  In contrast to a @pille_specl_expr(RawPtr), a
+  @pille_specl_expr(PtrMut) is guaranteed to be aligned to
+  at least @pille_specl_expr(alignof(α)). There are no
   additional guarantees, however; a
-  @pille_const_expr(PtrMut) may or may not point to
+  @pille_specl_expr(PtrMut) may or may not point to
   dereferencable memory, and even if it does, it might not
   point to valid instances of @rhombus(α). A
-  @pille_const_expr(PtrMut) is therefore more a declaration
+  @pille_specl_expr(PtrMut) is therefore more a declaration
   of intent than a semantic guarantee.
 }
 
 @doc(
-  const_bind.macro 'PtrTo($const_bind)'
+  specl_bind.macro 'PtrTo($specl_bind)'
 ){
-  Matches both @pille_const_bind(Ptr(const_bind)) and
-  @pille_const_bind(PtrMut(const_bind)).
+  Matches both @pille_specl_bind(Ptr(specl_bind)) and
+  @pille_specl_bind(PtrMut(specl_bind)).
 }
 
 @doc(
   coercion (ptr :: PtrMut(α)) :: Ptr(α)
   unify(PtrMut(α), Ptr(α)): Ptr(α)
 ){
-  A @pille_const_expr(PtrMut(α)) can coerce to a
-  @pille_const_expr(Ptr(α)), dropping the ``write access''
+  A @pille_specl_expr(PtrMut(α)) can coerce to a
+  @pille_specl_expr(Ptr(α)), dropping the ``write access''
   of the original @rhombus(ptr).
 }
 
 @doc(
-  method (const PtrTo(α)).from_raw(raw :: RawPtr)
+  method (specl PtrTo(α)).from_raw(raw :: RawPtr)
 ){
-  Creates a new @pille_const_expr(Ptr) or
-  @pille_const_expr(PtrMut) from a
-  @pille_const_expr(RawPtr). It is @tech{managed undefined
+  Creates a new @pille_specl_expr(Ptr) or
+  @pille_specl_expr(PtrMut) from a
+  @pille_specl_expr(RawPtr). It is @tech{managed undefined
   behavior} for @rhombus(raw) to not be aligned to at least
-  @pille_const_expr(alignof(α)).
+  @pille_specl_expr(alignof(α)).
 }
 
 @doc(
   property (ptr :: PtrTo(α)).raw :: RawPtr
   property (inout ptr :: PtrTo(α)).raw := (new_raw :: RawPtr)
 ){
-  Provides access to the @pille_const_expr(RawPtr)
-  underlying a @pille_const_expr(Ptr) or
-  @pille_const_expr(PtrMut).
+  Provides access to the @pille_specl_expr(RawPtr)
+  underlying a @pille_specl_expr(Ptr) or
+  @pille_specl_expr(PtrMut).
 
   When assigning, it is @tech{managed undefined behavior}
   for @rhombus(new_raw) to not be aligned to at least
-  @pille_const_expr(alignof(α)).
+  @pille_specl_expr(alignof(α)).
 }
 
 @doc(
@@ -751,9 +751,9 @@
   method (ptr :: φ && PtrTo(α)).$sub(amount :: Integral) :: φ
 ){
   Like the @pille_expr($add) and @pille_expr($sub) methods
-  on @pille_const_expr(RawPtr), except that the
+  on @pille_specl_expr(RawPtr), except that the
   @rhombus(offset) or @rhombus(amount) is scaled by
-  @pille_const_expr(strideof(α)).
+  @pille_specl_expr(strideof(α)).
 }
 
 @doc(
@@ -794,7 +794,7 @@
   method (ptr :: φ && PtrTo(α)).$ge(other :: φ) :: Boolean
 ){
   Like the corresponding methods on
-  @pille_const_expr(RawPtr).
+  @pille_specl_expr(RawPtr).
 }
 
 @//=============================================================================
@@ -810,15 +810,15 @@
   coercion (val :: _) :: Void
 ){
   Coerces a @rhombus(val) of any type to
-  @pille_const_expr(Void), by simply discarding
+  @pille_specl_expr(Void), by simply discarding
   @rhombus(val) and producing @rhombus(#void).
 }
 
 @doc(
   unify(Void, _): Void
 ){
-  Unifies @pille_const_expr(Void) with any other type by
-  picking @pille_const_expr(Void).
+  Unifies @pille_specl_expr(Void) with any other type by
+  picking @pille_specl_expr(Void).
 }
 
 @//=============================================================================
@@ -835,13 +835,13 @@
 ){
   Coerces @rhombus(absurd) to any type; this is allowable
   because @rhombus(absurd) cannot actually exist (due to the
-  uninhabitability of @pille_const_expr(Never)), and so this
+  uninhabitability of @pille_specl_expr(Never)), and so this
   coercion is guaranteed to never execute.
 }
 
 @doc(
   unify(Never, α): α
 ){
-  Unifies @pille_const_expr(Never) with any type @rhombus(α)
+  Unifies @pille_specl_expr(Never) with any type @rhombus(α)
   by simply picking @rhombus(α).
 }

@@ -3,7 +3,7 @@
 import:
   pille/hosted open
 
-pille.implicit scale :: Const(_ :: nat)
+pille.implicit scale :: Specl(_ :: nat)
 
 pille.fun apply_scale(lhs, using scale):
   lhs * scale
@@ -48,4 +48,4 @@ check:
   pille:
     using scale :: Int(32) = 4
     #void
-  ~throws "binding requires a Const type"
+  ~throws "binding requires a Specl type"

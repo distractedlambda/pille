@@ -1,19 +1,19 @@
 #lang pille/private/kernel
 
 import:
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "generic_ops.rhm" open
 
 //==============================================================================
-coercion (const value :: boolean) :: Boolean:
+coercion (specl value :: boolean) :: Boolean:
   prim.constant_int(Boolean, if value | 1 | 0)
 
 //==============================================================================
-unify(Const(_ :: boolean), Const(_ :: boolean)):
+unify(Specl(_ :: boolean), Specl(_ :: boolean)):
   Boolean
 
 //==============================================================================
-unify(Const(_ :: boolean), Boolean):
+unify(Specl(_ :: boolean), Boolean):
   Boolean
 
 //==============================================================================

@@ -2,7 +2,7 @@
 
 import:
   "../util/syntax.rhm" open
-  "const_expr.rhm" open
+  "specl_expr.rhm" open
   "core_types.rhm" open
   "expr.rhm" open
   pille/concretize open
@@ -12,14 +12,14 @@ meta import:
   "../util/annot.rhm" open
 
 export:
-  const_bind
+  specl_bind
   meta:
-    const_bind_meta
+    specl_bind_meta
 
-space.enforest const_bind:
-  space_path pille/const_bind
+space.enforest specl_bind:
+  space_path pille/specl_bind
   macro_definer macro
-  meta_namespace const_bind_meta:
+  meta_namespace specl_bind_meta:
     export:
       Packed
       compile
@@ -33,8 +33,8 @@ space.enforest const_bind:
       parse
 
     reflection space
-    description "const binding"
-    operator_description "const binding operator"
+    description "specl binding"
+    operator_description "specl binding operator"
 
     parse_syntax_class Parsed
     parse_prefix_more_syntax_class AfterPrefixParsed
@@ -45,17 +45,17 @@ space.enforest const_bind:
 
     identifier_parser fun(id):
       match id
-      | '$(_ :: const_expr_meta.BoundNameStart)':
-          pack_equal_to('const_expr.eval($id)')
+      | '$(_ :: specl_expr_meta.BoundNameStart)':
+          pack_equal_to('specl_expr.eval($id)')
       | _:
           _pack('(~metavariable $id)').relocate(id)
 
     dotted_identifier_parser fun(nm):
       match nm
-      | '$(_ :: const_expr_meta.BoundNameStart)':
-          pack_equal_to('const_expr.eval($nm)')
+      | '$(_ :: specl_expr_meta.BoundNameStart)':
+          pack_equal_to('specl_expr.eval($nm)')
       | _:
-          syntax_meta.error("not a constant-binding form", nm)
+          syntax_meta.error("not a specialization binding form", nm)
 
     private parsed_packer _pack
     private parsed_unpacker _unpack
@@ -121,10 +121,10 @@ space.enforest const_bind:
                  'block:
                     check_repeat_metavar_occurrence(
                       $(binding.srcloc()),
-                      // HACK: use `const_expr.eval` instead of shortcutting
+                      // HACK: use `specl_expr.eval` instead of shortcutting
                       // to `rhm_id` so that this shows up as a use of the
                       // metavar in DrRacket & racket-mode
-                      const_expr.eval($metavar),
+                      specl_expr.eval($metavar),
                       $target_id)
                     $body']
           | #false:
@@ -233,18 +233,18 @@ space.enforest const_bind:
            | [hd, &tl]: hd(unfold(tl))]
 
     fun metavar_bindings(metavar :~ Identifier, rhm_id :~ Identifier) :~ Syntax:
-      '«const_expr.macro '($metavar)':
-          '$(const_expr_meta.pack_rhombus_expr('$rhm_id'))'»'
+      '«specl_expr.macro '($metavar)':
+          '$(specl_expr_meta.pack_rhombus_expr('$rhm_id'))'»'
 
   export:
     compile
     parallel_bindings
 
-  expr.macro 'compile($(bnd :: const_bind_meta.Parsed), $tgt, $body)':
-    const_bind_meta.compile(bnd, tgt, body)
+  expr.macro 'compile($(bnd :: specl_bind_meta.Parsed), $tgt, $body)':
+    specl_bind_meta.compile(bnd, tgt, body)
 
-  macro 'parallel_bindings($(bnd :: const_bind_meta.Parsed), ...)':
-    const_bind_meta.pack_parallel_bindings([bnd, ...])
+  macro 'parallel_bindings($(bnd :: specl_bind_meta.Parsed), ...)':
+    specl_bind_meta.pack_parallel_bindings([bnd, ...])
 
 fun check_repeat_metavar_occurrence(srcloc, old_val, new_val):
   unless old_val == new_val

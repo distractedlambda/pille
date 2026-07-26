@@ -2,7 +2,7 @@
 
 import:
   "cond.rhm" open
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "int.rhm" open
   "misc.rhm" open
@@ -35,11 +35,11 @@ unify(Simd(α, n), Simd(β, n)):
   Simd(unify(α, β), n)
 
 //==============================================================================
-property (const σ && Simd(UInt(w), n)).iota :: σ:
+property (specl σ && Simd(UInt(w), n)).iota :: σ:
   ~when bit_length(n - 1) ≤ w
   prim.iota(σ)
 
-property (const σ && Simd(Int(w), n)).iota :: σ:
+property (specl σ && Simd(Int(w), n)).iota :: σ:
   ~when bit_length(n - 1) < w
   prim.iota(σ)
 
@@ -238,7 +238,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
 
 method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: SparseSimd(RawPtr, n),
-  const offset :: int,
+  specl offset :: int,
 ) :: SparseSimd(RawPtr, n):
   when ub.checked | check_mask_covers(mask, ptr)
   cond
@@ -276,7 +276,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
 
 method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: φ && SparseSimd(PtrTo(α), n),
-  const offset :: int,
+  specl offset :: int,
 ) :: φ:
   prim.retype(
     mask.sparse_add(
@@ -331,7 +331,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(
 
 method (mask :: Simd(Boolean, n)).sparse_sub(
   ptr :: SparseSimd(RawPtr, n),
-  const amount :: int,
+  specl amount :: int,
 ) :: SparseSimd(RawPtr, n):
   mask.sparse_add(ptr, -amount)
 
@@ -345,7 +345,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(
 
 method (mask :: Simd(Boolean, n)).sparse_sub(
   ptr :: φ && SparseSimd(PtrTo(_), n),
-  const amount :: int,
+  specl amount :: int,
 ) :: SparseSimd(RawPtr, n):
   mask.sparse_add(ptr, -amount)
 
@@ -634,11 +634,11 @@ method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(
 
 //==============================================================================
 fun check_align
-| (ptr :: RawPtr, const align :: alignment) :: Void:
+| (ptr :: RawPtr, specl align :: alignment) :: Void:
     // FIXME: deduplicate this code
     unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
     | panic()
-| (mask :: Simd(Boolean, n), ptrs :: Simd(RawPtr, n), const align :: alignment) :: Void:
+| (mask :: Simd(Boolean, n), ptrs :: Simd(RawPtr, n), specl align :: alignment) :: Void:
     let ptr_ints = prim.ptrtoint(ptrs, ~to: Simd(NativeUInt, n))
     let misalignments = ptr_ints ∧ (align - 1)
     let misaligned = mask.select(misalignments != 0, #false)
@@ -647,14 +647,14 @@ fun check_align
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptr :: RawPtr,
-  const α :: type,
+  specl α :: type,
 ) :: SparseSimd(α, n):
   mask.sparse_load(ptr, α, alignof(α))
 
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptr :: RawPtr,
-  const α :: type,
-  const align :: alignment,
+  specl α :: type,
+  specl align :: alignment,
 ) :: SparseSimd(α, n):
   // FIXME: null check, other related stuff
   let data = cond
@@ -673,14 +673,14 @@ method (mask :: Simd(Boolean, n)).sparse_load(ptr :: PtrTo(α)) :: SparseSimd(α
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptrs :: SparseSimd(RawPtr, n),
-  const α :: type,
+  specl α :: type,
 ) :: SparseSimd(α, n):
   mask.sparse_load(ptrs, α, alignof(α))
 
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptrs :: SparseSimd(RawPtr, n),
-  const α :: type,
-  const align :: alignment,
+  specl α :: type,
+  specl align :: alignment,
 ) :: SparseSimd(α, n):
   // FIXME: null check, other related stuff
   let data = cond
@@ -709,7 +709,7 @@ method (mask :: Simd(Boolean, n)).sparse_store(
 method (mask :: Simd(Boolean, n)).sparse_store(
   ptr :: RawPtr,
   value :: SparseSimd(_, n),
-  const align :: alignment,
+  specl align :: alignment,
 ) :: Void:
   // FIXME: null check, other related stuff
   cond
@@ -738,7 +738,7 @@ method (mask :: Simd(Boolean, n)).sparse_store(
 method (mask :: Simd(Boolean, n)).sparse_store(
   ptrs :: SparseSimd(RawPtr, n),
   value :: SparseSimd(_, n),
-  const align :: alignment,
+  specl align :: alignment,
 ) :: Void:
   // FIXME: null check, other related stuff
   cond

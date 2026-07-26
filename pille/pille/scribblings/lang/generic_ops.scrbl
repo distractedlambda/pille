@@ -41,7 +41,7 @@
   convention; while @pille_expr($call) methods are usually defined on
   ``function-like'' receivers to represent function calls, @pille_expr($new)
   methods are usually defined on ``type-like'' receivers (in particular,
-  receiver types of the shape @pille_const_bind(Const(_ :: type))) to represent
+  receiver types of the shape @pille_specl_bind(Specl(_ :: type))) to represent
   construction of new instances.
 }
 
@@ -68,11 +68,11 @@
   type's in-memory footprint.
 
   The result type of an @pille_expr(===) expression may be either
-  @pille_const_expr(Boolean) or @pille_const_expr(Const(#true)); the latter
+  @pille_specl_expr(Boolean) or @pille_specl_expr(Specl(#true)); the latter
   occurs when the unified type is known to have at most one distinct inhabitant
-  (as with @pille_const_expr(Void)), and so the comparison is known to always
+  (as with @pille_specl_expr(Void)), and so the comparison is known to always
   succeed. The result of an @pille_expr(!==) expression may be either
-  @pille_const_expr(Boolean) or @pille_const_expr(Const(#false)), as it is the
+  @pille_specl_expr(Boolean) or @pille_specl_expr(Specl(#false)), as it is the
   negation of an @pille_expr(===) expression.
 }
 
@@ -187,7 +187,7 @@
 ){}
 
 @doc(
-  operator ! (const rhs :: boolean) :: Const(!rhs)
+  operator ! (specl rhs :: boolean) :: Specl(!rhs)
   operator ! (rhs :: CoercesTo(Boolean)) :: Boolean
   operator_order: ~order: logical_negation
 ){}

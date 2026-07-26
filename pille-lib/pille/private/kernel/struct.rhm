@@ -4,11 +4,11 @@ import:
   "../runtime/per_profile.rhm" open
   "../util/syntax.rhm" open
   "coerce.rhm" open
-  "const_bind.rhm" open
-  "const_def.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
-  "const_fun.rhm" open
+  "specl_bind.rhm" open
+  "specl_def.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_fun.rhm" open
   "core_types.rhm" open
   "expr_forms.rhm" open
   "special_name.rhm" open
@@ -17,7 +17,7 @@ import:
 
 //==============================================================================
 meta:
-  syntax_class ConstArgs:
+  syntax_class SpeclArgs:
     kind: ~sequence
     fields:
       present :~ Boolean
@@ -38,7 +38,7 @@ meta:
      $(type_expr :: Group)':
       field rhombus_type_expr:
         syntax_meta.track_origin(
-          const_expr_meta.as_rhombus_expr(type_expr),
+          specl_expr_meta.as_rhombus_expr(type_expr),
           ~add: syntax_meta.flip_introduce(annot_op),
           ~space: pille_expr_meta.space)
 
@@ -56,18 +56,18 @@ meta:
       field [field, ...] = []
 
 //==============================================================================
-export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $(body :: Body)':
+export defn.macro 'struct $(name :: IdentifierName) $(specl_args :: SpeclArgs) $(body :: Body)':
   let display_name = body.display_name || name
 
   'def species = block:
      StructSpecies(
        #'$(display_name.name_to_symbol()),
-       $(!const_args.present),
+       $(!specl_args.present),
        $(Function.count(body.field, ...)),
-       fun(const_arg_vals):
-         const_bind.compile(
-           const_bind.parallel_bindings($const_args.arg, ...),
-           const_arg_vals,
+       fun(specl_arg_vals):
+         specl_bind.compile(
+           specl_bind.parallel_bindings($specl_args.arg, ...),
+           specl_arg_vals,
            [$body.field.rhombus_type_expr, ...]))
 
    define_struct_methods(
@@ -77,22 +77,22 @@ export defn.macro 'struct $(name :: IdentifierName) $(const_args :: ConstArgs) $
    def type_extractor:
      make_struct_type_extractor(species)
 
-   $(if const_args.present
-     | let [const_arg_id, ...] = [Syntax.make_temp_id(const_args.arg), ...]
-       '«const.fun $name($const_arg_id, ...):
+   $(if specl_args.present
+     | let [specl_arg_id, ...] = [Syntax.make_temp_id(specl_args.arg), ...]
+       '«specl.fun $name($specl_arg_id, ...):
            ~name: $display_name
-           #%rhombus($const_arg_id, ...):
-             StructType(species, [$const_arg_id, ...])
+           #%rhombus($specl_arg_id, ...):
+             StructType(species, [$specl_arg_id, ...])
 
-         const_bind.macro '($name)($('$')($const_arg_id :: const_bind_meta.Parsed), ...)':
-           const_bind_meta.pack_decomposition('type_extractor', [$const_arg_id, ...])»'
+         specl_bind.macro '($name)($('$')($specl_arg_id :: specl_bind_meta.Parsed), ...)':
+           specl_bind_meta.pack_decomposition('type_extractor', [$specl_arg_id, ...])»'
 
-     | '«const.def $name:
+     | '«specl.def $name:
            #%rhombus:
              StructType(species, [])
 
-         const_bind.macro '($name)':
-           '$(const_bind_meta.pack_decomposition('type_extractor'))'»')'
+         specl_bind.macro '($name)':
+           '$(specl_bind_meta.pack_decomposition('type_extractor'))'»')'
 
 //==============================================================================
 class StructSpecies(
@@ -107,18 +107,18 @@ class StructSpecies(
 //==============================================================================
 class StructType(
   private species :: StructSpecies,
-  private const_args :: [Any, ...],
+  private specl_args :: [Any, ...],
 ):
   extends Type
 
   internal _StructType
 
   //============================================================================
-  constructor(species :: StructSpecies, const_args :: [Any, ...]):
+  constructor(species :: StructSpecies, specl_args :: [Any, ...]):
     let type_map = species.type_maps.get_or_init(MutableMap)
-    type_map.get(const_args, _) <| fun():
-      let ty = super()(species, const_args)
-      type_map[const_args] := ty
+    type_map.get(specl_args, _) <| fun():
+      let ty = super()(species, specl_args)
+      type_map[specl_args] := ty
       ty
 
   //============================================================================
@@ -126,7 +126,7 @@ class StructType(
     caches.unkeyed.get_or_compute(
       ~get_cache: fun(): cached_backing_tuple_type,
       ~set_cache: (cached_backing_tuple_type := _),
-      fun(): TupleType(species.concretize_fields(const_args)))
+      fun(): TupleType(species.concretize_fields(specl_args)))
 
   private field cached_backing_tuple_type = caches.unkeyed.init()
 
@@ -151,7 +151,7 @@ class StructType(
     let carrier_interop = carrier_type.rhombus_interop
 
     let from_rhombus_concr:
-      ConstType(this).concretized_method(
+      SpeclType(this).concretized_method(
         special_name.symbol(from_rhombus),
         [carrier_type])
 
@@ -193,7 +193,7 @@ class StructType(
     | to_string(species.display_name)
     | PrintDesc.list(
         PrintDesc.concat(to_string(species.display_name), "("),
-        [rec(each const_args), ...],
+        [rec(each specl_args), ...],
         ")")
 
 //==============================================================================
@@ -204,7 +204,7 @@ fun make_struct_type_extractor(species :~ StructSpecies):
         ~exn: Exn.Fail.Concretize.Recoverable,
         @str{binding requires a(n) @(species.display_name) type},
         error.val(~label: "target", target))
-    values(&target.const_args)
+    values(&target.specl_args)
 
 //==============================================================================
 fun define_struct_methods(
@@ -257,7 +257,7 @@ fun define_struct_methods(
 method.define(
   special_name.symbol(new),
   fun(receiver_type, arg_types :~ [Type, ...]):
-    guard.let ConstType(struct_type :: _StructType) = receiver_type | #false
+    guard.let SpeclType(struct_type :: _StructType) = receiver_type | #false
     guard arg_types.length() == struct_type.species.field_count | #false
     let tuple_type = struct_type.backing_tuple_type
     let [field_coe, ...] = [resolve_coercer(each arg_types, each tuple_type.elements), ...]

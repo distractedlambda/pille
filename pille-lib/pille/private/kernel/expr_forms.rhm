@@ -3,9 +3,9 @@
 import:
   "../util/list_of_values.rhm" open
   "coerce.rhm" open
-  "const_annot_forms.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
+  "specl_annot_forms.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
   "core_types.rhm" open
   "expr.rhm" open
   "special_name.rhm" open
@@ -47,10 +47,10 @@ meta syntax_class pille_expr_meta.EqualsOp:
 | '$(bound_as pille_expr_meta.space: '=')'
 
 //==============================================================================
-meta def const_type_annot:
-  const_annot_meta.parse('type')
+meta def specl_type_annot:
+  specl_annot_meta.parse('type')
 
-export pille_expr.macro '$lhs :: $(rhs :: const_expr_meta.AfterInfixParsed('::')) $()':
+export pille_expr.macro '$lhs :: $(rhs :: specl_expr_meta.AfterInfixParsed('::')) $()':
   ~weaker_than: ~other
   ~associativity: ~none
   ~op_stx: op
@@ -59,10 +59,10 @@ export pille_expr.macro '$lhs :: $(rhs :: const_expr_meta.AfterInfixParsed('::')
       .pack_concretize(
         'concretize_annotated(
            $(pille_expr_meta.unpack_concretize(lhs)),
-           $(const_expr_meta.unpack_rhombus_expr(
-               const_expr_meta.pack_implicitly_annotated(
+           $(specl_expr_meta.unpack_rhombus_expr(
+               specl_expr_meta.pack_implicitly_annotated(
                  rhs,
-                 const_type_annot))),
+                 specl_type_annot))),
            $(rhs.srcloc()))')
       .relocate_span([lhs, op, rhs]),
     '$rhs.tail ...')
@@ -79,14 +79,14 @@ fun concretize_annotated(lhs :~ Expr, rhs, rhs_srcloc):
     ~lower: fun(env): coe(env, lhs_low(env)))
 
 //==============================================================================
-export pille_expr.macro 'faux($(ty_exp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'faux($(ty_exp :: specl_expr_meta.Parsed))':
   ~all_stx: stx
   pille_expr_meta.pack_concretize(
     'concretize_faux(
-       $(const_expr_meta.unpack_rhombus_expr(
-           const_expr_meta.pack_implicitly_annotated(
+       $(specl_expr_meta.unpack_rhombus_expr(
+           specl_expr_meta.pack_implicitly_annotated(
              ty_exp,
-             const_type_annot))),
+             specl_type_annot))),
        $(stx.srcloc()),
        $(ty_exp.srcloc()))')
 
@@ -100,21 +100,21 @@ fun concretize_faux(type, full_srcloc, type_srcloc):
           "cannot lower a 'faux' expression"))
 
 //==============================================================================
-export pille_expr.macro 'const($(cexp :: const_expr_meta.Parsed))':
-  pille_expr_meta.pack_const_expr(cexp)
+export pille_expr.macro 'specl($(spexp :: specl_expr_meta.Parsed))':
+  pille_expr_meta.pack_specl_expr(spexp)
 
-meta syntax_class pille_expr_meta.ConstOp:
+meta syntax_class pille_expr_meta.SpeclOp:
   kind: ~sequence
-| '$(bound_as pille_expr_meta.space: 'const')'
+| '$(bound_as pille_expr_meta.space: 'specl')'
 
 //==============================================================================
 export pille_expr.macro 'type_of($exp)':
-  'const(type_of($exp))'
+  'specl(type_of($exp))'
 
 //==============================================================================
 export pille_expr.macro
-| '#%literal $(lit :: const_expr_meta.Literal)':
-    'const($lit)'
+| '#%literal $(lit :: specl_expr_meta.Literal)':
+    'specl($lit)'
 | '#%literal #void':
     pille_expr_meta.pack_concretize('concretize_void()')
 

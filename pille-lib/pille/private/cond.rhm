@@ -1,7 +1,7 @@
 #lang pille/private/kernel
 
 import:
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
 
 //==============================================================================
 export expr.macro 'when $(test :: Group)
@@ -21,7 +21,7 @@ export expr.macro
     ~op_stx: op
     'if $test
      | $body
-     | const.error($(@str{'@to_string(op.name_to_symbol())' form is not exhaustive}))'
+     | specl.error($(@str{'@to_string(op.name_to_symbol())' form is not exhaustive}))'
 | 'cond | $(test :: Group): $body | $tl | ...':
     ~op_stx: op
     'if $test

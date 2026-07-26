@@ -2,12 +2,12 @@
 
 module only_pille_spaces ~lang pille:
   export:
-    only_space const_annot const_bind const_expr expr labeled_expr local_defn special_name:
+    only_space specl_annot specl_bind specl_expr expr labeled_expr local_defn special_name:
       all_from(pille)
 
 module except_pille_spaces ~lang pille:
   export:
-    except_space const_annot const_bind const_expr expr labeled_expr local_defn special_name:
+    except_space specl_annot specl_bind specl_expr expr labeled_expr local_defn special_name:
       all_from(pille)
 
 import:
@@ -31,19 +31,19 @@ export:
   pille
 
 //==============================================================================
-meta syntax_class ConstArg:
+meta syntax_class SpeclArg:
   kind: ~group
   fields: binding init
 | '$(binding_ :: NonemptySequence) $('$(bound_as expr_meta.space: '=')' && eo) $(init_ :: expr_meta.Parsed)':
-    match_def '$(binding :: pille.const_bind_meta.Parsed)' = binding_
+    match_def '$(binding :: pille.specl_bind_meta.Parsed)' = binding_
     field init = syntax_meta.track_origin(init, ~add: syntax_meta.flip_introduce(eo))
 
 | '$(id :: Identifier)':
-    match_def '$(binding :: pille.const_bind_meta.Parsed)' = id
+    match_def '$(binding :: pille.specl_bind_meta.Parsed)' = id
     match_def '$(init :: expr_meta.Parsed)' = id
 
-meta def type_const_annot:
-  pille.const_annot_meta.parse('type')
+meta def type_specl_annot:
+  pille.specl_annot_meta.parse('type')
 
 meta syntax_class DynArg:
   kind: ~group
@@ -54,8 +54,8 @@ meta syntax_class DynArg:
    $('$(bound_as expr_meta.space: '=')' && eo) \
    $(init_ :: expr_meta.Parsed)':
     field type = type_
-      |> pille.const_expr_meta.pack_delayed_parse
-      |> pille.const_expr_meta.pack_implicitly_annotated(_, type_const_annot)
+      |> pille.specl_expr_meta.pack_delayed_parse
+      |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
     field init = init_
       |> syntax_meta.track_origin(
            _,
@@ -69,8 +69,8 @@ meta syntax_class DynArg:
    $(ao :: pille.expr_meta.AnnotOp) \
    $(type_ :: Group)':
     field type = type_
-      |> pille.const_expr_meta.pack_delayed_parse
-      |> pille.const_expr_meta.pack_implicitly_annotated(_, type_const_annot)
+      |> pille.specl_expr_meta.pack_delayed_parse
+      |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
     match_def '$(init_ :: expr_meta.Parsed)' = name
     field init:
       syntax_meta.track_origin(
@@ -81,23 +81,23 @@ meta syntax_class DynArg:
 meta syntax_class MaybeArgs:
   kind: ~sequence
   fields:
-    [const_arg :~ Syntax.matched_of(ConstArg), ...]
+    [specl_arg :~ Syntax.matched_of(SpeclArg), ...]
     [dyn_arg :~ Syntax.matched_of(DynArg), ...]
 | '($arg, ...)':
-    match_def '($(const_arg :: ConstArg), ...) ($(dyn_arg :: DynArg), ...)':
+    match_def '($(specl_arg :: SpeclArg), ...) ($(dyn_arg :: DynArg), ...)':
       recur split_args(args = '$arg; ...'):
         match args
         | '$hd; $tl; ...':
-            let '($const_tl, ...) ($dyn_tl, ...)' = split_args('$tl; ...')
+            let '($specl_tl, ...) ($dyn_tl, ...)' = split_args('$tl; ...')
             match hd
-            | '~const $hd_tl ...':
-                '($hd_tl ..., $const_tl, ...) ($dyn_tl, ...)'
+            | '~specl $hd_tl ...':
+                '($hd_tl ..., $specl_tl, ...) ($dyn_tl, ...)'
             | _:
-                '($const_tl, ...) ($hd, $dyn_tl, ...)'
+                '($specl_tl, ...) ($hd, $dyn_tl, ...)'
         | '':
             '() ()'
 | '':
-    field [const_arg, ...] = []
+    field [specl_arg, ...] = []
     field [dyn_arg, ...] = []
 
 export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
@@ -108,14 +108,14 @@ export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
     syntax_meta.lift_expr_to_before(
       'make_stub(
          [#'$dyn_arg_sym, ...],
-         fun(const_arg_vals):
-           $(pille.const_bind_meta.compile(
-               pille.const_bind_meta.pack_parallel_bindings(
-                 [const_arg.binding, ...]),
-               'const_arg_vals',
+         fun(specl_arg_vals):
+           $(pille.specl_bind_meta.compile(
+               pille.specl_bind_meta.pack_parallel_bindings(
+                 [specl_arg.binding, ...]),
+               'specl_arg_vals',
                '«block:
                    let $dyn_arg_type_id:
-                     $(pille.const_expr_meta.unpack_rhombus_expr(
+                     $(pille.specl_expr_meta.unpack_rhombus_expr(
                          dyn_arg.type))
                    ...
                    let $dyn_arg_ref_id:
@@ -131,16 +131,16 @@ export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
                      pille.expr.concretize(
                        $(pille.local_defn_meta.encapsulate_body(body))))»')))')
 
-  '$stub($const_arg.init, ...)($dyn_arg.init, ...)'
+  '$stub($specl_arg.init, ...)($dyn_arg.init, ...)'
 
 fun make_stub(
   dyn_arg_syms :: [Symbol, ...],
   concretize :: ([Any, ...]) -> values([Type, ...], Expr),
 ):
-  fun make_specialization(const_args :: List) :: Function:
+  fun make_specialization(specl_args :: List) :: Function:
     let linker = JitLinker.global.force()
     parameterize { Profile.current: linker.profile }:
-      let (dyn_arg_types, body) = concretize(const_args)
+      let (dyn_arg_types, body) = concretize(specl_args)
 
       let RhombusToPilleAdapter(make_callout, read_args, write_result):
         RhombusToPilleAdapter(
@@ -149,7 +149,7 @@ fun make_stub(
 
       let native_sym:
         let suffix:
-          match const_args
+          match specl_args
           | []: ""
           | [arg, ...]: "{" ++ String.join([to_string(arg), ...], ", ") ++ "}"
         linker.profile.gen_native_symbol("pille" ++ suffix)
@@ -205,9 +205,9 @@ fun make_stub(
 
   let specialization_cache = MutableMap{}
 
-  fun(&const_args):
-    let spec = specialization_cache.maybe[const_args]
+  fun(&specl_args):
+    let spec = specialization_cache.maybe[specl_args]
     guard !spec | spec
-    let spec = make_specialization(const_args)
-    specialization_cache[const_args] := spec
+    let spec = make_specialization(specl_args)
+    specialization_cache[specl_args] := spec
     spec

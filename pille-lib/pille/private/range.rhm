@@ -2,7 +2,7 @@
 
 import:
   "cond.rhm" open
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "panic.rhm" open
   "type_traits.rhm" open
@@ -47,8 +47,8 @@ export expr.macro 'for ($(seq :: ForSequence)): $body':
   'block:
      expr.preparse body($seq.ivar): $body
      let rng = $seq.rng
-     const.match type_of(rng)
-     | Range(Const(v)):
+     specl.match type_of(rng)
+     | Range(Specl(v)):
          #void
      | Range(BinaryInteger):
          #'loop(i = rng.start):
@@ -56,7 +56,7 @@ export expr.macro 'for ($(seq :: ForSequence)): $body':
            body(i)
            continue loop(i + 1)
      | _:
-         const.error("unsupported range type")'
+         specl.error("unsupported range type")'
 
 //==============================================================================
 export expr.macro

@@ -2,31 +2,31 @@
 
 import:
   "cond.rhm" open
-  "const_ops.rhm" open
+  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "panic.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
-export const.def NativeInt:
+export specl.def NativeInt:
   Int(sizeof(RawPtr) * 8)
 
-export const.def NativeUInt:
+export specl.def NativeUInt:
   UInt(sizeof(RawPtr) * 8)
 
 //==============================================================================
-property (const Int(w)).min_value:
-  const(-(2**(w - 1)))
+property (specl Int(w)).min_value:
+  specl(-(2**(w - 1)))
 
-property (const Int(w)).max_value:
-  const(2**(w - 1) - 1)
+property (specl Int(w)).max_value:
+  specl(2**(w - 1) - 1)
 
 //==============================================================================
-property (const UInt(w)).min_value:
+property (specl UInt(w)).min_value:
   0
 
-property (const UInt(w)).max_value:
-  const(2**w - 1)
+property (specl UInt(w)).max_value:
+  specl(2**w - 1)
 
 //==============================================================================
 coercion (from :: UInt(from_width)) :: α && UInt(to_width):
@@ -56,30 +56,30 @@ unify(Int(w1), Int(w2)):
   Int(max(w1, w2))
 
 //==============================================================================
-coercion (const value :: nat) :: α && UInt(width):
+coercion (specl value :: nat) :: α && UInt(width):
   ~when bit_length(value) ≤ width
   prim.constant_int(α, value)
 
 //==============================================================================
-unify(Const(v1 :: nat), Const(v2 :: nat)):
+unify(Specl(v1 :: nat), Specl(v2 :: nat)):
   UInt(bit_length(max(v1, v2)))
 
 //==============================================================================
-unify(Const(v :: nat), UInt(w)):
+unify(Specl(v :: nat), UInt(w)):
   UInt(max(bit_length(v), w))
 
 //==============================================================================
-coercion (const value :: int) :: α && Int(width):
+coercion (specl value :: int) :: α && Int(width):
   ~when bit_length(value) < width
   prim.constant_int(α, value)
 
 //==============================================================================
-unify(Const(v1 :: int), Const(v2 :: int)):
+unify(Specl(v1 :: int), Specl(v2 :: int)):
   ~when v1 < 0 || v2 < 0
   Int(max(bit_length(v1), bit_length(v2)) + 1)
 
 //==============================================================================
-unify(Const(v :: int), Int(w)):
+unify(Specl(v :: int), Int(w)):
   Int(max(bit_length(v) + 1, w))
 
 //==============================================================================
@@ -268,7 +268,7 @@ method (lhs :: UInt(n)).$ge(rhs :: UInt(n)) :: Boolean:
   prim.icmp_uge(lhs, rhs)
 
 //==============================================================================
-coercion (cast :: CastExact(σ && Const(_ :: int))) :: CoercesFrom(σ) && BinaryInteger:
+coercion (cast :: CastExact(σ && Specl(_ :: int))) :: CoercesFrom(σ) && BinaryInteger:
   cast.src
 
 coercion (cast :: CastExact(Int(w1))) :: δ && Int(w2):
@@ -342,7 +342,7 @@ coercion (cast :: CastExact(UInt(w1))) :: δ && Int(w2):
       | panic()
 
 //==============================================================================
-coercion (cast :: CastWrap(Const(n :: int))) :: δ && BinaryInteger:
+coercion (cast :: CastWrap(Specl(n :: int))) :: δ && BinaryInteger:
   prim.constant_int(δ, n)
 
 coercion (cast :: CastWrap(Int(w1))) :: δ && Int(w2):

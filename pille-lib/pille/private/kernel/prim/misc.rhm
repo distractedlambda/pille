@@ -2,7 +2,7 @@
 
 import:
   "../../util/assert.rhm" open
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open
   pille/concretize open
@@ -10,10 +10,10 @@ import:
   pille/lowering
 
 //==============================================================================
-export pille_expr.macro 'conjure($(texp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'conjure($(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_conjure(
-       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+       $(specl_expr_meta.unpack_rhombus_expr(texp)))')
 
 fun concretize_conjure(type :~ Type):
   assert(type.repr is_a Repr.Void)
@@ -24,10 +24,10 @@ fun concretize_conjure(type :~ Type):
         #false)
 
 //==============================================================================
-export pille_expr.macro 'poison($(texp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'poison($(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_poison(
-       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+       $(specl_expr_meta.unpack_rhombus_expr(texp)))')
 
 fun concretize_poison(type :~ Type):
   Expr.Rvalue(
@@ -42,10 +42,10 @@ fun concretize_poison(type :~ Type):
             llvm.PoisonValue(repr.llvm_type(lowering.builder().context)))
 
 //==============================================================================
-export pille_expr.macro 'zeroes($(texp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'zeroes($(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_zeroes(
-       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+       $(specl_expr_meta.unpack_rhombus_expr(texp)))')
 
 fun concretize_zeroes(type :~ Type):
   Expr.Rvalue(
@@ -62,12 +62,12 @@ fun concretize_zeroes(type :~ Type):
                 lowering.builder().context)))
 
 //==============================================================================
-export pille_expr.macro 'constant_int($(texp :: const_expr_meta.Parsed),
-                                      $(vexp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'constant_int($(texp :: specl_expr_meta.Parsed),
+                                      $(vexp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_constant_int(
-       $(const_expr_meta.unpack_rhombus_expr(texp)),
-       $(const_expr_meta.unpack_rhombus_expr(vexp)))')
+       $(specl_expr_meta.unpack_rhombus_expr(texp)),
+       $(specl_expr_meta.unpack_rhombus_expr(vexp)))')
 
 fun concretize_constant_int(type :~ Type, value):
   let repr = type.repr
@@ -81,9 +81,9 @@ fun concretize_constant_int(type :~ Type, value):
           value))
 
 //==============================================================================
-export pille_expr.macro 'iota($(texp :: const_expr_meta.Parsed))':
+export pille_expr.macro 'iota($(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
-    'concretize_iota($(const_expr_meta.unpack_rhombus_expr(texp)))')
+    'concretize_iota($(specl_expr_meta.unpack_rhombus_expr(texp)))')
 
 fun concretize_iota(type :~ Type):
   Expr.Rvalue(
@@ -171,7 +171,7 @@ fun concretize_repr_equivalent(fst :~ Expr, snd :~ Expr):
   Expr.Rvalue(
     ~type:
       if repr is_a Repr.Erased
-      | ConstType(#true)
+      | SpeclType(#true)
       | BooleanType(),
     ~lower:
       let repr = fst_type.repr
@@ -182,11 +182,11 @@ fun concretize_repr_equivalent(fst :~ Expr, snd :~ Expr):
 
 //==============================================================================
 export pille_expr.macro 'retype($(vexp :: pille_expr_meta.Parsed),
-                                ~to: $(texp :: const_expr_meta.Parsed))':
+                                ~to: $(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_retype(
        $(pille_expr_meta.unpack_concretize(vexp)),
-       $(const_expr_meta.unpack_rhombus_expr(texp)))')
+       $(specl_expr_meta.unpack_rhombus_expr(texp)))')
 
 fun concretize_retype(value :~ Expr, type :~ Type):
   let (value_type, lower) = value.unpack_rvalue()

@@ -4,8 +4,8 @@ import:
   "../util/assert.rhm" open
   "../util/syntax.rhm" open
   "coerce.rhm" open
-  "const_bind_forms.rhm" open
-  "const_expr.rhm" open
+  "specl_bind_forms.rhm" open
+  "specl_expr.rhm" open
   "core_type_forms.rhm" open
   "expr_forms.rhm" open
   "implicit.rhm" open
@@ -61,8 +61,8 @@ export defn.macro 'coercion \
                    $(annot_op :: pille_expr_meta.AnnotOp) \
                    $(dst_type :: SimpleNonemptySequence):
                      $(options_and_body :: Block)':
-  let dst_type = const_bind_meta.encapsulate(dst_type)
-  'method $receiver.$coerce_to(to :: Const($dst_type && α)) $annot_op α $options_and_body'
+  let dst_type = specl_bind_meta.encapsulate(dst_type)
+  'method $receiver.$coerce_to(to :: Specl($dst_type && α)) $annot_op α $options_and_body'
 
 //==============================================================================
 meta:
@@ -79,7 +79,7 @@ meta:
   | '$(annot_op :: pille_expr_meta.AnnotOp) $(tl :: NonemptySequence)':
       field normalized:
         syntax_meta.track_origin(
-          const_bind_meta.encapsulate(tl),
+          specl_bind_meta.encapsulate(tl),
           ~add: syntax_meta.flip_introduce(annot_op),
           ~space: pille_expr_meta.space)
   | '':
@@ -117,15 +117,15 @@ meta:
           syntax_meta.flip_introduce(using_op),
           ~space: pille_expr_meta.space)
 
-  | '$(const_op :: pille_expr_meta.ConstOp) \
-     $(const_bind :: const_bind_meta.Parsed)':
+  | '$(specl_op :: pille_expr_meta.SpeclOp) \
+     $(specl_bind :: specl_bind_meta.Parsed)':
       field is_inout = #false
       field implicit_key = #false
       field name = #false
       field type_bind:
         syntax_meta.track_origin(
-          '(Const($const_bind))'.relocate(const_bind),
-          syntax_meta.flip_introduce(const_op),
+          '(Specl($specl_bind))'.relocate(specl_bind),
+          syntax_meta.flip_introduce(specl_op),
           ~space: pille_expr_meta.space)
 
   | '$(maybe_inout :: MaybeInout) \
@@ -146,7 +146,7 @@ meta:
   | '$(annot_op :: pille_expr_meta.AnnotOp) $(type :: SimpleNonemptySequence)':
       field rhombus_expr:
         syntax_meta.track_origin(
-          const_expr_meta.as_rhombus_expr(type),
+          specl_expr_meta.as_rhombus_expr(type),
           ~add: syntax_meta.flip_introduce(annot_op),
           ~space: pille_expr_meta.space)
   | '':
@@ -224,7 +224,7 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
                       let $value_id = ImplicitKey.resolve_value($key_id, callsite_implicit_env)
                       let $value_type_id = Expr.type($value_id)
                       let $ref_concr_id = concretize_let_ref(#'$hd_name_sym, $value_type_id)
-                      const_bind.compile(
+                      specl_bind.compile(
                         $hd.type_bind,
                         $value_type_id,
                         ImplicitKey.with_value(
@@ -238,7 +238,7 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
                             $inner))'
                | #false:
                    let inner = roll(tl, implicit_value_ids, formal_idx + 1)
-                   'const_bind.compile(
+                   'specl_bind.compile(
                       $hd.type_bind,
                       formal_types[$formal_idx],
                       block:
@@ -259,8 +259,8 @@ expr.macro
 | 'compile_ww([], $body)':
     body
 | 'compile_ww([$(opt :: WhenWhereOption), ...], $body)':
-    const_bind_meta.compile(
-      const_bind_meta.pack_conjunction([opt, ...]),
+    specl_bind_meta.compile(
+      specl_bind_meta.pack_conjunction([opt, ...]),
       '#void',
       body)
 

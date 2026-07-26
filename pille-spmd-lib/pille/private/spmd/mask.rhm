@@ -16,7 +16,7 @@ fun get_simd_program_mask
     program_mask
 
 //==============================================================================
-export const_expr.macro 'program_count':
+export specl_expr.macro 'program_count':
   'match type_of(program_mask)
    | Simd(_, pc): pc
    | Unmasked(pc): pc'
@@ -28,7 +28,7 @@ export expr.macro 'unmasked: $body':
      block: $body'
 
 //==============================================================================
-export const_expr.macro 'currently_unmasked':
+export specl_expr.macro 'currently_unmasked':
   'match type_of(program_mask)
    | Unmasked(_): #true
    | _: #false'

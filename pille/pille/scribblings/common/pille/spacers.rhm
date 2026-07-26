@@ -4,22 +4,22 @@ import:
   scribble/spacer
 
 export spacer.bridge ::(~left: left, self, tail, ctx, esc):
-  ~in: #'#{pille/const_bind} #'#{pille/const_expr}
-  let tail_adj = spacer.adjust_sequence(tail, #'#{pille/const_annot}, esc)
+  ~in: #'#{pille/specl_bind} #'#{pille/specl_expr}
+  let tail_adj = spacer.adjust_sequence(tail, #'#{pille/specl_annot}, esc)
   '$left $self $tail_adj'
 
-export spacer.bridge const(self, tail, ctx, esc):
+export spacer.bridge specl(self, tail, ctx, esc):
   ~in: #'#{pille/expr}
   match tail
   | '($exp)':
-      let exp_adj = spacer.adjust_group(exp, #'#{pille/const_expr}, esc)
+      let exp_adj = spacer.adjust_group(exp, #'#{pille/specl_expr}, esc)
       let tail_adj = '($exp_adj)'.relocate(tail)
       '$self $tail_adj'
   | _:
       '$self $tail'
 
 export spacer.bridge type_of(self, tail, ctx, esc):
-  ~in: #'#{pille/const_expr}
+  ~in: #'#{pille/specl_expr}
   match tail
   | '($exp)':
       let exp_adj = spacer.adjust_group(exp, #'#{pille/expr}, esc)
@@ -47,11 +47,11 @@ export spacer.bridge $(self, tail, ctx, esc):
       '$self $tail'
 
 export spacer.bridge equal_to(self, tail, ctx, esc):
-  ~in: #'#{pille/const_bind}
+  ~in: #'#{pille/specl_bind}
   match tail
-  | '($cexp)':
-      let cexp_adj = spacer.adjust_group(cexp, #'#{pille/const_expr}, esc)
-      let cexp_adj = '($cexp_adj)'.relocate(tail)
-      '$self $cexp_adj'
+  | '($spexp)':
+      let spexp_adj = spacer.adjust_group(spexp, #'#{pille/specl_expr}, esc)
+      let spexp_adj = '($spexp_adj)'.relocate(tail)
+      '$self $spexp_adj'
   | _:
       '$self $tail'

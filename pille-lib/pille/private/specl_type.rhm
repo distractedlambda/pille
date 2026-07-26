@@ -1,0 +1,74 @@
+#lang pille/private/kernel
+
+import:
+  "specl_ops.rhm" open
+  "generic_ops.rhm" open
+
+method (specl v1).$add(specl v2) :: Specl(v1 + v2):
+  specl(v1 + v2)
+
+method (specl v1).$sub(specl v2) :: Specl(v1 - v2):
+  specl(v1 - v2)
+
+method (specl v).$neg() :: Specl(-v):
+  specl(-v)
+
+method (specl v1).$mul(specl v2) :: Specl(v1 * v2):
+  specl(v1 * v2)
+
+method (specl v1).$div(specl v2) :: Specl(v1 / v2):
+  specl(v1 / v2)
+
+method (specl v1).$div_trunc(specl v2) :: Specl(v1 div_trunc v2):
+  specl(v1 div_trunc v2)
+
+method (specl v1).$div_floor(specl v2) :: Specl(v1 div_floor v2):
+  specl(v1 div_floor v2)
+
+method (specl v1).$div_ceil(specl v2) :: Specl(v1 div_ceil v2):
+  specl(v1 div_ceil v2)
+
+method (specl v1).$div_floor(specl v2) :: Specl(v1 div_floor v2):
+  specl(v1 div_floor v2)
+
+method (specl v1).$rem(specl v2) :: Specl(v1 % v2):
+  specl(v1 % v2)
+
+method (specl v1).$rem_trunc(specl v2) :: Specl(v1 rem_trunc v2):
+  specl(v1 rem_trunc v2)
+
+method (specl v1).$rem_floor(specl v2) :: Specl(v1 rem_floor v2):
+  specl(v1 rem_floor v2)
+
+method (specl v1).$rem_ceil(specl v2) :: Specl(v1 rem_ceil v2):
+  specl(v1 rem_ceil v2)
+
+method (specl v).$not() :: Specl(¬v):
+  specl(¬v)
+
+method (specl v1).$and(specl v2) :: Specl(v1 ∧ v2):
+  specl(v1 ∧ v2)
+
+method (specl v1).$or(specl v2) :: Specl(v1 ∨ v2):
+  specl(v1 ∨ v2)
+
+method (specl v1).$xor(specl v2) :: Specl(v1 ⊻ v2):
+  specl(v1 ⊻ v2)
+
+method (specl v1).$eq(specl v2) :: Specl(v1 == v2):
+  specl(v1 == v2)
+
+method (specl v1).$ne(specl v2) :: Specl(v1 != v2):
+  specl(v1 != v2)
+
+method (specl v1).$lt(specl v2) :: Specl(v1 < v2):
+  specl(v1 < v2)
+
+method (specl v1).$gt(specl v2) :: Specl(v1 > v2):
+  specl(v1 > v2)
+
+method (specl v1).$le(specl v2) :: Specl(v1 ≤ v2):
+  specl(v1 ≤ v2)
+
+method (specl v1).$ge(specl v2) :: Specl(v1 ≥ v2):
+  specl(v1 ≥ v2)

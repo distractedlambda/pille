@@ -2,10 +2,10 @@
 
 import:
   "../util/syntax.rhm" open
-  "const_bind.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
-  "const_ns.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_ns.rhm" open
   "expr.rhm" open
   "when_where.rhm" open
   pille/concretize open
@@ -13,13 +13,13 @@ import:
 
 export:
   only_space namespace:
-    const
+    specl
 
 //==============================================================================
 meta:
   syntax_class MaybeResAnnot:
     kind: ~sequence
-  | '$(_ :: const_expr_meta.AnnotOp) $(_ :: SimpleNonemptySequence)'
+  | '$(_ :: specl_expr_meta.AnnotOp) $(_ :: SimpleNonemptySequence)'
   | ''
 
   syntax_class CaseOptionKw:
@@ -63,16 +63,16 @@ meta:
      | ...':
       field [case, ...] = [hd_case, tl_case, ...]
 
-defn.macro 'const.fun $(spec :: Spec)':
+defn.macro 'specl.fun $(spec :: Spec)':
   '«def impl = block:
-      make_const_fun(
+      make_specl_fun(
         #'$((spec.display_name || spec.name).name_to_symbol()),
         [compile_case($spec.case), ...])
 
-    const_expr.macro '($spec.name)':
-      '$(const_expr_meta.pack_rhombus_expr('impl'))'»'
+    specl_expr.macro '($spec.name)':
+      '$(specl_expr_meta.pack_rhombus_expr('impl'))'»'
 
-fun make_const_fun(name, cases :~ List):
+fun make_specl_fun(name, cases :~ List):
   fun impl(&args):
     try ~escape_as ret:
       let exns = for fold(exns :~ List = []):
@@ -96,19 +96,19 @@ fun make_const_fun(name, cases :~ List):
 
   impl.reduce_arity(arity, [], [], ~name)
 
-expr.macro 'compile_case(($(arg :: const_bind_meta.Parsed), ...) $(res_annot :: MaybeResAnnot):
+expr.macro 'compile_case(($(arg :: specl_bind_meta.Parsed), ...) $(res_annot :: MaybeResAnnot):
                            $(ww :: WhenWhereOption); ...
                            $(body :: Group))':
   let arity_bit = 1 bits.(<<) Function.count(arg, ...)
   let [arg_id, ...] = [Syntax.make_temp_id(arg), ...]
   let args_extractor = 'fun([$arg_id, ...]): values($arg_id, ...)'
-  let args_binding = const_bind_meta.pack_decomposition(args_extractor, [arg, ...])
-  let case_binding = const_bind_meta.pack_conjunction([args_binding, ww, ...])
-  let annotated_body = '$(const_expr_meta.encapsulate(body)) $res_annot'
-  let body_thunk = 'fun(): $(const_expr_meta.as_rhombus_expr(annotated_body))'
+  let args_binding = specl_bind_meta.pack_decomposition(args_extractor, [arg, ...])
+  let case_binding = specl_bind_meta.pack_conjunction([args_binding, ww, ...])
+  let annotated_body = '$(specl_expr_meta.encapsulate(body)) $res_annot'
+  let body_thunk = 'fun(): $(specl_expr_meta.as_rhombus_expr(annotated_body))'
   '[$arity_bit,
     fun(args):
-      $(const_bind_meta.compile(
+      $(specl_bind_meta.compile(
           case_binding,
           'args',
           body_thunk))]'

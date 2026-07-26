@@ -2,7 +2,7 @@
 
 import:
   "../../util/assert.rhm" open
-  "../const_expr.rhm" open
+  "../specl_expr.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open
   pille/concretize open
@@ -10,11 +10,11 @@ import:
 
 //==============================================================================
 export pille_expr.macro 'tuple_get($(tuple :: pille_expr_meta.Parsed),
-                                   $(idx :: const_expr_meta.Parsed))':
+                                   $(idx :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_tuple_get(
        $(pille_expr_meta.unpack_concretize(tuple)),
-       $(const_expr_meta.unpack_rhombus_expr(idx)))')
+       $(specl_expr_meta.unpack_rhombus_expr(idx)))')
 
 fun concretize_tuple_get(tuple :~ Expr, idx):
   let (tuple_type :: TupleType, tuple_low) = tuple.unpack_rvalue()
@@ -29,12 +29,12 @@ fun concretize_tuple_get(tuple :~ Expr, idx):
 
 //==============================================================================
 export pille_expr.macro 'tuple_set($(tuple :: pille_expr_meta.Parsed),
-                                   $(idx :: const_expr_meta.Parsed),
+                                   $(idx :: specl_expr_meta.Parsed),
                                    $(new_val :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_tuple_set(
        $(pille_expr_meta.unpack_concretize(tuple)),
-       $(const_expr_meta.unpack_rhombus_expr(idx)),
+       $(specl_expr_meta.unpack_rhombus_expr(idx)),
        $(pille_expr_meta.unpack_concretize(new_val)))')
 
 fun concretize_tuple_set(tuple :~ Expr, idx, new_val :~ Expr):

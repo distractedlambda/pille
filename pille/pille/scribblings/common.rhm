@@ -84,9 +84,9 @@ defn.macro 'rhombus_shorthands:
     ...»'
 
 export rhombus_shorthands:
-  pille_const_annot ~at pille/const_annot
-  pille_const_bind ~at pille/const_bind
-  pille_const_expr ~at pille/const_expr
+  pille_specl_annot ~at pille/specl_annot
+  pille_specl_bind ~at pille/specl_bind
+  pille_specl_expr ~at pille/specl_expr
   pille_expr ~at pille/expr
   pille_global_defn ~defn
   pille_labeled_expr ~at pille/labeled_expr

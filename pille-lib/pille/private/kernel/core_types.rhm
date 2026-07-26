@@ -4,7 +4,7 @@ import:
   "../runtime/per_profile.rhm" open
   "../runtime/profile.rhm" open
   "../util/assert.rhm" open
-  "const_expr.rhm" open
+  "specl_expr.rhm" open
   "special_name.rhm" open
   ffi open
   pille/concretize open
@@ -181,7 +181,7 @@ export class UIntType(width :: PosInt):
     PrintDesc.list("UInt(", [rec(width)], ")")
 
 //==============================================================================
-export class ConstType(value :: Any):
+export class SpeclType(value :: Any):
   extends Type
 
   nonsingleton_ctor(value)
@@ -196,7 +196,7 @@ export class ConstType(value :: Any):
         fun(_, _, rhombus_value):
           unless rhombus_value == value
           | error(
-              "runtime Rhombus value does not match Pille constant",
+              "runtime Rhombus value does not match Pille specialization value",
               error.val(~label: "expected value", value),
               error.val(~label: "actual value", rhombus_value)),
       ~read_from_pille:
@@ -208,7 +208,7 @@ export class ConstType(value :: Any):
 
   private implements Printable
   private override describe(_, rec):
-    PrintDesc.list("Const(", [rec(value)], ")")
+    PrintDesc.list("Specl(", [rec(value)], ")")
 
 //==============================================================================
 export class TupleType(elements :: [Type, ...]):

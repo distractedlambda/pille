@@ -27,17 +27,17 @@
   The exact @tech{concretization} behavior of @pille_expr(if) depends on whether
   the type of the @rhombus(test_expr) is:
   @itemlist(
-    @item{exactly @pille_const_expr(Const(#true)): then the @rhombus(then_body)
+    @item{exactly @pille_specl_expr(Specl(#true)): then the @rhombus(then_body)
           sequence is always executed (there is no actual branch), the
           @rhombus(else_body) sequence is never concretized, and the type of the
           whole @pille_expr(if) form is the type of the @rhombus(then_body)
           sequence.},
-    @item{exactly @pille_const_expr(Const(#false)): then the @rhombus(else_body)
+    @item{exactly @pille_specl_expr(Specl(#false)): then the @rhombus(else_body)
           sequence is always executed (there is no actual branch), the
           @rhombus(then_body) sequence is never concretized, and the type of the
           whole @pille_expr(if) form is the type of the @rhombus(else_body)
           sequence.},
-    @item{any type @coercion_tech{coercible} to @pille_const_expr(Boolean): then
+    @item{any type @coercion_tech{coercible} to @pille_specl_expr(Boolean): then
           both body sequences are concretized, the one to execute is selected by
           the value of @pille_expr(test_expr :: Boolean) (the
           @rhombus(then_body) sequence if @rhombus(#true), the
@@ -46,7 +46,7 @@
           the two body sequences.},
     @item{any other type: then concretization fails.})
 
-  In other words, when the @rhombus(test_expr) is @pille_const_expr(Const), the
+  In other words, when the @rhombus(test_expr) is @pille_specl_expr(Specl), the
   @pille_expr(if) form behaves like a conditional compilation construct; the
   branch-not-taken does not even need to be valid code (though it does still
   need to @parsing_tech{parse}).}
@@ -97,11 +97,11 @@
                   ...'
 ){
   Equivalent to a chain of @pille_expr(if) forms, including the special
-  @tech{concretization} behavior for @pille_const_expr(Const) conditions.
+  @tech{concretization} behavior for @pille_specl_expr(Specl) conditions.
 
   If no @rhombus(~else) arm is provided, then the @pille_expr(cond) form is only
   valid if it can be shown to be exhaustive during concretization (that is, one
-  of the @rhombus(test_expr)s must have type @pille_const_expr(Const(#true))).
+  of the @rhombus(test_expr)s must have type @pille_specl_expr(Specl(#true))).
 }
 
 @doc(
@@ -167,7 +167,7 @@
   An absent @rhombus(maybe_result) is equivalent to @pille_expr((#void)).
 
   The @pille_expr(break) expression itself always has type
-  @pille_const_expr(Never), regardless of the type of the
+  @pille_specl_expr(Never), regardless of the type of the
   @nontermref(labeled_expr) associated with the @rhombus(label_id).
 }
 
@@ -186,7 +186,7 @@
   An absent @rhombus(maybe_args) is equivalent to @pille_expr(()).
 
   The @pille_expr(continue) expression itself always has type
-  @pille_const_expr(Never), regardless of the type of the
+  @pille_specl_expr(Never), regardless of the type of the
   @nontermref(labeled_expr) associated with the @rhombus(label_id).
 }
 
@@ -274,7 +274,7 @@
         #,(pille_expr(continue)) #,(nontermref(label_id))
       | #,(pille_expr(break)) #,(nontermref(label_id)))
   This implementation explains some of the subtler behaviors, such as the
-  handling of a @pille_const_expr(Const)-typed @rhombus(test_expr).
+  handling of a @pille_specl_expr(Specl)-typed @rhombus(test_expr).
 }
 
 @doc(

@@ -6,17 +6,17 @@
 @title{Memory Layout}
 
 @doc(
-  const_annot.macro 'alignment'
+  specl_annot.macro 'alignment'
 ){}
 
 @doc(
-  const.fun sizeof(α :: type) :: nat
+  specl.fun sizeof(α :: type) :: nat
 ){}
 
 @doc(
-  const.fun alignof(α :: type) :: alignment
+  specl.fun alignof(α :: type) :: alignment
 ){}
 
 @doc(
-  const.fun strideof(α :: type) :: nat
+  specl.fun strideof(α :: type) :: nat
 ){}

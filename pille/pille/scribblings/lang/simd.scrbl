@@ -9,7 +9,7 @@
   coercion (elem :: σ) :: Simd(CoercesFrom(σ), _)
 ){
   The ``broadcasting'' coercion: the result is a
-  @pille_const_expr(Simd) value which holds a copy of
+  @pille_specl_expr(Simd) value which holds a copy of
   @rhombus(elem) in each lane.
 }
 
@@ -27,7 +27,7 @@
       ~when ws < wd
 ){
   Standard arithmetic coercions, but lifted to apply
-  lanewise to @pille_const_expr(Simd) values.
+  lanewise to @pille_specl_expr(Simd) values.
 }
 
 @doc(
@@ -38,7 +38,7 @@
     Simd(unify(α, β), n)
 ){
   @tech{Unification} rules to use when at least one of the
-  types is a @pille_const_expr(Simd) type. The first rule is
+  types is a @pille_specl_expr(Simd) type. The first rule is
   meant to match the broadcasting coercion, and has lower
   priority than the second.
 }
@@ -82,9 +82,9 @@
 @doc(
   type SparseSimd(element :: type, length :: pos_int)
 ){
-  Models a @pille_const_expr(Simd) value which is ``sparse''
+  Models a @pille_specl_expr(Simd) value which is ``sparse''
   in the sense that some lanes might not hold meaningful
-  values. More precisely, a @pille_const_expr(SparseSimd)
+  values. More precisely, a @pille_specl_expr(SparseSimd)
   value can have @deftech{undefined lanes}, and any attempt
   to access an undefined lane results in @tech{managed
   undefined behavior}.
@@ -94,9 +94,9 @@
   coercion (src :: σ) :: SparseSimd(α, n):
     ~where CoercesTo(Simd(α, n)) = σ
 ){
-  Coerces @rhombus(src) to a @pille_const_expr(SparseSimd)
+  Coerces @rhombus(src) to a @pille_specl_expr(SparseSimd)
   type whenever it could coerce to (or is) the corresponding
-  @pille_const_expr(Simd) type. The resulting value never
+  @pille_specl_expr(Simd) type. The resulting value never
   has @tech{undefined lanes}.
 }
 
@@ -114,7 +114,7 @@
       ~when ws < wd
 ){
   Standard arithmetic coercions, but lifted to apply
-  lanewise to @pille_const_expr(SparseSimd) values. Each
+  lanewise to @pille_specl_expr(SparseSimd) values. Each
   @tech{undefined lane} in the @rhombus(src) is also
   undefined in the result.
 }

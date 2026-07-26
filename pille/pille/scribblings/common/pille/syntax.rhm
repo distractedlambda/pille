@@ -64,7 +64,7 @@ meta:
       field present = #false
 
   export fun typeset_res_annot('$(stx :: ResAnnot)'):
-    '$(typeset_expr(stx.op)) $(typeset_const_expr(stx.annot))'
+    '$(typeset_expr(stx.op)) $(typeset_specl_expr(stx.annot))'
 
   export fun typeset_maybe_res_annot(stx):
     if stx matches ''
@@ -108,10 +108,10 @@ meta:
   export fun arg_metavars(stx) :~ [Identifier, ...]:
     let '$('inout' || '') $(stx :: Sequence)' = stx
     match stx
-    | 'const $(cb :: Group)':
-        const_bind_metavars(cb)
+    | 'specl $(cb :: Group)':
+        specl_bind_metavars(cb)
     | '$(name :: Identifier) :: $(type :: Group)':
-        [name, &const_bind_metavars(type)]
+        [name, &specl_bind_metavars(type)]
     | '$(name :: Identifier)':
         [name]
     | _:
@@ -127,11 +127,11 @@ meta:
 
   fun typeset_arg_no_inout(stx):
     match stx
-    | '$('const' && const) $(cb :: Group)':
-        '$(typeset_expr(const)) $(typeset_const_bind(cb))'
+    | '$('specl' && specl) $(cb :: Group)':
+        '$(typeset_expr(specl)) $(typeset_specl_bind(cb))'
           .relocate_group(stx)
     | '$(name :: Identifier) $('::' && annot_op) $(type :: Group)':
-        '$name $(typeset_expr(annot_op)) $(typeset_const_bind(type))'
+        '$name $(typeset_expr(annot_op)) $(typeset_specl_bind(type))'
           .relocate_group(stx)
     | _:
         stx
@@ -149,28 +149,28 @@ meta:
     '($(typeset_arg(stx.arg)))'.relocate(stx)
 
   //============================================================================
-  export syntax_class ConstArgs:
+  export syntax_class SpeclArgs:
     kind: ~term
   | '($arg, ...)'
 
-  export fun const_args_metavars('$(stx :: ConstArgs)') :~ [Identifier, ...]:
-    List.append(const_bind_metavars(stx.arg), ...)
+  export fun specl_args_metavars('$(stx :: SpeclArgs)') :~ [Identifier, ...]:
+    List.append(specl_bind_metavars(stx.arg), ...)
 
-  export fun typeset_const_args('$(stx :: ConstArgs)'):
-    '($(typeset_const_bind(stx.arg)), ...)'.relocate(stx)
+  export fun typeset_specl_args('$(stx :: SpeclArgs)'):
+    '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx)
 
   //============================================================================
   export syntax_class MaybeConstArgs:
     kind: ~sequence
-    fields: args :~ maybe(Syntax.matched_of(ConstArgs))
-  | '$(args :: ConstArgs)'
+    fields: args :~ maybe(Syntax.matched_of(SpeclArgs))
+  | '$(args :: SpeclArgs)'
   | '': field args = #false
 
-  export fun maybe_const_args_metavars('$(stx :: MaybeConstArgs)') :~ [Identifier, ...]:
-    (stx.args ?> const_args_metavars) || []
+  export fun maybe_specl_args_metavars('$(stx :: MaybeConstArgs)') :~ [Identifier, ...]:
+    (stx.args ?> specl_args_metavars) || []
 
-  export fun typeset_maybe_const_args('$(stx :: MaybeConstArgs)'):
-    (stx.args ?> typeset_const_args) || stx
+  export fun typeset_maybe_specl_args('$(stx :: MaybeConstArgs)'):
+    (stx.args ?> typeset_specl_args) || stx
 
   //============================================================================
   export syntax_class NameNotAnnotOp:
@@ -244,27 +244,27 @@ meta:
         doc_meta.add_metavariable(vars, id)
 
   //============================================================================
-  export fun const_bind_metavars(stx :: Syntax) :~ [Identifier, ...]:
+  export fun specl_bind_metavars(stx :: Syntax) :~ [Identifier, ...]:
     match stx
     | '($grp) $tl ...':
-        const_bind_metavars(grp) ++ const_bind_metavars('$tl ...')
+        specl_bind_metavars(grp) ++ specl_bind_metavars('$tl ...')
     | '$(_ :: Name) ($grp, ...) $tl ...':
-        List.append(const_bind_metavars(grp), ..., const_bind_metavars('$tl ...'))
+        List.append(specl_bind_metavars(grp), ..., specl_bind_metavars('$tl ...'))
     | '$(id :: Identifier) $tl ...' when to_string(id.unwrap()) matches rx'"_"* unicode.Ll .*':
-        [id] ++ const_bind_metavars('$tl ...')
+        [id] ++ specl_bind_metavars('$tl ...')
     | ':: $_ ...':
         []
     | '$_ $tl ...':
-        const_bind_metavars('$tl ...')
+        specl_bind_metavars('$tl ...')
     | '':
         []
 
   export fun where_bind_metavars(stx :: Group) :~ [Identifier, ...]:
     match stx
     | '$bind ... = $_ ...':
-        const_bind_metavars('$bind ...')
+        specl_bind_metavars('$bind ...')
     | '$bind ...: $_':
-        const_bind_metavars('$bind ...')
+        specl_bind_metavars('$bind ...')
 
   export fun option_metavars(stx :: Group) :~ [Identifier, ...]:
     match stx
@@ -304,9 +304,9 @@ meta:
      ...'
 
   export in_space_typesetters:
-    typeset_const_annot ~at pille/const_annot
-    typeset_const_bind ~at pille/const_bind
-    typeset_const_expr ~at pille/const_expr
+    typeset_specl_annot ~at pille/specl_annot
+    typeset_specl_bind ~at pille/specl_bind
+    typeset_specl_expr ~at pille/specl_expr
     typeset_expr ~at pille/expr
     typeset_global_defn ~defn
     typeset_local_defn ~at pille/local_defn
@@ -317,13 +317,13 @@ meta:
   export fun typeset_where_bind(stx :: Group) :~ Group:
     let ts :~ Syntax = match stx
     | '$(lhs :: SimpleNonemptySequence) $('=' && eq_op) $(rhs :: NonemptySequence)':
-        let lhs_ts = typeset_const_bind(lhs)
-        let eq_op_ts = typeset_const_expr(eq_op)
-        let rhs_ts = typeset_const_expr(rhs)
+        let lhs_ts = typeset_specl_bind(lhs)
+        let eq_op_ts = typeset_specl_expr(eq_op)
+        let rhs_ts = typeset_specl_expr(rhs)
         '$lhs_ts $eq_op_ts $rhs_ts'
     | '$(lhs :: Group): $(rhs :: Group)':
-        let lhs_ts = typeset_const_bind(lhs)
-        let rhs_ts = typeset_const_expr(rhs)
+        let lhs_ts = typeset_specl_bind(lhs)
+        let rhs_ts = typeset_specl_expr(rhs)
         '$lhs: $rhs'
     ts.relocate_group(stx)
 
@@ -334,9 +334,9 @@ meta:
       | #'~when:
           match tl
           | ': $test; ...':
-              ': $(typeset_const_expr(test)); ...'.relocate(tl)
+              ': $(typeset_specl_expr(test)); ...'.relocate(tl)
           | _:
-              typeset_const_expr(tl)
+              typeset_specl_expr(tl)
       | #'~where:
           match tl
           | ': $wb; ...':

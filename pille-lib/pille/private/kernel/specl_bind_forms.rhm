@@ -1,11 +1,11 @@
 #lang rhombus/static/and_meta
 
 import:
-  "const_annot.rhm" open
-  "const_annot_forms.rhm" open
-  "const_bind.rhm" open
-  "const_expr.rhm" open
-  "const_expr_forms.rhm" open
+  "specl_annot.rhm" open
+  "specl_annot_forms.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
   "when_where.rhm"
   pille/concretize open
 
@@ -16,45 +16,45 @@ meta:
 
   export:
     only_space namespace:
-      const_bind_meta
+      specl_bind_meta
 
-  fun const_bind_meta.encapsulate(stx :: Group) :: Term:
+  fun specl_bind_meta.encapsulate(stx :: Group) :: Term:
     '($stx)'.relocate_span([stx])
 
-  syntax_class const_bind_meta.Wildcard:
+  syntax_class specl_bind_meta.Wildcard:
     kind: ~sequence
-  | '$(bound_as const_bind_meta.space: '_')'
+  | '$(bound_as specl_bind_meta.space: '_')'
 
-  syntax_class const_bind_meta.AnnotOp:
+  syntax_class specl_bind_meta.AnnotOp:
     kind: ~sequence
-  | '$(bound_as const_bind_meta.space: '::')'
+  | '$(bound_as specl_bind_meta.space: '::')'
 
 //==============================================================================
-export const_bind.macro '_':
-  const_bind_meta.pack_decomposition('wildcard')
+export specl_bind.macro '_':
+  specl_bind_meta.pack_decomposition('wildcard')
 
 fun wildcard(_):
   values()
 
 //==============================================================================
-export const_bind.macro '#%parens($child)':
+export specl_bind.macro '#%parens($child)':
   child
 
 //==============================================================================
-export const_bind.macro '#%literal $(value :: const_expr_meta.Literal)':
-  const_bind_meta.pack_equal_to('#%literal $value')
+export specl_bind.macro '#%literal $(value :: specl_expr_meta.Literal)':
+  specl_bind_meta.pack_equal_to('#%literal $value')
 
 //==============================================================================
-export const_bind.macro '$lhs :: $(rhs :: const_annot_meta.AfterInfixParsed('::')) $()':
+export specl_bind.macro '$lhs :: $(rhs :: specl_annot_meta.AfterInfixParsed('::')) $()':
   ~weaker_than: ~other
   ~associativity: ~none
   ~op_stx: op
   ~all_stx: stx
   values(
-    const_bind_meta
+    specl_bind_meta
       .pack_decomposition(
         'make_annot_extractor(
-           $(const_annot_meta.unpack_rhombus_predicate(rhs)),
+           $(specl_annot_meta.unpack_rhombus_predicate(rhs)),
            $(stx.srcloc()),
            $(rhs.to_source_string()))',
         [lhs])
@@ -73,33 +73,33 @@ fun make_annot_extractor(pred, srcloc, annot_str):
     target
 
 //==============================================================================
-export const_bind.macro '$lhs && $rhs':
+export specl_bind.macro '$lhs && $rhs':
   ~order: logical_conjunction
-  const_bind_meta.pack_conjunction([lhs, rhs])
+  specl_bind_meta.pack_conjunction([lhs, rhs])
 
 //==============================================================================
-export const_bind.macro '$lhs || $rhs':
+export specl_bind.macro '$lhs || $rhs':
   ~order: logical_disjunction
-  const_bind_meta.pack_disjunction([lhs, rhs])
+  specl_bind_meta.pack_disjunction([lhs, rhs])
 
 //==============================================================================
-export const_bind.macro '$lhs when $(rhs :: Group) $()':
-  const_bind_meta.pack_conjunction(
+export specl_bind.macro '$lhs when $(rhs :: Group) $()':
+  specl_bind_meta.pack_conjunction(
     [lhs,
-     const_bind_meta.pack_side_condition(
-       const_expr_meta.as_rhombus_expr(
+     specl_bind_meta.pack_side_condition(
+       specl_expr_meta.as_rhombus_expr(
          rhs))])
 
 //==============================================================================
-export const_bind.macro
+export specl_bind.macro
 | '$lhs where: $(hd :: when_where.WhereBinding); $(tl :: when_where.WhereBinding); ...':
-    const_bind_meta.pack_conjunction([lhs, hd, tl, ...])
+    specl_bind_meta.pack_conjunction([lhs, hd, tl, ...])
 | '$lhs where $tail ...':
     ~op_stx: op
     '$lhs $op: $tail ...'
 
 //==============================================================================
-export const_bind.macro 'equal_to($cexp)':
-  const_bind_meta.pack_equal_to(
-    const_expr_meta.as_rhombus_expr(
-      cexp))
+export specl_bind.macro 'equal_to($spexp)':
+  specl_bind_meta.pack_equal_to(
+    specl_expr_meta.as_rhombus_expr(
+      spexp))

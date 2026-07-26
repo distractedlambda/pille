@@ -1,29 +1,29 @@
 #lang rhombus/static/and_meta
 
 import:
-  "const_bind.rhm" open
-  "const_expr.rhm" open
-  "const_ns.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_ns.rhm" open
   "expr.rhm" open
   "expr_forms.rhm" open
   "local_defn.rhm" open
   pille/concretize open
 
 export only_space namespace:
-  const
+  specl
 
 //==============================================================================
-pille_expr.macro 'const.match $(target :: const_expr_meta.Parsed)
-                  | $(hd_bind :: const_bind_meta.Parsed): $hd_body
-                  | $(tl_bind :: const_bind_meta.Parsed): $tl_body
+pille_expr.macro 'specl.match $(target :: specl_expr_meta.Parsed)
+                  | $(hd_bind :: specl_bind_meta.Parsed): $hd_body
+                  | $(tl_bind :: specl_bind_meta.Parsed): $tl_body
                   | ...':
   let [bind, ...] = [hd_bind, tl_bind, ...]
   let [body, ...] = [hd_body, tl_body, ...]
   pille_expr_meta.pack_concretize(
-    'concretize_const_match(
-       $(const_expr_meta.unpack_rhombus_expr(target)),
+    'concretize_specl_match(
+       $(specl_expr_meta.unpack_rhombus_expr(target)),
        [fun(tgt):
-          $(const_bind_meta.compile(
+          $(specl_bind_meta.compile(
               bind,
               'tgt',
               'fun():
@@ -31,7 +31,7 @@ pille_expr.macro 'const.match $(target :: const_expr_meta.Parsed)
                    $(local_defn_meta.encapsulate_body(body)))')),
         ...])')
 
-fun concretize_const_match(target, cases :~ List):
+fun concretize_specl_match(target, cases :~ List):
   try ~escape_as ret:
     let exns = for List (case in cases):
       try ~escape_as continue:
@@ -47,15 +47,15 @@ fun concretize_const_match(target, cases :~ List):
       ...)
 
 //==============================================================================
-const_expr.macro 'const.assert($(test :: const_expr_meta.Parsed))':
-  const_expr_meta.pack_rhombus_expr(
-    'const_assert(
-       $(const_expr_meta.unpack_rhombus_expr(test)),
+specl_expr.macro 'specl.assert($(test :: specl_expr_meta.Parsed))':
+  specl_expr_meta.pack_rhombus_expr(
+    'specl_assert(
+       $(specl_expr_meta.unpack_rhombus_expr(test)),
        $(test.to_source_string()))')
 
-pille_expr.macro 'const.assert($test)':
-  'const(const.assert($test))'
+pille_expr.macro 'specl.assert($test)':
+  'specl(specl.assert($test))'
 
-fun const_assert(test, test_string):
+fun specl_assert(test, test_string):
   test || error(~exn: Exn.Fail.Concretize,
-                @str{const assertion failure: '@test_string'})
+                @str{specl assertion failure: '@test_string'})
