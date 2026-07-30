@@ -75,4 +75,7 @@ export fun define(defn :: Defn) :: Void:
 
 //============================================================================
 export fun snapshot_defined() :~ Table:
-  current_table()
+  for Map ((sel, defns) in current_table()):
+    let defns = defns.sort(_) <| fun(fst :~ Defn, snd :~ Defn):
+      fst.priority.is_higher_than(snd.priority)
+    values(sel, defns)

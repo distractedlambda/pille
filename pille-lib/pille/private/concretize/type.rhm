@@ -129,22 +129,10 @@ export class Type():
     arg_types :: [Type, ...],
   ) :~ method.Concretized:
     let profile = Profile.require_current()
-    let defns :~ [method.Defn, ...] = profile.methods.maybe[selector] || []
-    let (candidates, exns):
-      for fold(candidates :~ [[method.Defn, method.Concretized], ...] = [],
-               exns :~ List = []):
-        each defn in defns
-        try:
-          match defn.concretizer(this, arg_types)
-          | concretized!!:
-              values(candidates.add([defn, concretized]), exns)
-          | #false:
-              values(candidates, exns)
-          ~catch exn :: Exn.Fail.Concretize.Recoverable:
-            values(candidates, exns.add(exn))
-    match candidates
-    | []:
-        error(
+    recur find_match(defns :~ [method.Defn, ...] = profile.methods.maybe[selector] || [],
+                     exns :~ List = []):
+      guard.let [defn, &defns] = defns
+      | error(
           ~srcloc,
           ~exn: Exn.Fail.Concretize.Recoverable,
           "no applicable method definition",
@@ -153,37 +141,34 @@ export class Type():
           error.vals(~label: "argument types", arg_types),
           error.cause(each exns),
           ...)
-    | [[_, concr]]:
-        concr
-    | _:
-        let [best_defn, best_concr]:
-          for fold(best && [best_defn :~ method.Defn, _] = candidates[0]):
-            each candidate && [candidate_defn, _] in candidates.sublist(1..)
-            if candidate_defn.priority.is_higher_than(best_defn.priority)
-            | candidate
-            | best
-        let ambiguities :~ [method.Defn, ...]:
-          for List ([defn, _] in candidates):
-            skip_when defn === best_defn
-            skip_when best_defn.priority.is_higher_than(defn.priority)
-            defn
-        unless ambiguities matches []
-        | error(
+      try ~escape_as esc:
+        guard.let concr!!:
+          try:
+            defn.concretizer(this, arg_types)
+            ~catch exn :: Exn.Fail.Concretize.Recoverable:
+              esc(find_match(defns, exns ++ [exn]))
+        | find_match(defns, exns)
+        recur check_ambiguity(defns :~ [method.Defn, ...] = defns):
+          guard.let [other_defn, &defns] = defns
+          | concr
+          guard !defn.priority.is_higher_than(other_defn.priority)
+          | check_ambiguity(defns)
+          guard.let other_concr!!:
+            try:
+              other_defn.concretizer(this, arg_types)
+              ~catch _ :: Exn.Fail.Concretize.Recoverable:
+                #false
+          | check_ambiguity(defns)
+          error(
             ~srcloc,
             ~exn: Exn.Fail.Concretize,
             "ambiguous method call",
-            ~details: ["multiple definitions match the call-site signature"],
+            ~details: ["at least two definitions match, and neither takes priority"],
+            error.text(~label: "first match", defn.srcloc?.to_report_string() || "???"),
+            error.text(~label: "second match", other_defn.srcloc?.to_report_string() || "???"),
             error.val(~label: "receiver type", this),
             error.val(~label: "selector", selector),
-            error.vals(~label: "argument types", arg_types),
-            error.text(
-              ~label: "matching definitions",
-              String.join(
-                [(each [best_defn, &ambiguities]).srcloc?.to_report_string()
-                   || "???",
-                 ...],
-                "\n")))
-        best_concr
+            error.vals(~label: "argument types", arg_types))
 
   //============================================================================
   annot.def RhombusToPilleWriter:
