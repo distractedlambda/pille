@@ -13,14 +13,142 @@ import:
   "local_defn_forms.rhm" open
   "special_name.rhm" open
   "when_where.rhm" open
-  pille/concretize open
+  pille/concretize open:
+    rename method as concretize_method
   pille/llvm
   pille/lowering
   rhombus/delay open
+  rhombus/syntax_map open
+
+//==============================================================================
+space.transform _method_priority:
+  space_path pille/method_priority
+  bridge_definer bridge
+  meta_namespace _method_priority_meta:
+    reflection space
+    description "method priority"
+
+//==============================================================================
+export namespace method
+
+alias 'method.priority':
+  ~only_space space
+  '_method_priority'
+
+namespace method.priority
+
+//==============================================================================
+defn.macro 'def_fallback_priority':
+  let id = syntax_meta.flip_introduce('fallback')
+  let refl_id = Syntax.make_temp_id(id, ~keep_name: #true)
+  'def $refl_id:
+     concretize_method.Priority(
+       ~name: "fallback",
+       ~lower_than: Set.by(===){},
+       ~higher_than: Set.by(===){})
+
+   _method_priority.bridge $id:
+     ['$refl_id', [], []]'
+
+export def_fallback_priority
+
+//==============================================================================
+meta:
+  syntax_class PriorityClause:
+    kind: ~group
+    fields: [lower_than, ...] [higher_than, ...]
+  | '~lower_than $(other :: IdentifierName)':
+      field [lower_than, ...] = [other]
+      field [higher_than, ...] = []
+  | '~lower_than: $(others :: IdentifierName); ...':
+      field [lower_than, ...] = [others, ...]
+      field [higher_than, ...] = []
+  | '~higher_than $(other :: IdentifierName)':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = [other]
+  | '~higher_than: $(others :: IdentifierName); ...':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = [others, ...]
+
+  syntax_class PriorityClauses:
+    kind: ~sequence
+    fields: [lower_than, ...] [higher_than, ...]
+  | ': $(clause :: PriorityClause); ...':
+      field [lower_than, ...] = [clause.lower_than, ..., ...]
+      field [higher_than, ...] = ['fallback', clause.higher_than, ..., ...]
+  | '':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = ['fallback']
+
+defn.macro 'method.priority $(name :: IdentifierName) $(clauses :: PriorityClauses)':
+  ~all_stx: stx
+
+  let refl_id = Syntax.make_temp_id(name.name_to_symbol(), ~keep_name: #true)
+
+  let [[lt_refl_id, [lt_lt_refl_id, ...], _], ...]:
+    [syntax_meta.value(clauses.lower_than, _method_priority_meta.space), ...]
+  let all_lt_refl_id:
+    Set.by(equal_binding){
+      lt_refl_id, ...,
+      lt_lt_refl_id, ..., ...}
+
+  let [[ht_refl_id, _, [ht_ht_refl_id, ...]], ...]:
+    [syntax_meta.value(clauses.higher_than, _method_priority_meta.space), ...]
+  let all_ht_refl_id:
+    Set.by(equal_binding){
+      ht_refl_id, ...,
+      ht_ht_refl_id, ..., ...}
+
+  let conflicting_refl_ids = all_lt_refl_id.intersect(all_ht_refl_id)
+  unless conflicting_refl_ids matches Set.empty
+  | let example = Syntax.unwrap(conflicting_refl_ids.to_list(#true).first)
+    syntax_meta.error(
+      @str{order contradiction;
+            priority would be both lower and higher than '@example'},
+      stx)
+
+  let tracked_refl_id:
+    syntax_meta.track_origin(
+      refl_id,
+      ~add:
+        [syntax_meta.flip_introduce(
+           each [clauses.lower_than, ...,
+                 clauses.higher_than, ...]),
+         ...],
+      ~space:
+        _method_priority_meta.space)
+
+  'def $tracked_refl_id:
+     concretize_method.Priority(
+       ~name: $(to_string(name.name_to_symbol())),
+       ~lower_than: Set.by(===){$(each all_lt_refl_id), ...},
+       ~higher_than: Set.by(===){$(each all_ht_refl_id), ...})
+
+   _method_priority.bridge $name:
+     ['$refl_id',
+      ['$(syntax_meta.flip_introduce(each all_lt_refl_id))', ...],
+      ['$(syntax_meta.flip_introduce(each all_ht_refl_id))', ...]]'
+
+//==============================================================================
+expr.macro 'method.priority.reflect($(priority :: IdentifierName))':
+  let [refl_id, _, _] = syntax_meta.value(priority, _method_priority_meta.space)
+  syntax_meta.track_origin(
+    syntax_meta.flip_introduce(refl_id),
+    ~add: syntax_meta.flip_introduce(priority),
+    ~space: _method_priority_meta.space)
+
+//==============================================================================
+export fun make_automatic_method_priority():
+  concretize_method.Priority(
+    ~name: "automatic",
+    ~lower_than: Set.by(===){},
+    ~higher_than: Set.by(===){method.priority.reflect(fallback)})
 
 //==============================================================================
 export defn.macro 'method ($receiver) $(member :: pille_expr_meta.DotMemberName) $tail ...':
+  ~all_stx: stx
   '#%method(
+     $(stx.srcloc()),
      $member.symbol_expr,
      make_method_symbol_name_formatter($(member.to_source_string()))) \
    ($receiver) $tail ...'
@@ -33,17 +161,21 @@ fun make_method_symbol_name_formatter(dot_member_str :: String):
 export defn.macro
 | 'property ($receiver) $(member :: pille_expr_meta.DotMemberName) \
    $(op :: pille_expr_meta.AssignOp) ($arg) $tail ...':
+    ~all_stx: stx
     '#%method(
+       $(stx.srcloc()),
        $(syntax_meta.track_origin(
-           '(method.WriteSelector($member.symbol_expr))',
+           '(concretize_method.WriteSelector($member.symbol_expr))',
            ~add: syntax_meta.flip_introduce(op),
            ~space: pille_expr_meta.space)),
        make_property_write_symbol_name_formatter($(member.to_source_string()))) \
      ($receiver) ($arg) $tail ...'
 
 | 'property ($receiver) $(member :: pille_expr_meta.DotMemberName) $tail ...':
+    ~all_stx: stx
     '#%method(
-       method.ReadSelector($member.symbol_expr),
+       $(stx.srcloc()),
+       concretize_method.ReadSelector($member.symbol_expr),
        make_property_read_symbol_name_formatter($(member.to_source_string()))) \
      ($receiver) () $tail ...'
 
@@ -61,8 +193,13 @@ export defn.macro 'coercion \
                    $(annot_op :: pille_expr_meta.AnnotOp) \
                    $(dst_type :: SimpleNonemptySequence):
                      $(options_and_body :: Block)':
+  ~all_stx: stx
   let dst_type = specl_bind_meta.encapsulate(dst_type)
-  'method $receiver.$coerce_to(to :: Specl($dst_type && α)) $annot_op α $options_and_body'
+  '#%method(
+     $(stx.srcloc()),
+     special_name.symbol(coerce_to),
+     make_method_symbol_name_formatter("$coerce_to")) \
+   $receiver (specl $dst_type && α) $annot_op α $options_and_body'
 
 //==============================================================================
 meta:
@@ -152,11 +289,18 @@ meta:
   | '':
       field rhombus_expr = #false
 
+  syntax_class MaybeSrcloc:
+    kind: ~term
+  | '$slc':
+      match_when slc.unwrap() is_a maybe(Srcloc)
+
   syntax_class Impl:
     kind: ~multi
     fields:
       [ww_opt, ...]
       transparent :~ Boolean
+      srcloc :~ maybe(Srcloc)
+      priority
       body
   | '$(_ :: OptionsAndBody: open)':
       def ([ww_opt_, ...], [other_opt, ...]):
@@ -165,10 +309,14 @@ meta:
       field [ww_opt, ...] = [ww_opt_, ...]
       match_def '$(group_option_sequence
                    | '~transparent':
-                       field transparent = #true)':
+                       field transparent = #true
+                   | '~srcloc $(block_or_tail srcloc_ :: MaybeSrcloc)':
+                       field srcloc = srcloc_.unwrap()
+                       default srcloc = #false
+                   | '~priority $(block_or_tail priority :: IdentifierName)')':
         '$other_opt; ...'
 
-defn.macro '#%method($selector, $symbol_name_formatter) \
+defn.macro '#%method($outer_srcloc, $selector, $symbol_name_formatter) \
             ($(receiver :: Arg)) \
             ($(arg :: Arg), ...) \
             $(res_type :: MaybeResType) \
@@ -195,7 +343,11 @@ defn.macro '#%method($selector, $symbol_name_formatter) \
   let [arg_name_sym, ...] = [make_arg_name_sym(arg), ...]
 
   'define_method(
+     $(srcloc || outer_srcloc),
      $selector,
+     $(if priority
+       | 'method.priority.reflect($priority)'
+       | 'make_automatic_method_priority()'),
      $symbol_name_formatter,
      #'$receiver_name_sym,
      $receiver.is_inout,
@@ -291,7 +443,9 @@ fun prepare_concretize_body(implicits, res_type, concr_body):
 // TODO: This is terrifying, fragile, and may already be wrong in subtle and unknown ways
 //       It needs to be rewritten
 fun define_method(
+  srcloc,
   selector,
+  priority,
   format_symbol_name,
   receiver_name_sym :~ Symbol,
   receiver_is_inout,
@@ -339,124 +493,128 @@ fun define_method(
         | mask,
         idx + 1)
 
-  method.define(
-    selector,
-    fun(receiver_type :~ Type, formal_arg_types :~ [Type, ...]):
-      let callsite_implicit_env = ImplicitKey.snapshot_env()
+  concretize_method.define(
+    concretize_method.Defn(
+      ~srcloc,
+      ~selector,
+      ~priority,
+      ~concretizer:
+        fun(receiver_type :~ Type, formal_arg_types :~ [Type, ...]):
+          let callsite_implicit_env = ImplicitKey.snapshot_env()
 
-      guard formal_arg_types.length() == num_formal_args
-      | #false
+          guard formal_arg_types.length() == num_formal_args
+          | #false
 
-      let (
-        implicit_vals :~ [Expr, ...],
-        res_type :~ maybe(Type),
-        concretize_body :~ Function.assume_of(() -> Expr),
-      ):
-        with_implicit_env(_) <| fun():
-          match_signature(callsite_implicit_env, [receiver_type, &formal_arg_types])
+          let (
+            implicit_vals :~ [Expr, ...],
+            res_type :~ maybe(Type),
+            concretize_body :~ Function.assume_of(() -> Expr),
+          ):
+            with_implicit_env(_) <| fun():
+              match_signature(callsite_implicit_env, [receiver_type, &formal_arg_types])
 
-      let implicit_lows = [(each implicit_vals).lower_rvalue, ...]
+          let implicit_lows = [(each implicit_vals).lower_rvalue, ...]
 
-      let arg_types :~ [Type, ...]:
-        let mutable formal_idx = 0
-        let mutable implicit_idx = 0
-        for List (is_formal in [arg_is_formal, ...]):
-          if is_formal
-          | let ty = formal_arg_types[formal_idx]
-            formal_idx := formal_idx + 1
-            ty
-          | let ty = implicit_vals[implicit_idx].type
-            implicit_idx := implicit_idx + 1
-            ty
+          let arg_types :~ [Type, ...]:
+            let mutable formal_idx = 0
+            let mutable implicit_idx = 0
+            for List (is_formal in [arg_is_formal, ...]):
+              if is_formal
+              | let ty = formal_arg_types[formal_idx]
+                formal_idx := formal_idx + 1
+                ty
+              | let ty = implicit_vals[implicit_idx].type
+                implicit_idx := implicit_idx + 1
+                ty
 
-      let raw_sig:
-        [[receiver_name_sym, receiver_type.repr],
-         [arg_name_sym, (each arg_types).repr], ...]
+          let raw_sig:
+            [[receiver_name_sym, receiver_type.repr],
+             [arg_name_sym, (each arg_types).repr], ...]
 
-      let [res_type, raw_call_low] = cond
-      | is_transparent:
-          let body = concretize_body()
-          let body_low = body.lower_rvalue
-          [body.type,
-           fun(env, raw_arg_vals :~ List):
-             let builder = lowering.builder()
-             let env = for fold(env :~ Map = env):
-               each:
-                 incoming_val in raw_arg_vals
-                 [name_sym, repr] in raw_sig
-                 raw_idx in 0..
-               skip_when repr is_a Repr.Erased
-               let env_val = cond
-               | raw_inout_mask bits.(?) raw_idx:
-                   lowering.name(incoming_val, @str{@(name_sym).in})
-                   let alloca:
-                     let cur_bb = builder.insertion_block!!
-                     builder.position_at_start(cur_bb.parent!!.basic_blocks.first!!)
-                     let alloca = builder.create_alloca(repr.llvm_type(builder.context))
-                     builder.position_at_end(cur_bb)
-                     alloca
-                   lowering.name(alloca, @str{@(name_sym).alloca})
-                   builder.create_store(incoming_val, alloca)
-                   alloca
-               | ~else:
-                   lowering.name(incoming_val, name_sym)
-                   incoming_val
-               env ++ {name_sym: env_val}
-             let res = body_low(env)
-             let out_vals:
-               for List ([name_sym, repr] in raw_sig, raw_idx in 0..):
-                 keep_when raw_inout_mask bits.(?) raw_idx
-                 guard repr is_a Repr.Sized | #false
-                 let alloca = env[name_sym]
-                 assert(alloca is_a llvm.AllocaInst)
-                 let out_val = builder.create_load(repr.llvm_type(builder.context), alloca)
-                 lowering.name(out_val, @str{@(name_sym).out})
-                 out_val
-             [res, &out_vals]]
+          let [res_type, raw_call_low] = cond
+          | is_transparent:
+              let body = concretize_body()
+              let body_low = body.lower_rvalue
+              [body.type,
+               fun(env, raw_arg_vals :~ List):
+                 let builder = lowering.builder()
+                 let env = for fold(env :~ Map = env):
+                   each:
+                     incoming_val in raw_arg_vals
+                     [name_sym, repr] in raw_sig
+                     raw_idx in 0..
+                   skip_when repr is_a Repr.Erased
+                   let env_val = cond
+                   | raw_inout_mask bits.(?) raw_idx:
+                       lowering.name(incoming_val, @str{@(name_sym).in})
+                       let alloca:
+                         let cur_bb = builder.insertion_block!!
+                         builder.position_at_start(cur_bb.parent!!.basic_blocks.first!!)
+                         let alloca = builder.create_alloca(repr.llvm_type(builder.context))
+                         builder.position_at_end(cur_bb)
+                         alloca
+                       lowering.name(alloca, @str{@(name_sym).alloca})
+                       builder.create_store(incoming_val, alloca)
+                       alloca
+                   | ~else:
+                       lowering.name(incoming_val, name_sym)
+                       incoming_val
+                   env ++ {name_sym: env_val}
+                 let res = body_low(env)
+                 let out_vals:
+                   for List ([name_sym, repr] in raw_sig, raw_idx in 0..):
+                     keep_when raw_inout_mask bits.(?) raw_idx
+                     guard repr is_a Repr.Sized | #false
+                     let alloca = env[name_sym]
+                     assert(alloca is_a llvm.AllocaInst)
+                     let out_val = builder.create_load(repr.llvm_type(builder.context), alloca)
+                     lowering.name(out_val, @str{@(name_sym).out})
+                     out_val
+                 [res, &out_vals]]
 
-      | ~else:
-          cached([receiver_type, arg_types], _) <| fun(_):
-            let symbol_name:
-              format_symbol_name(receiver_type, arg_types)
+          | ~else:
+              cached([receiver_type, arg_types], _) <| fun(_):
+                let symbol_name:
+                  format_symbol_name(receiver_type, arg_types)
 
-            let [res_type, internal_call_low] = match res_type
-            | res_type!!:
+                let [res_type, internal_call_low] = match res_type
+                | res_type!!:
+                    [res_type,
+                     lowering.create_internal_function(
+                       symbol_name,
+                       res_type.repr,
+                       raw_sig,
+                       ~inout_mask: raw_inout_mask,
+                       fun(): concretize_body().lower_rvalue)]
+                | #false:
+                    let body = concretize_body()
+                    [body.type,
+                     lowering.create_internal_function(
+                       symbol_name,
+                       body.type.repr,
+                       raw_sig,
+                       ~inout_mask: raw_inout_mask,
+                       fun(): body.lower_rvalue)]
+
                 [res_type,
-                 lowering.create_internal_function(
-                   symbol_name,
-                   res_type.repr,
-                   raw_sig,
-                   ~inout_mask: raw_inout_mask,
-                   fun(): concretize_body().lower_rvalue)]
-            | #false:
-                let body = concretize_body()
-                [body.type,
-                 lowering.create_internal_function(
-                   symbol_name,
-                   body.type.repr,
-                   raw_sig,
-                   ~inout_mask: raw_inout_mask,
-                   fun(): body.lower_rvalue)]
+                 fun(env, raw_arg_vals):
+                   internal_call_low(raw_arg_vals)]
 
-            [res_type,
-             fun(env, raw_arg_vals):
-               internal_call_low(raw_arg_vals)]
-
-      method.Concretized(
-        ~result_type: res_type,
-        ~inout_mask: method_inout_mask,
-        ~lower_call:
-           fun(env, explicit_vals :~ List):
-             raw_call_low(
-               env,
-               block:
-                 let mutable explicit_idx = 0
-                 let mutable implicit_idx = 0
-                 for List (is_explicit in [#true, arg_is_formal, ...]):
-                   if is_explicit
-                   | let val = explicit_vals[explicit_idx]
-                     explicit_idx := explicit_idx + 1
-                     val
-                   | let val = implicit_lows[implicit_idx](env)
-                     implicit_idx := implicit_idx + 1
-                     val)))
+          concretize_method.Concretized(
+            ~result_type: res_type,
+            ~inout_mask: method_inout_mask,
+            ~lower_call:
+               fun(env, explicit_vals :~ List):
+                 raw_call_low(
+                   env,
+                   block:
+                     let mutable explicit_idx = 0
+                     let mutable implicit_idx = 0
+                     for List (is_explicit in [#true, arg_is_formal, ...]):
+                       if is_explicit
+                       | let val = explicit_vals[explicit_idx]
+                         explicit_idx := explicit_idx + 1
+                         val
+                       | let val = implicit_lows[implicit_idx](env)
+                         implicit_idx := implicit_idx + 1
+                         val))))

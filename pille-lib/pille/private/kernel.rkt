@@ -118,7 +118,7 @@ export:
     pille_fun as fun
     pille_operator as operator
 
-  only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn special_name:
+  only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn method.priority special_name:
     all_from("kernel/cond_comp.rhm")
     all_from("kernel/specl_annot_forms.rhm")
     all_from("kernel/specl_bind.rhm")

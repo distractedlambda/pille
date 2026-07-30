@@ -17,40 +17,66 @@ meta:
   | '$(group_option_sequence
        | '~name $(block_or_tail display_name :: Name)')'
 
-  fun split_combined_options(combined_options :: Syntax) :: values(Syntax, Syntax):
-    match combined_options
-    | '': values('', '')
-    | '$hd; $tl; ...':
-        let (fun_opts, case_opts) = split_combined_options('$tl; ...')
-        match hd
-        | '~name $_ ...':
-            values('$hd; $fun_opts', case_opts)
-        | _:
-            values(fun_opts, '$hd; $case_opts')
+  syntax_class CaseOptionKw:
+    kind: ~term
+  | '~when'
+  | '~where'
+  | '~transparent'
+
+  syntax_class Case:
+    kind: ~group
+  | '$sig ...: $(_ :: OptionsAndBody: open)':
+      match_def '$(_ :: CaseOptionKw) $_ ...; ...' = '$option; ...'
 
   syntax_class FunSpec:
     kind: ~group
-    fields: name display_name [case, ...]
-  | '$(name :: IdentifierName) $sig ...: $(_ :: OptionsAndBody: open)':
-      def (fun_opts_, case_opts) = split_combined_options('$option; ...')
-      match_def '$(_ :: FunOptions: open)' = fun_opts_
-      field [case, ...] = ['$sig ...: $case_opts; $body']
+    fields: name display_name priority_defns [case, ...]
+  | '$(stx :: Group)':
+      match_def '$(name :: IdentifierName) $sig ...: $(_ :: OptionsAndBody: open)' = stx
+      def ([case_opt, ...], [fun_opt, ...]) = [option, ...].partition((_ matches '$(_ :: CaseOptionKw) $_ ...'))
+      match_def '$(_ :: FunOptions: open)' = '$fun_opt; ...'
+      field [case, ...]:
+        ['$sig ...:
+            $case_opt; ...
+            ~srcloc: $(stx.srcloc())
+            $body']
+      field priority_defns = ''
 
   | '$(name :: IdentifierName) $(maybe_block _ :: FunOptions: open)
-     | $hd_case
-     | $tl_case
+     | $(hd_case :: Case)
+     | $(tl_case :: Case)
      | ...':
-      field [case, ...] = [hd_case, tl_case, ...]
+      def [priority_id, ...]:
+        [Syntax.make_temp_id(
+           each [hd_case && name.name_to_symbol(),
+                 tl_case && Syntax.name_to_symbol(name),
+                 ...]),
+         ...]
+      def [hd_priority_id, tl_priority_id, ...] = [priority_id, ...]
+      def [pre_priority_id, ..., _] = [priority_id, ...]
+      field priority_defns:
+        'method.priority $hd_priority_id
+         method.priority $tl_priority_id:
+           ~lower_than: $pre_priority_id
+         ...'
+      def [case_, ...] = [hd_case, tl_case, ...]
+      field [case, ...]:
+        ['$case_.sig ...:
+            $case_.option; ...
+            ~srcloc: $(case_.srcloc())
+            ~priority: $priority_id
+            $case_.body',
+         ...]
 
 //==============================================================================
 export defn.macro 'pille_fun $(spec :: FunSpec)':
-  let [method_case, ...] = [spec.case, ...].reverse()
-
   '«struct Impl:
       ~name: $(spec.display_name || spec.name)
 
     pille_expr.macro '($spec.name)':
       'Impl{}'
 
-    method (f :: Impl).$call $method_case
+    $spec.priority_defns
+
+    method (f :: Impl).$call $spec.case
     ...»'

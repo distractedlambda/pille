@@ -123,24 +123,67 @@ export class Type():
     WeakMutableMap.by(===){}
 
   //============================================================================
-  final method concretized_method(selector :: Any, arg_types :: [Type, ...]) :~ method.Concretized:
+  final method concretized_method(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    selector :: Any,
+    arg_types :: [Type, ...],
+  ) :~ method.Concretized:
     let profile = Profile.require_current()
-    let candidates = profile.methods.maybe[selector] || []
-    try ~escape_as esc:
-      let exns = for fold(exns :~ List = []) (candidate in candidates):
+    let defns :~ [method.Defn, ...] = profile.methods.maybe[selector] || []
+    let (candidates, exns):
+      for fold(candidates :~ [[method.Defn, method.Concretized], ...] = [],
+               exns :~ List = []):
+        each defn in defns
         try:
-          candidate(this, arg_types) ?> esc
-          exns
+          match defn.concretizer(this, arg_types)
+          | concretized!!:
+              values(candidates.add([defn, concretized]), exns)
+          | #false:
+              values(candidates, exns)
           ~catch exn :: Exn.Fail.Concretize.Recoverable:
-            exns ++ [exn]
-      error(
-        ~exn: Exn.Fail.Concretize.Recoverable,
-        "no matching method",
-        error.val(~label: "receiver type", this),
-        error.val(~label: "selector", selector),
-        error.vals(~label: "argument types", arg_types),
-        error.cause(each exns),
-        ...)
+            values(candidates, exns.add(exn))
+    match candidates
+    | []:
+        error(
+          ~srcloc,
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "no applicable method definition",
+          error.val(~label: "receiver type", this),
+          error.val(~label: "selector", selector),
+          error.vals(~label: "argument types", arg_types),
+          error.cause(each exns),
+          ...)
+    | [[_, concr]]:
+        concr
+    | _:
+        let [best_defn, best_concr]:
+          for fold(best && [best_defn :~ method.Defn, _] = candidates[0]):
+            each candidate && [candidate_defn, _] in candidates.sublist(1..)
+            if candidate_defn.priority.is_higher_than(best_defn.priority)
+            | candidate
+            | best
+        let ambiguities :~ [method.Defn, ...]:
+          for List ([defn, _] in candidates):
+            skip_when defn === best_defn
+            skip_when best_defn.priority.is_higher_than(defn.priority)
+            defn
+        unless ambiguities matches []
+        | error(
+            ~srcloc,
+            ~exn: Exn.Fail.Concretize,
+            "ambiguous method call",
+            ~details: ["multiple definitions match the call-site signature"],
+            error.val(~label: "receiver type", this),
+            error.val(~label: "selector", selector),
+            error.vals(~label: "argument types", arg_types),
+            error.text(
+              ~label: "matching definitions",
+              String.join(
+                [(each [best_defn, &ambiguities]).srcloc?.to_report_string()
+                   || "???",
+                 ...],
+                "\n")))
+        best_concr
 
   //============================================================================
   annot.def RhombusToPilleWriter:

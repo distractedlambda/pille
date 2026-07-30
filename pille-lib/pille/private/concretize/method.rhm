@@ -2,8 +2,25 @@
 
 import:
   "../util/annot.rhm" open
+  "../util/equatable_by_identity.rhm" open
   "type_fwd.rhm" open
   pille/llvm
+
+//============================================================================
+export Priority
+class Priority(
+  ~name: name :: String,
+  ~lower_than: lower_than :: Set.of(Priority),
+  ~higher_than: higher_than :: Set.of(Priority),
+):
+  ~name: concretize.method.Priority
+
+  internal _Priority
+
+  equatable_by_identity
+
+  method is_higher_than(other :: _Priority) :~ Boolean:
+    other in higher_than || this in other.lower_than
 
 //============================================================================
 export class Concretized(
@@ -15,32 +32,46 @@ export class Concretized(
     lower_call :: (
       env :: Map,
       explicit_vals :: [maybe(llvm.Value), ...],
-    ) -> [maybe(llvm.Value), maybe(llvm.Value), ...])
+    ) -> [maybe(llvm.Value), maybe(llvm.Value), ...],
+):
+  ~name: concretize.method.Concretized
 
 //============================================================================
 export annot.def Concretizer:
   (receiver_type :: _Type, arg_types :: [_Type, ...]) -> maybe(Concretized)
 
 //============================================================================
-export class ReadSelector(property :: Symbol)
-export class WriteSelector(property :: Symbol)
+export class ReadSelector(property :: Symbol):
+  ~name: concretize.method.ReadSelector
+
+export class WriteSelector(property :: Symbol):
+  ~name: concretize.method.WriteSelector
+
+//============================================================================
+export class Defn(
+  ~srcloc: srcloc :: maybe(Srcloc) = #false,
+  ~selector: selector :: Any,
+  ~priority: priority :: Priority,
+  ~concretizer: concretizer :: Concretizer,
+):
+  ~name: concretize.method.Defn
 
 //============================================================================
 export annot.def Table:
-  Map.of(Any, [Function.assume_of(Concretizer), ...])
+  Map.of(Any, [Defn, ...])
 
 Parameter.def current_table :~ Table:
   Map{}
 
 //============================================================================
-export fun define(selector :: Any, concretizer :: Concretizer) :: Void:
+export fun define(defn :: Defn) :: Void:
   let tbl = current_table()
   current_table(
     tbl ++ {
-      selector:
+      defn.selector:
         List.cons(
-          concretizer,
-          tbl.maybe[selector] || [])})
+          defn,
+          tbl.maybe[defn.selector] || [])})
 
 //============================================================================
 export fun snapshot_defined() :~ Table:
