@@ -104,7 +104,7 @@ export doc.bridge type:
     fields:
       name
       specl_args
-  | '$(_ :: IdentifierName) $(name :: IdentifierName) $(specl_args :: MaybeConstArgs)'
+  | '$(_ :: IdentifierName) $(name :: IdentifierName) $(specl_args :: MaybeSpeclArgs)'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -147,7 +147,7 @@ export doc.bridge struct:
     kind: ~group
   | '$(struct :: IdentifierName) \
      $(name :: IdentifierName) \
-     $(specl_args :: MaybeConstArgs) \
+     $(specl_args :: MaybeSpeclArgs) \
      $(_ :: MaybeBody: open)'
 
   fun typeset_field('$(stx :: Field)'):

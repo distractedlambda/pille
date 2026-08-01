@@ -160,16 +160,16 @@ meta:
     '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx)
 
   //============================================================================
-  export syntax_class MaybeConstArgs:
+  export syntax_class MaybeSpeclArgs:
     kind: ~sequence
     fields: args :~ maybe(Syntax.matched_of(SpeclArgs))
   | '$(args :: SpeclArgs)'
   | '': field args = #false
 
-  export fun maybe_specl_args_metavars('$(stx :: MaybeConstArgs)') :~ [Identifier, ...]:
+  export fun maybe_specl_args_metavars('$(stx :: MaybeSpeclArgs)') :~ [Identifier, ...]:
     (stx.args ?> specl_args_metavars) || []
 
-  export fun typeset_maybe_specl_args('$(stx :: MaybeConstArgs)'):
+  export fun typeset_maybe_specl_args('$(stx :: MaybeSpeclArgs)'):
     (stx.args ?> typeset_specl_args) || stx
 
   //============================================================================
