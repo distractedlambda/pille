@@ -7,10 +7,10 @@ import:
   "caches.rhm"
   "exn.rhm" open
   "implicit.rhm" open
-  "method.rhm"
+  "method.rhm" open
   "repr.rhm" open
   "type_fwd.rhm" open
-  "unify.rhm"
+  "unify.rhm" open
   ffi open
   pille/llvm
 
@@ -84,12 +84,39 @@ export class Type():
     other :~ Type,
   ) :~ Type || [Exn.Fail.Concretize.Recoverable, ...]:
     let profile = Profile.require_current()
-    try ~escape_as esc:
-      for List (rule in profile.unification_rules):
-        keep_let exn!! = try:
-          rule(this, other) ?> esc
-          ~catch exn :: Exn.Fail.Concretize.Recoverable: exn
-        exn
+    recur find_rule(rules :~ [UnifyRule, ...] = profile.unification_rules,
+                    exns :~ List = []):
+      match rules
+      | [rule, &rules]:
+          try ~escape_as esc:
+            guard.let unified!!:
+              try:
+                rule.eval(this, other)
+                ~catch exn :: Exn.Fail.Concretize.Recoverable:
+                  esc(find_rule(rules, exns ++ [exn]))
+            | find_rule(rules, exns)
+
+            for (other_rule in rules):
+              skip_when rule.priority.is_higher_than(other_rule.priority)
+              keep_let other_unified!!:
+                try:
+                  other_rule.eval(this, other)
+                  ~catch _ :: Exn.Fail.Concretize.Recoverable:
+                    #false
+              unless unified === other_unified
+              | error(
+                  ~exn: Exn.Fail.Concretize,
+                  "type unification is ambiguous",
+                  ~details: ["at least two applicable rules disagree"],
+                  error.vals(~label: "types", [this, other]),
+                  error.text(~label: "first rule", rule.srcloc?.to_report_string() || "???"),
+                  error.val(~label: "first rule's result", unified),
+                  error.text(~label: "second rule", other_rule.srcloc?.to_report_string() || "???"),
+                  error.val(~label: "second rule's result", other_unified))
+
+            unified
+      | []:
+          exns
 
   private method compute_bidirectional_unification_with(other :~ Type) :~ Type:
     try ~escape_as esc:
@@ -100,8 +127,9 @@ export class Type():
               if fwd_type === rev_type
               | fwd_type
               | error(
-                  ~exn: Exn.Fail.Concretize.Recoverable,
+                  ~exn: Exn.Fail.Concretize,
                   "type unification is ambiguous",
+                  ~details: ["swapping input types yields a different result"],
                   error.vals(~label: "types", [this, other]),
                   error.val(~label: "forward unification", fwd_type),
                   error.val(~label: "reverse unification", rev_type))
@@ -127,9 +155,9 @@ export class Type():
     ~srcloc: srcloc :: maybe(Srcloc) = #false,
     selector :: Any,
     arg_types :: [Type, ...],
-  ) :~ method.Concretized:
+  ) :~ MethodDefn.Concretized:
     let profile = Profile.require_current()
-    recur find_match(defns :~ [method.Defn, ...] = profile.methods.maybe[selector] || [],
+    recur find_match(defns :~ [MethodDefn, ...] = profile.methods.maybe[selector] || [],
                      exns :~ List = []):
       guard.let [defn, &defns] = defns
       | error(
@@ -148,7 +176,7 @@ export class Type():
             ~catch exn :: Exn.Fail.Concretize.Recoverable:
               esc(find_match(defns, exns ++ [exn]))
         | find_match(defns, exns)
-        recur check_ambiguity(defns :~ [method.Defn, ...] = defns):
+        recur check_ambiguity(defns :~ [MethodDefn, ...] = defns):
           guard.let [other_defn, &defns] = defns
           | concr
           guard !defn.priority.is_higher_than(other_defn.priority)

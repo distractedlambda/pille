@@ -141,7 +141,7 @@ meta syntax_class pille_expr_meta.AssignOp:
 
 fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
   try ~escape_as ret:
-    let assign_method_concr :~ method.Concretized = try:
+    let assign_method_concr :~ MethodDefn.Concretized = try:
       lhs.type.concretized_method(
         special_name.symbol(assign),
         [rhs.type])
@@ -344,7 +344,7 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
   try ~escape_as esc:
     let read_concr:
       receiver_concr.type.concretized_method(
-        method.ReadSelector(name),
+        ReadSelector(name),
         [])
 
     let read_low = read_concr.lower_call
@@ -357,10 +357,10 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
         error.val(~label: "property", name))
 
     try ~escape_as readonly:
-      let write_concr :~ method.Concretized:
+      let write_concr :~ MethodDefn.Concretized:
         try:
           receiver_concr.type.concretized_method(
-            method.WriteSelector(name),
+            WriteSelector(name),
             [read_concr.result_type])
           ~catch _ :: Exn.Fail.Concretize.Recoverable:
             readonly()
@@ -464,7 +464,7 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
         "'$index_read' method cannot have 'inout' arguments")
 
     try ~escape_as readonly:
-      let write_concr :~ method.Concretized:
+      let write_concr :~ MethodDefn.Concretized:
         try:
           receiver_concr.type.concretized_method(
             special_name.symbol(index_write),

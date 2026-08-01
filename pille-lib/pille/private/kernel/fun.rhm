@@ -5,6 +5,7 @@ import:
   "expr.rhm" open
   "expr_forms.rhm" open
   "method.rhm" open
+  "priority.rhm" open
   "special_name.rhm" open
   "struct.rhm" open
 
@@ -55,8 +56,8 @@ meta:
       def [hd_priority_id, tl_priority_id, ...] = [priority_id, ...]
       def [pre_priority_id, ..., _] = [priority_id, ...]
       field priority_defns:
-        'method.priority $hd_priority_id
-         method.priority $tl_priority_id:
+        'priority.def $hd_priority_id
+         priority.def $tl_priority_id:
            ~lower_than: $pre_priority_id
          ...'
       def [case_, ...] = [hd_case, tl_case, ...]

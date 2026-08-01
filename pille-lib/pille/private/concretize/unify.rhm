@@ -1,21 +1,41 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../util/annot.rhm" open
+  "../util/equatable_by_identity.rhm" open
+  "priority.rhm" open
   "type_fwd.rhm" open
 
-export annot.def Rule:
-  (_Type, _Type) -> maybe(_Type)
+export UnifyRule
+class UnifyRule(
+  srcloc :~ maybe(Srcloc),
+  priority :~ Priority,
+  eval :~ Function.assume_of((_Type, _Type) -> maybe(_Type)),
+):
+  internal _UnifyRule
 
-export annot.def Rules:
-  [Function.assume_of(Rule), ...]
+  equatable_by_identity
 
-Parameter.def current_rules :~ List:
-  []
+  constructor ~error
 
-export fun add_rule(rule :: Rule) :: Void:
-  let lst = current_rules()
-  current_rules(List.cons(rule, lst))
+  export:
+    Table
+    register
+    snapshot_table
 
-export fun snapshot_rules() :~ Rules:
-  current_rules()
+  annot.def Table:
+    [UnifyRule, ...]
+
+  Parameter.def current_table :~ Table:
+    []
+
+  fun register(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    ~priority: priority :: Priority = Priority.new_automatic(),
+    ~eval: eval :: (_Type, _Type) -> maybe(_Type),
+  ) :: Void:
+    let tbl = current_table()
+    current_table(List.cons(_UnifyRule(srcloc, priority, eval), tbl))
+
+  fun snapshot_table() :~ Table:
+    current_table().sort(_) <| fun(fst :~ UnifyRule, snd :~ UnifyRule):
+      fst.priority.is_higher_than(snd.priority)

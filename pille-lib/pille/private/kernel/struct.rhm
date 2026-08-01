@@ -13,8 +13,7 @@ import:
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
   "specl_fun.rhm" open
-  pille/concretize open:
-    rename method as concretize_method
+  pille/concretize open
   pille/lowering
 
 //==============================================================================
@@ -216,96 +215,88 @@ fun define_struct_methods(
   // Field properties
   for (field_name in field_names, field_idx in 0..):
     // Read
-    concretize_method.define(
-      concretize_method.Defn(
-        ~selector:
-          concretize_method.ReadSelector(field_name),
-        ~priority:
-          make_automatic_method_priority(),
-        ~concretizer:
-          fun(receiver_type, arg_types):
-            guard arg_types matches [] | #false
-            guard.let receiver_type :: _StructType = receiver_type | #false
-            guard receiver_type.species === species | #false
-            let tuple_type = receiver_type.backing_tuple_type
-            concretize_method.Concretized(
-              ~result_type:
-                tuple_type.elements[field_idx],
-              ~lower_call:
-                let slot = tuple_type.slots[field_idx]
-                fun(env, [receiver_val]):
-                  [lowering.packing.get(receiver_val, slot)])))
+    MethodDefn.register(
+      ~selector:
+        ReadSelector(field_name),
+      ~concretizer:
+        fun(receiver_type, arg_types):
+          guard arg_types matches [] | #false
+          guard.let receiver_type :: _StructType = receiver_type | #false
+          guard receiver_type.species === species | #false
+          let tuple_type = receiver_type.backing_tuple_type
+          MethodDefn.Concretized(
+            ~result_type:
+              tuple_type.elements[field_idx],
+            ~lower_call:
+              let slot = tuple_type.slots[field_idx]
+              fun(env, [receiver_val]):
+                [lowering.packing.get(receiver_val, slot)]))
 
     // Write
-    concretize_method.define(
-      concretize_method.Defn(
-        ~selector:
-          concretize_method.WriteSelector(field_name),
-        ~priority:
-          make_automatic_method_priority(),
-        ~concretizer:
-          fun(receiver_type, arg_types :~ [Type, ...]):
-            guard.let [new_value_type] = arg_types | #false
-            guard.let receiver_type :: _StructType = receiver_type | #false
-            guard receiver_type.species === species | #false
-            concretize_method.Concretized(
-              ~result_type:
-                VoidType(),
-              ~inout_mask:
-                1,
-              ~lower_call:
-                let tuple_type = receiver_type.backing_tuple_type
-                let slot = tuple_type.slots[field_idx]
-                let new_value_coe = resolve_coercer(new_value_type, tuple_type.elements[field_idx])
-                fun(env, [receiver_val, new_value_val]):
-                  [#false,
-                   lowering.packing.set(
-                     receiver_val,
-                     slot,
-                     new_value_coe({}, new_value_val))])))
+    MethodDefn.register(
+      ~selector:
+        WriteSelector(field_name),
+      ~concretizer:
+        fun(receiver_type, arg_types :~ [Type, ...]):
+          guard.let [new_value_type] = arg_types | #false
+          guard.let receiver_type :: _StructType = receiver_type | #false
+          guard receiver_type.species === species | #false
+          MethodDefn.Concretized(
+            ~result_type:
+              VoidType(),
+            ~inout_mask:
+              1,
+            ~lower_call:
+              let tuple_type = receiver_type.backing_tuple_type
+              let slot = tuple_type.slots[field_idx]
+              let new_value_coe = resolve_coercer(new_value_type, tuple_type.elements[field_idx])
+              fun(env, [receiver_val, new_value_val]):
+                [#false,
+                 lowering.packing.set(
+                   receiver_val,
+                   slot,
+                   new_value_coe({}, new_value_val))]))
 
 //==============================================================================
 // Baseline `$new` implementation
-concretize_method.define(
-  concretize_method.Defn(
-    ~selector:
-      special_name.symbol(new),
-    ~priority:
-      method.priority.reflect(fallback),
-    ~concretizer:
-      fun(receiver_type, arg_types :~ [Type, ...]):
-        guard.let SpeclType(struct_type :: _StructType) = receiver_type | #false
-        guard arg_types.length() == struct_type.species.field_count | #false
-        let tuple_type = struct_type.backing_tuple_type
-        let [field_coe, ...] = [resolve_coercer(each arg_types, each tuple_type.elements), ...]
-        concretize_method.Concretized(
-          ~result_type:
-            struct_type,
-          ~lower_call:
-            fun(env, [#false, arg_val, ...]):
-              [lowering.packing.pack([field_coe({}, arg_val), ...])])))
+MethodDefn.register(
+  ~selector:
+    special_name.symbol(new),
+  ~priority:
+    Priority.fallback,
+  ~concretizer:
+    fun(receiver_type, arg_types :~ [Type, ...]):
+      guard.let SpeclType(struct_type :: _StructType) = receiver_type | #false
+      guard arg_types.length() == struct_type.species.field_count | #false
+      let tuple_type = struct_type.backing_tuple_type
+      let [field_coe, ...] = [resolve_coercer(each arg_types, each tuple_type.elements), ...]
+      MethodDefn.Concretized(
+        ~result_type:
+          struct_type,
+        ~lower_call:
+          fun(env, [#false, arg_val, ...]):
+            [lowering.packing.pack([field_coe({}, arg_val), ...])]))
 
 //==============================================================================
 // Baseline `$assign` implementation
-concretize_method.define(
-  concretize_method.Defn(
-    ~selector:
-      special_name.symbol(assign),
-    ~priority:
-      method.priority.reflect(fallback),
-    ~concretizer:
-      fun(receiver_type, arg_types :~ [Type, ...]):
-        guard.let receiver_type :: _StructType = receiver_type | #false
-        guard.let [arg_type] = arg_types | #false
-        let arg_coe = resolve_coercer(arg_type, receiver_type)
-        let tuple_type = receiver_type.backing_tuple_type
-        let tuple_assign = tuple_type.concretized_method(
-          special_name.symbol(assign),
-          [tuple_type])
-        let tuple_assign_low = tuple_assign.lower_call
-        concretize_method.Concretized(
-          ~result_type: tuple_assign.result_type,
-          ~inout_mask: tuple_assign.inout_mask,
-          ~lower_call:
-            fun(env, [recv_val, arg_val]):
-              tuple_assign_low(env, [recv_val, arg_coe(env, arg_val)]))))
+MethodDefn.register(
+  ~selector:
+    special_name.symbol(assign),
+  ~priority:
+    Priority.fallback,
+  ~concretizer:
+    fun(receiver_type, arg_types :~ [Type, ...]):
+      guard.let receiver_type :: _StructType = receiver_type | #false
+      guard.let [arg_type] = arg_types | #false
+      let arg_coe = resolve_coercer(arg_type, receiver_type)
+      let tuple_type = receiver_type.backing_tuple_type
+      let tuple_assign = tuple_type.concretized_method(
+        special_name.symbol(assign),
+        [tuple_type])
+      let tuple_assign_low = tuple_assign.lower_call
+      MethodDefn.Concretized(
+        ~result_type: tuple_assign.result_type,
+        ~inout_mask: tuple_assign.inout_mask,
+        ~lower_call:
+          fun(env, [recv_val, arg_val]):
+            tuple_assign_low(env, [recv_val, arg_coe(env, arg_val)])))

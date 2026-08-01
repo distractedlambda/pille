@@ -1,0 +1,112 @@
+#lang rhombus/static/and_meta
+
+import:
+  pille/concretize open
+  rhombus/syntax_map open
+
+//==============================================================================
+space.transform _priority:
+  space_path pille/priority
+  bridge_definer bridge
+  meta_namespace _priority_meta:
+    reflection space
+    description "priority"
+
+//==============================================================================
+export namespace priority
+
+export alias 'priority':
+  ~only_space space
+  '_priority'
+
+//==============================================================================
+import:
+  .Priority.fallback
+
+export _priority.bridge fallback:
+  ['fallback', [], []]
+
+//==============================================================================
+meta:
+  syntax_class PriorityClause:
+    kind: ~group
+    fields: [lower_than, ...] [higher_than, ...]
+  | '~lower_than $(other :: IdentifierName)':
+      field [lower_than, ...] = [other]
+      field [higher_than, ...] = []
+  | '~lower_than: $(others :: IdentifierName); ...':
+      field [lower_than, ...] = [others, ...]
+      field [higher_than, ...] = []
+  | '~higher_than $(other :: IdentifierName)':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = [other]
+  | '~higher_than: $(others :: IdentifierName); ...':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = [others, ...]
+
+  syntax_class PriorityClauses:
+    kind: ~sequence
+    fields: [lower_than, ...] [higher_than, ...]
+  | ': $(clause :: PriorityClause); ...':
+      field [lower_than, ...] = [clause.lower_than, ..., ...]
+      field [higher_than, ...] = ['fallback', clause.higher_than, ..., ...]
+  | '':
+      field [lower_than, ...] = []
+      field [higher_than, ...] = ['fallback']
+
+defn.macro 'priority.def $(name :: IdentifierName) $(clauses :: PriorityClauses)':
+  ~all_stx: stx
+
+  let refl_id = Syntax.make_temp_id(name.name_to_symbol(), ~keep_name: #true)
+
+  let [[lt_refl_id, [lt_lt_refl_id, ...], _], ...]:
+    [syntax_meta.value(clauses.lower_than, _priority_meta.space), ...]
+  let all_lt_refl_id:
+    Set.by(equal_binding){
+      lt_refl_id, ...,
+      lt_lt_refl_id, ..., ...}
+
+  let [[ht_refl_id, _, [ht_ht_refl_id, ...]], ...]:
+    [syntax_meta.value(clauses.higher_than, _priority_meta.space), ...]
+  let all_ht_refl_id:
+    Set.by(equal_binding){
+      ht_refl_id, ...,
+      ht_ht_refl_id, ..., ...}
+
+  let conflicting_refl_ids = all_lt_refl_id.intersect(all_ht_refl_id)
+  unless conflicting_refl_ids matches Set.empty
+  | let example = Syntax.unwrap(conflicting_refl_ids.to_list(#true).first)
+    syntax_meta.error(
+      @str{order contradiction;
+            priority would be both lower and higher than '@example'},
+      stx)
+
+  let tracked_refl_id:
+    syntax_meta.track_origin(
+      refl_id,
+      ~add:
+        [syntax_meta.flip_introduce(
+           each [clauses.lower_than, ...,
+                 clauses.higher_than, ...]),
+         ...],
+      ~space:
+        _priority_meta.space)
+
+  'def $tracked_refl_id:
+     Priority(
+       ~name: $(to_string(name.name_to_symbol())),
+       ~lower_than: Set.by(===){$(each all_lt_refl_id), ...},
+       ~higher_than: Set.by(===){$(each all_ht_refl_id), ...})
+
+   _priority.bridge $name:
+     ['$refl_id',
+      ['$(syntax_meta.flip_introduce(each all_lt_refl_id))', ...],
+      ['$(syntax_meta.flip_introduce(each all_ht_refl_id))', ...]]'
+
+//==============================================================================
+expr.macro 'priority.reflect($(priority :: IdentifierName))':
+  let [refl_id, _, _] = syntax_meta.value(priority, _priority_meta.space)
+  syntax_meta.track_origin(
+    syntax_meta.flip_introduce(refl_id),
+    ~add: syntax_meta.flip_introduce(priority),
+    ~space: _priority_meta.space)

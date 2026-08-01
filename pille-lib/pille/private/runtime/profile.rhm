@@ -1,8 +1,8 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../concretize/method.rhm"
-  "../concretize/unify.rhm"
+  "../concretize/method.rhm" open
+  "../concretize/unify.rhm" open
   "../util/defer.rhm" open
   "../util/readable_string_or_symbol.rhm" open
   "artifact.rhm" open
@@ -25,8 +25,8 @@ export class Profile(
   llvm_target :: llvm.Target,
   llvm_data_layout_string :: String,
   sizer :: Sizer,
-  methods :: method.Table,
-  unification_rules :: unify.Rules,
+  methods :: MethodDefn.Table,
+  unification_rules :: UnifyRule.Table,
 ):
   export:
     current
@@ -54,11 +54,11 @@ export class Profile(
       ub_policy :: UbPolicy:
         UbPolicy.from_env.force(),
     ~methods:
-      methods :: method.Table:
-        method.snapshot_defined(),
+      methods :: MethodDefn.Table:
+        MethodDefn.snapshot_table(),
     ~unification_rules:
-      unification_rules :: unify.Rules:
-        unify.snapshot_rules(),
+      unification_rules :: UnifyRule.Table:
+        UnifyRule.snapshot_table(),
   ):
     let llvm_target:
       llvm.Target.for_triple(target.triple) || error(

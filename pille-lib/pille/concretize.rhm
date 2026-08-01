@@ -14,15 +14,14 @@ reexport:
   "private/concretize/expr.rhm"
   "private/concretize/implicit.rhm"
   "private/concretize/memory_layout.rhm"
+  "private/concretize/method.rhm"
+  "private/concretize/priority.rhm"
   "private/concretize/repr.rhm"
   "private/concretize/type.rhm"
+  "private/concretize/unify.rhm"
 
 import:
   "private/concretize/caches.rhm"
-  "private/concretize/method.rhm"
-  "private/concretize/unify.rhm"
 
 export:
   caches
-  method
-  unify

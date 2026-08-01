@@ -1,0 +1,31 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/equatable_by_identity.rhm" open
+
+export Priority
+class Priority(
+  ~name: name :: String,
+  ~lower_than: lower_than :: Set.of(Priority),
+  ~higher_than: higher_than :: Set.of(Priority),
+):
+  ~name: concretize.method.Priority
+
+  internal _Priority
+
+  equatable_by_identity
+
+  method is_higher_than(other :: _Priority) :~ Boolean:
+    other in higher_than || this in other.lower_than
+
+def Priority.fallback:
+  Priority(
+    ~name: "fallback",
+    ~lower_than: Set.by(===){},
+    ~higher_than: Set.by(===){})
+
+fun Priority.new_automatic() :~ Priority:
+  Priority(
+    ~name: "automatic",
+    ~lower_than: Set.by(===){},
+    ~higher_than: Set.by(===){Priority.fallback})
