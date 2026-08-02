@@ -36,8 +36,13 @@
   specl_annot.macro 'string'
 
   specl_annot.macro 'number'
+
+  specl_annot.macro 'exact'
   specl_annot.macro 'rational'
   specl_annot.macro 'integral'
+
+  specl_annot.macro 'inexact'
+  specl_annot.macro 'flonum'
 
   specl_annot.macro 'real'
   specl_annot.macro 'neg_real'

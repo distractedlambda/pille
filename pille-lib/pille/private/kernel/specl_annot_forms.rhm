@@ -52,7 +52,10 @@ export rhombus_annots:
   any: Any
   boolean: Boolean
   comparable: Comparable
+  exact: Exact
+  flonum: Flonum
   function: Function
+  inexact: Inexact
   int: Int
   integral: Integral
   nat: Nat
