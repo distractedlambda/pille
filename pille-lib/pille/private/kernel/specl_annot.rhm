@@ -52,3 +52,7 @@ space.enforest specl_annot:
 
   expr.macro 'predicate($(ann :: specl_annot_meta.Parsed))':
     specl_annot_meta.unpack_rhombus_predicate(ann)
+
+//==============================================================================
+defn.macro 'specl_annot.def $(name :: IdentifierName): $(ann :: specl_annot_meta.Parsed)':
+  '«specl_annot.macro '($name)': '$ann'»'

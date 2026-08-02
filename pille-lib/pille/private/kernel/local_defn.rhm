@@ -111,6 +111,7 @@ defn.macro
 | '«local_defn.expose_global_defn '$(name :: Name)'»':
     '«local_defn.expose_global_defn '$name': '$name'»'
 
+local_defn.expose_global_defn 'specl_annot.def'
 local_defn.expose_global_defn 'specl_annot.macro'
 local_defn.expose_global_defn 'specl_bind.macro'
 local_defn.expose_global_defn 'specl_expr.macro'
