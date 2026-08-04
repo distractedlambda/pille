@@ -118,3 +118,19 @@ export foreign_enum IntPredicate encode_int_predicate decode_int_predicate
 | sge = 39
 | slt = 40
 | sle = 41
+
+export foreign_enum RealPredicate encode_real_predicate decode_real_predicate
+| oeq = 1
+| ogt = 2
+| oge = 3
+| olt = 4
+| ole = 5
+| one = 6
+| ord = 7
+| uno = 8
+| ueq = 9
+| ugt = 10
+| uge = 11
+| ult = 12
+| ule = 13
+| une = 14

@@ -62,6 +62,29 @@ class Repr.Bits(width :: PosInt):
   override llvm_type_(ctx, _):
     llvm.IntType(ctx, width)
 
+class Repr.FloatingPoint():
+  extends Repr.Sized
+  nonfinal
+  constructor ~error
+
+class Repr.Half():
+  extends Repr.FloatingPoint
+  interned()()
+  override llvm_type_(ctx, _):
+    llvm.HalfType(ctx)
+
+class Repr.Float():
+  extends Repr.FloatingPoint
+  interned()()
+  override llvm_type_(ctx, _):
+    llvm.FloatType(ctx)
+
+class Repr.Double():
+  extends Repr.FloatingPoint
+  interned()()
+  override llvm_type_(ctx, _):
+    llvm.DoubleType(ctx)
+
 class Repr.Pointer(address_space :: Nat):
   extends Repr.Scalar
   interned()(address_space)

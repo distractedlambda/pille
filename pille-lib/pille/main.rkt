@@ -17,8 +17,7 @@ decl.macro 'reexport:
 reexport:
   "private/boolean.rhm"
   "private/cond.rhm"
-  "private/specl_ops.rhm"
-  "private/specl_type.rhm"
+  "private/float.rhm"
   "private/generic_ops.rhm"
   "private/int.rhm"
   "private/loop.rhm"
@@ -28,6 +27,8 @@ reexport:
   "private/pointer.rhm"
   "private/range.rhm"
   "private/simd.rhm"
+  "private/specl_ops.rhm"
+  "private/specl_type.rhm"
   "private/tuple.rhm"
   "private/type_traits.rhm"
   "private/void.rhm"

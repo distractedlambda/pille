@@ -45,3 +45,9 @@ export cast_ops:
   trunc_nuw create_trunc_nuw
   zext create_zext
   zext_nneg create_zext_nneg
+  fptoui create_fp2ui
+  fptosi create_fp2si
+  uitofp create_ui2fp
+  sitofp create_si2fp
+  fptrunc create_fptrunc
+  fpext create_fpext

@@ -81,6 +81,25 @@ fun concretize_constant_int(type :~ Type, value):
           value))
 
 //==============================================================================
+export pille_expr.macro 'constant_fp($(texp :: specl_expr_meta.Parsed),
+                                     $(vexp :: specl_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_constant_fp(
+       $(specl_expr_meta.unpack_rhombus_expr(texp)),
+       $(specl_expr_meta.unpack_rhombus_expr(vexp)))')
+
+fun concretize_constant_fp(type :~ Type, value):
+  let repr = type.repr
+  assert(repr is_a Repr.FloatingPoint)
+  Expr.Rvalue(
+    ~type,
+    ~lower:
+      fun(_):
+        llvm.ConstantFp(
+          repr.llvm_type(lowering.builder().context),
+          value))
+
+//==============================================================================
 export pille_expr.macro 'iota($(texp :: specl_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_iota($(specl_expr_meta.unpack_rhombus_expr(texp)))')
@@ -232,6 +251,21 @@ fun concretize_not(operand :~ Expr):
       fun(env):
         let operand_val = operand_low(env)
         lowering.builder().create_not(operand_val))
+
+//==============================================================================
+export pille_expr.macro 'fneg($(exp :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_fneg($(pille_expr_meta.unpack_concretize(exp)))')
+
+fun concretize_fneg(operand :~ Expr):
+  let operand_low = operand.lower_rvalue
+  Expr.Rvalue(
+    ~type:
+      operand.type,
+    ~lower:
+      fun(env):
+        let operand_val = operand_low(env)
+        lowering.builder().create_fneg(operand_val))
 
 //==============================================================================
 export pille_expr.macro 'is_optimization_constant($(exp :: pille_expr_meta.Parsed))':

@@ -9,6 +9,9 @@ export specl_bind.macro 'Bitwise':
 export specl_bind.macro 'Integral':
   'BinaryInteger || Specl(_ :: int)'
 
+export specl_bind.macro 'FloatingPoint':
+  'Float || Double'
+
 export specl_bind.macro 'CoercesTo($δ)':
   'σ :: type when type_of(faux(σ) :: $(specl_expr_meta.encapsulate(δ)))'
 

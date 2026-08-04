@@ -533,6 +533,7 @@
 (define-unop-builders
   LLVMBuildNeg
   LLVMBuildNSWNeg
+  LLVMBuildFNeg
   LLVMBuildNot)
 
 (define-syntax-rule (define-binop-builders id ...)
@@ -549,18 +550,23 @@
   LLVMBuildAdd
   LLVMBuildNSWAdd
   LLVMBuildNUWAdd
+  LLVMBuildFAdd
   LLVMBuildSub
   LLVMBuildNSWSub
   LLVMBuildNUWSub
+  LLVMBuildFSub
   LLVMBuildMul
   LLVMBuildNSWMul
   LLVMBuildNUWMul
+  LLVMBuildFMul
   LLVMBuildUDiv
   LLVMBuildExactUDiv
   LLVMBuildSDiv
   LLVMBuildExactSDiv
+  LLVMBuildFDiv
   LLVMBuildURem
   LLVMBuildSRem
+  LLVMBuildFRem
   LLVMBuildShl
   LLVMBuildLShr
   LLVMBuildAShr
@@ -704,6 +710,14 @@
         -> _LLVMValueRef))
 
 (define-llvm LLVMBuildICmp
+  (_fun _LLVMBuilderRef
+        _int
+        _LLVMValueRef
+        _LLVMValueRef
+        _string/symbol/utf-8
+        -> _LLVMValueRef))
+
+(define-llvm LLVMBuildFCmp
   (_fun _LLVMBuilderRef
         _int
         _LLVMValueRef

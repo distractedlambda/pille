@@ -1,0 +1,139 @@
+#lang pille/private/kernel
+
+import:
+  "generic_ops.rhm" open
+  "specl_ops.rhm" open
+  "type_traits.rhm" open
+
+//==============================================================================
+export namespace Float
+export namespace Double
+
+//==============================================================================
+module annot_impls ~lang rhombus/static/and_meta:
+  import:
+    rhombus/flonum
+
+  fun is_float_constant(x):
+    cond
+    | x !is_a Real:
+        #false
+    | x is_a Inexact:
+        #true
+    | ~else:
+        flonum.to_single(math.inexact(x)) .= x
+
+  export annot.def FloatConstant:
+    satisfying(is_float_constant)
+
+  fun is_double_constant(x):
+    cond
+    | x !is_a Real:
+        #false
+    | x is_a Inexact:
+        #true
+    | ~else:
+        math.inexact(x) .= x
+
+  export annot.def DoubleConstant:
+    satisfying(is_double_constant)
+
+import self!annot_impls
+
+specl_annot.def Float.constant:
+  #%rhombus(annot_impls.FloatConstant)
+
+specl_annot.def Double.constant:
+  #%rhombus(annot_impls.DoubleConstant)
+
+//==============================================================================
+coercion (specl src :: Float.constant) :: Float:
+  prim.constant_fp(Float, src)
+
+unify(Specl(_ :: Float.constant), Float):
+  Float
+
+//==============================================================================
+coercion (specl src :: Double.constant) :: Double:
+  prim.constant_fp(Double, src)
+
+unify(Specl(_ :: Double.constant), Double):
+  Double
+
+//==============================================================================
+coercion (src :: UInt(w)) :: Float:
+  ~when w ≤ 24
+  prim.uitofp(src, ~to: Float)
+
+unify(UInt(w), Float):
+  ~when w ≤ 24
+  Float
+
+//==============================================================================
+coercion (src :: Int(w)) :: Float:
+  ~when w ≤ 24
+  prim.sitofp(src, ~to: Float)
+
+unify(Int(w), Float):
+  ~when w ≤ 24
+  Float
+
+//==============================================================================
+coercion (src :: UInt(w)) :: Double:
+  ~when w ≤ 53
+  prim.uitofp(src, ~to: Double)
+
+unify(UInt(w), Double):
+  ~when w ≤ 53
+  Double
+
+//==============================================================================
+coercion (src :: Int(w)) :: Double:
+  ~when w ≤ 53
+  prim.sitofp(src, ~to: Double)
+
+unify(Int(w), Double):
+  ~when w ≤ 53
+  Double
+
+//==============================================================================
+coercion (src :: Float) :: Double:
+  prim.fpext(src, ~to: Double)
+
+unify(Float, Double):
+  Double
+
+//==============================================================================
+method (rhs :: FloatingPoint as α).$neg() :: α:
+  prim.fneg(rhs)
+
+//==============================================================================
+global_defn.macro 'binops:
+                     $(op_name :: Group): $prim_id
+                     ...':
+  'method (lhs :: FloatingPoint as α). $op_name(rhs :: α) :: α:
+     prim. $prim_id(lhs, rhs)
+   ...'
+
+binops:
+  $add: fadd
+  $sub: fsub
+  $mul: fmul
+  $div: fdiv
+  $rem_trunc: frem
+
+//==============================================================================
+global_defn.macro 'predicates:
+                     $(pred_name :: Group): $prim_id
+                     ...':
+  'method (lhs :: FloatingPoint as α). $pred_name(rhs :: α) :: Boolean:
+     prim. $prim_id(lhs, rhs)
+   ...'
+
+predicates:
+  $eq: fcmp_oeq
+  $ne: fcmp_one
+  $lt: fcmp_olt
+  $le: fcmp_ole
+  $gt: fcmp_ogt
+  $ge: fcmp_oge

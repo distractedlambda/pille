@@ -115,6 +115,7 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
   unop_creators:
     create_neg: LLVMBuildNeg
     create_neg_nsw: LLVMBuildNSWNeg
+    create_fneg: LLVMBuildFNeg
     create_not: LLVMBuildNot
 
   veneer_clause.macro 'binop_creators:
@@ -132,18 +133,23 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     create_add: LLVMBuildAdd
     create_add_nsw: LLVMBuildNSWAdd
     create_add_nuw: LLVMBuildNUWAdd
+    create_fadd: LLVMBuildFAdd
     create_sub: LLVMBuildSub
     create_sub_nsw: LLVMBuildNSWSub
     create_sub_nuw: LLVMBuildNUWSub
+    create_fsub: LLVMBuildFSub
     create_mul: LLVMBuildMul
     create_mul_nsw: LLVMBuildNSWMul
     create_mul_nuw: LLVMBuildNUWMul
+    create_fmul: LLVMBuildFMul
     create_udiv: LLVMBuildUDiv
     create_udiv_exact: LLVMBuildExactUDiv
     create_sdiv: LLVMBuildSDiv
     create_sdiv_exact: LLVMBuildExactSDiv
+    create_fdiv: LLVMBuildFDiv
     create_urem: LLVMBuildURem
     create_srem: LLVMBuildSRem
+    create_frem: LLVMBuildFRem
     create_shl: LLVMBuildShl
     create_lshr: LLVMBuildLShr
     create_ashr: LLVMBuildAShr
@@ -392,3 +398,34 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     create_icmp_ule: ule
     create_icmp_ugt: ugt
     create_icmp_uge: uge
+
+  method create_fcmp(
+    ~name: name :: ReadableString || Symbol = "",
+    op :: RealPredicate,
+    lhs :: Value,
+    rhs :: Value,
+  ) :: Value:
+    LLVMBuildFCmp(this, encode_real_predicate(op), lhs, rhs, name)
+
+  veneer_clause.macro 'fcmp_creators:
+                         $method_name: $op
+                         ...':
+    'method $method_name(~name = "", lhs, rhs) :~ Value:
+       create_fcmp(~name, RealPredicate. $op, lhs, rhs)
+     ...'
+
+  fcmp_creators:
+    create_fcmp_oeq: oeq
+    create_fcmp_one: one
+    create_fcmp_olt: olt
+    create_fcmp_ole: ole
+    create_fcmp_ogt: ogt
+    create_fcmp_oge: oge
+    create_fcmp_ord: ord
+    create_fcmp_ueq: ueq
+    create_fcmp_une: une
+    create_fcmp_ult: ult
+    create_fcmp_ule: ule
+    create_fcmp_ugt: ugt
+    create_fcmp_uge: uge
+    create_fcmp_uno: uno

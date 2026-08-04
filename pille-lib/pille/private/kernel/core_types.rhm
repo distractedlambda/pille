@@ -181,6 +181,66 @@ export class UIntType(width :: PosInt):
     PrintDesc.list("UInt(", [rec(width)], ")")
 
 //==============================================================================
+export class FloatType():
+  extends Type
+
+  singleton_ctor
+
+  override compute_repr():
+    Repr.Float()
+
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: 4,
+      ~write_from_rhombus:
+        fun(frame, offset, val :: Real):
+          mem *(cast (float_t*) ~offset(offset) frame) := math.inexact(val),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          builder.create_load(~alignment: 1, builder.float_type, ptr),
+      ~write_from_pille:
+        fun(ptr, val):
+          lowering.builder().create_store(~alignment: 1, val, ptr),
+      ~read_from_rhombus:
+        fun(frame, offset):
+          mem *(cast (float_t*) ~offset(offset) frame))
+
+  private implements Printable
+  private override describe(_, _):
+    "Float"
+
+//==============================================================================
+export class DoubleType():
+  extends Type
+
+  singleton_ctor
+
+  override compute_repr():
+    Repr.Double()
+
+  override compute_rhombus_interop():
+    Type.RhombusInteropSpec(
+      ~byte_size: 8,
+      ~write_from_rhombus:
+        fun(frame, offset, val :: Real):
+          mem *(cast (double_t*) ~offset(offset) frame) := math.inexact(val),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          builder.create_load(~alignment: 1, builder.double_type, ptr),
+      ~write_from_pille:
+        fun(ptr, val):
+          lowering.builder().create_store(~alignment: 1, val, ptr),
+      ~read_from_rhombus:
+        fun(frame, offset):
+          mem *(cast (double_t*) ~offset(offset) frame))
+
+  private implements Printable
+  private override describe(_, _):
+    "Double"
+
+//==============================================================================
 export class SpeclType(value :: Any):
   extends Type
 

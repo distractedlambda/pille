@@ -61,6 +61,16 @@ fun uint_extractor(target):
   width
 
 //==============================================================================
+export specl.def Float:
+  #%rhombus:
+    FloatType()
+
+//==============================================================================
+export specl.def Double:
+  #%rhombus:
+    DoubleType()
+
+//==============================================================================
 export specl.fun Specl(value):
   #%rhombus(value):
     SpeclType(value)
