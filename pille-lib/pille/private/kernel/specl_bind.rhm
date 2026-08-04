@@ -27,6 +27,7 @@ space.enforest specl_bind:
       pack_decomposition
       pack_disjunction
       pack_equal_to
+      pack_metavariable
       pack_nested_binding
       pack_parallel_bindings
       pack_side_condition
@@ -48,7 +49,7 @@ space.enforest specl_bind:
       | '$(_ :: specl_expr_meta.BoundNameStart)':
           pack_equal_to('specl_expr.eval($id)')
       | _:
-          _pack('(~metavariable $id)').relocate(id)
+          pack_metavariable(id)
 
     dotted_identifier_parser fun(nm):
       match nm
@@ -68,6 +69,9 @@ space.enforest specl_bind:
 
     fun parse('$(parsed :: Parsed)') :~ Packed:
       parsed
+
+    fun pack_metavariable(id :: Identifier) :~ Packed:
+      _pack('(~metavariable $id)').relocate(id)
 
     fun pack_decomposition(extractor :: Group, sub_bindings :: [Packed, ...] = []) :~ Packed:
       _pack('(~decomposition ($extractor) $(each sub_bindings) ...)')

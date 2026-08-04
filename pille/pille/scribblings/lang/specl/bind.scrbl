@@ -50,6 +50,14 @@
 ){}
 
 @doc(
+  specl_bind.macro '$lhs_bind as $id'
+
+  specl_bind.macro 'as'
+
+  operator_order: ~order: logical_conjunction
+){}
+
+@doc(
   specl_bind.macro '$specl_bind :: $specl_annot'
   operator_order:
     ~weaker_than: ~other

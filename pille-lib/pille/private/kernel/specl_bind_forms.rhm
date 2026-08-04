@@ -83,6 +83,15 @@ export specl_bind.macro '$lhs || $rhs':
   specl_bind_meta.pack_disjunction([lhs, rhs])
 
 //==============================================================================
+export specl_bind.macro
+| '$lhs as $(id :: Identifier)':
+    ~order: logical_conjunction
+    specl_bind_meta.pack_conjunction([lhs, specl_bind_meta.pack_metavariable(id)])
+| 'as':
+    ~op_stx: op
+    specl_bind_meta.pack_metavariable(op)
+
+//==============================================================================
 export specl_bind.macro '$lhs when $(rhs :: Group) $()':
   specl_bind_meta.pack_conjunction(
     [lhs,
