@@ -250,6 +250,8 @@ meta:
         specl_bind_metavars(grp) ++ specl_bind_metavars('$tl ...')
     | '$(_ :: Name) ($grp, ...) $tl ...':
         List.append(specl_bind_metavars(grp), ..., specl_bind_metavars('$tl ...'))
+    | 'as $tl ...':
+        specl_bind_metavars('$tl ...')
     | '$(id :: Identifier) $tl ...' when to_string(id.unwrap()) matches rx'"_"* unicode.Ll .*':
         [id] ++ specl_bind_metavars('$tl ...')
     | ':: $_ ...':
