@@ -63,9 +63,9 @@ defn.macro 'operator_macro_doc_forms:
    ...'
 
 operator_macro_doc_forms:
-  specl_annot.macro "specialization annotation" #{pille/specl_annot}
-  specl_bind.macro "specialization binding" #{pille/specl_bind}
-  specl_expr.macro "specialization expression" #{pille/specl_expr}
+  specl_annot.macro "specl annotation" #{pille/specl_annot}
+  specl_bind.macro "specl binding" #{pille/specl_bind}
+  specl_expr.macro "specl expression" #{pille/specl_expr}
   expr.macro "expression" #{pille/expr}
 
 //==============================================================================
@@ -190,7 +190,7 @@ doc.bridge specl.def:
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "specialization definition",
+        "specl definition",
     ~extract_space:
       fun(_):
         #'#{pille/specl_expr},
@@ -232,7 +232,7 @@ doc.bridge specl.fun:
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "specialization function",
+        "specl function",
     ~extract_space:
       fun(_):
         #'#{pille/specl_expr},
@@ -409,7 +409,7 @@ doc.bridge specl.operator:
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "specialization operator",
+        "specl operator",
     ~extract_space:
       fun(_):
         #'#{pille/specl_expr},
