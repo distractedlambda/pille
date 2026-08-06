@@ -47,7 +47,7 @@ export generic_binops:
 
 //==============================================================================
 global_defn.macro 'generic_binpreops:
-                     $op $order $prefix_special_name $infix_special_name
+                     $op $prefix_order $infix_order $prefix_special_name $infix_special_name
                      ...':
   'special_name.def $prefix_special_name
    ...
@@ -57,11 +57,11 @@ global_defn.macro 'generic_binpreops:
 
    operator
    | $op rhs:
-       ~order: $order
+       ~order: $prefix_order
        ~transparent
        rhs.$ $prefix_special_name()
    | lhs $op rhs:
-       ~order: $order
+       ~order: $infix_order
        ~transparent
        lhs.$ $infix_special_name(rhs)
    | (lhs :: α) $op (rhs :: β):
@@ -71,8 +71,8 @@ global_defn.macro 'generic_binpreops:
    ...'
 
 export generic_binpreops:
-  - addition neg sub
-  -% addition neg_wrap sub_wrap
+  - multiplication addition neg sub
+  -% multiplication addition neg_wrap sub_wrap
 
 //==============================================================================
 export operator

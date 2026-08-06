@@ -78,7 +78,7 @@ export specl.operator (lhs :: number) + (rhs :: number):
 //==============================================================================
 export specl.operator
 | - (rhs :: number):
-    ~order: addition
+    ~order: multiplication
     #%rhombus(rhs):
       import rhombus/static open
       -rhs
