@@ -263,7 +263,7 @@ MethodDefn.register(
   ~selector:
     special_name.symbol(new),
   ~priority:
-    Priority.fallback,
+    Priority.new_automatic(),
   ~concretizer:
     fun(receiver_type, arg_types :~ [Type, ...]):
       guard.let SpeclType(struct_type :: _StructType) = receiver_type | #false
