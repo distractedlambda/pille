@@ -141,7 +141,7 @@ export pille_expr.macro block
     body
 | 'block: $hd; $tl; ...':
     match hd
-    | '$(nm :: Name) $_ ...' where '$(parsed :: _local_defn_meta.Parsed)' = '$nm: $hd; $tl; ...':
+    | '$(nm :: IdentifierName) $_ ...' where '$(parsed :: _local_defn_meta.Parsed)' = '$nm: $hd; $tl; ...':
         parsed
     | '$(parsed_hd :: pille_expr_meta.Parsed)':
         let '$(parsed_tl :: pille_expr_meta.Parsed)':
