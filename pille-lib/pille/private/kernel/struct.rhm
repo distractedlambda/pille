@@ -7,12 +7,12 @@ import:
   "core_types.rhm" open
   "expr_forms.rhm" open
   "method.rhm" open
-  "special_name.rhm" open
   "specl_bind.rhm" open
   "specl_def.rhm" open
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
   "specl_fun.rhm" open
+  "unique_member.rhm" open
   pille/concretize open
   pille/lowering
 
@@ -140,7 +140,7 @@ class StructType(
     // TODO check for implicits
     let to_rhombus_concr:
       this.concretized_method(
-        special_name.symbol(to_rhombus),
+        unique_member.symbol(to_rhombus),
         [])
 
     guard to_rhombus_concr.inout_mask == 0
@@ -153,7 +153,7 @@ class StructType(
 
     let from_rhombus_concr:
       SpeclType(this).concretized_method(
-        special_name.symbol(from_rhombus),
+        unique_member.symbol(from_rhombus),
         [carrier_type])
 
     guard from_rhombus_concr.inout_mask == 0
@@ -261,7 +261,7 @@ fun define_struct_methods(
 // Baseline `$new` implementation
 MethodDefn.register(
   ~selector:
-    special_name.symbol(new),
+    unique_member.symbol(new),
   ~priority:
     Priority.new_automatic(),
   ~concretizer:
@@ -281,7 +281,7 @@ MethodDefn.register(
 // Baseline `$assign` implementation
 MethodDefn.register(
   ~selector:
-    special_name.symbol(assign),
+    unique_member.symbol(assign),
   ~priority:
     Priority.fallback,
   ~concretizer:
@@ -291,7 +291,7 @@ MethodDefn.register(
       let arg_coe = resolve_coercer(arg_type, receiver_type)
       let tuple_type = receiver_type.backing_tuple_type
       let tuple_assign = tuple_type.concretized_method(
-        special_name.symbol(assign),
+        unique_member.symbol(assign),
         [tuple_type])
       let tuple_assign_low = tuple_assign.lower_call
       MethodDefn.Concretized(

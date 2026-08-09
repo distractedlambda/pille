@@ -6,8 +6,8 @@ import:
   "expr_forms.rhm" open
   "method.rhm" open
   "priority.rhm" open
-  "special_name.rhm" open
   "struct.rhm" open
+  "unique_member.rhm" open
 
 //==============================================================================
 meta:

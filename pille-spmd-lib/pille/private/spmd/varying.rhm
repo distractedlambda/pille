@@ -4,7 +4,7 @@ import:
   "mask.rhm" open
 
 //==============================================================================
-export special_name.def program_values
+export unique_member program_values
 
 export struct #%Varying(α :: type, pc :: pos_int):
   $program_values :: SparseSimd(α, pc)
@@ -19,7 +19,7 @@ export specl_bind.macro 'Varying($α)':
   '#%Varying($α, program_count)'
 
 //==============================================================================
-export special_name.def seq_start
+export unique_member seq_start
 
 export struct #%SeqVarying(α && Uniform, pc :: pos_int):
   $seq_start :: α

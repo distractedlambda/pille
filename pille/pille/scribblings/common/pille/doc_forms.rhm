@@ -15,7 +15,6 @@ export namespace specl_expr
 export namespace global_defn
 export namespace labeled_expr
 export namespace local_defn
-export namespace special_name
 
 //==============================================================================
 defn.macro 'identifier_macro_doc_forms:
@@ -69,21 +68,21 @@ operator_macro_doc_forms:
   expr.macro "expression" #{pille/expr}
 
 //==============================================================================
-export doc.bridge special_name.def:
+export doc.bridge unique_member:
   syntax_class DocForm:
     kind: ~group
     fields:
-      special_name_dot_def
+      op
       name
-  | '$(special_name_dot_def :: IdentifierName) $(name :: Identifier)'
+  | '$(op :: IdentifierName) $(name :: Identifier)'
 
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
-        "special name",
+        "unique member",
     ~extract_space:
       fun(_):
-        #'#{pille/special_name},
+        #'#{pille/unique_member},
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
@@ -91,10 +90,10 @@ export doc.bridge special_name.def:
         vars,
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let special_name_dot_def_ts = typeset_global_defn(stx.special_name_dot_def)
+        let op_ts = typeset_global_defn(stx.op)
         let name_ts = typeset_name(stx.name, space, subst)
         doc_meta.typeset_rhombusblock(
-          '$special_name_dot_def_ts $name_ts',
+          '$op_ts $name_ts',
           ~at: stx))
 
 //==============================================================================

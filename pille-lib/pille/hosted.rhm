@@ -2,12 +2,12 @@
 
 module only_pille_spaces ~lang pille:
   export:
-    only_space specl_annot specl_bind specl_expr expr labeled_expr local_defn priority special_name:
+    only_space specl_annot specl_bind specl_expr expr labeled_expr local_defn priority unique_member:
       all_from(pille)
 
 module except_pille_spaces ~lang pille:
   export:
-    except_space specl_annot specl_bind specl_expr expr labeled_expr local_defn priority special_name:
+    except_space specl_annot specl_bind specl_expr expr labeled_expr local_defn priority unique_member:
       all_from(pille)
 
 import:

@@ -1,0 +1,44 @@
+#lang rhombus/static/and_meta
+
+//==============================================================================
+space.transform _unique_member:
+  space_path pille/unique_member
+  bridge_definer bridge
+  meta_namespace _unique_member_meta:
+    reflection space
+
+export namespace unique_member
+
+export alias 'unique_member':
+  ~only_space space
+  '_unique_member'
+
+//==============================================================================
+export defn.macro 'unique_member $(name :: Identifier)':
+  '«def symbol:
+      Symbol.uninterned_from_string($("$" ++ to_string(name.name_to_symbol())))
+
+    _unique_member.bridge $name:
+      'symbol'»'
+
+//==============================================================================
+expr.macro 'unique_member.symbol($(name :: Identifier))':
+  syntax_meta.value(name, _unique_member_meta.space)
+    |> syntax_meta.track_origin(
+      _,
+      ~add: syntax_meta.flip_introduce(name),
+      ~space: _unique_member_meta.space)
+
+//==============================================================================
+bind.macro 'unique_member.symbol($(name :: Identifier))':
+  's when s === unique_member.symbol($name)'
+
+//==============================================================================
+export unique_member assign
+export unique_member call
+export unique_member coerce_to
+export unique_member from_rhombus
+export unique_member index_read
+export unique_member index_write
+export unique_member new
+export unique_member to_rhombus

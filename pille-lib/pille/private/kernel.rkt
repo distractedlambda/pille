@@ -20,7 +20,6 @@ import:
   "kernel/operator.rhm" open
   "kernel/preparse.rhm" open
   "kernel/priority.rhm" open
-  "kernel/special_name.rhm" open
   "kernel/specl_annot.rhm" open
   "kernel/specl_annot_forms.rhm" open
   "kernel/specl_bind.rhm" open
@@ -33,6 +32,7 @@ import:
   "kernel/struct.rhm" open
   "kernel/ub_policy.rhm" open
   "kernel/unify.rhm" open
+  "kernel/unique_member.rhm" open
 
   "kernel/prim.rhm" // not opened
 
@@ -111,17 +111,19 @@ export:
     labeled_expr
     local_defn
     priority
-    special_name
     specl_annot
     specl_bind
     specl_expr
+
+  only_space global_defn namespace space:
+    unique_member
 
   rename:
     pille_expr as expr
     pille_fun as fun
     pille_operator as operator
 
-  only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn priority special_name:
+  only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn priority unique_member:
     all_from("kernel/cond_comp.rhm")
     all_from("kernel/core_type_forms.rhm")
     all_from("kernel/core_type_ops.rhm")
@@ -136,13 +138,13 @@ export:
     all_from("kernel/method.rhm")
     all_from("kernel/preparse.rhm")
     all_from("kernel/priority.rhm")
-    all_from("kernel/special_name.rhm")
     all_from("kernel/specl_annot_forms.rhm")
     all_from("kernel/specl_bind.rhm")
     all_from("kernel/specl_bind_forms.rhm")
     all_from("kernel/specl_expr_forms.rhm")
     all_from("kernel/struct.rhm")
     all_from("kernel/ub_policy.rhm")
+    all_from("kernel/unique_member.rhm")
 
   meta:
     all_from(rhombus/static)

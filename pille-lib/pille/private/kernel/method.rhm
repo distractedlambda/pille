@@ -10,9 +10,9 @@ import:
   "local_defn.rhm" open
   "local_defn_forms.rhm" open
   "priority.rhm" open
-  "special_name.rhm" open
   "specl_bind_forms.rhm" open
   "specl_expr.rhm" open
+  "unique_member.rhm" open
   "when_where.rhm" open
   pille/concretize open
   pille/llvm
@@ -73,7 +73,7 @@ export defn.macro 'coercion \
   let dst_type = specl_bind_meta.encapsulate(dst_type)
   '#%method(
      $(stx.srcloc()),
-     special_name.symbol(coerce_to),
+     unique_member.symbol(coerce_to),
      make_method_symbol_name_formatter("$coerce_to")) \
    $receiver (specl $dst_type && α) $annot_op α $options_and_body'
 

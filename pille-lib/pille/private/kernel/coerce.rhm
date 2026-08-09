@@ -3,7 +3,7 @@
 import:
   "../util/annot.rhm" open
   "core_types.rhm" open
-  "special_name.rhm" open
+  "unique_member.rhm" open
   pille/concretize open
   pille/llvm
 
@@ -17,7 +17,7 @@ export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
 
   let method_concr :~ MethodDefn.Concretized = try:
     from_type.concretized_method(
-      special_name.symbol(coerce_to),
+      unique_member.symbol(coerce_to),
       [SpeclType(to_type)])
     ~catch
     | exn :: Exn.Fail.Concretize.Recoverable:

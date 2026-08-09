@@ -8,7 +8,7 @@ import:
   "specl_expr_forms.rhm" open
   "core_types.rhm" open
   "expr.rhm" open
-  "special_name.rhm" open
+  "unique_member.rhm" open
   pille/concretize open
   pille/lowering
 
@@ -143,7 +143,7 @@ fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
   try ~escape_as ret:
     let assign_method_concr :~ MethodDefn.Concretized = try:
       lhs.type.concretized_method(
-        special_name.symbol(assign),
+        unique_member.symbol(assign),
         [rhs.type])
       ~catch exn :: Exn.Fail.Concretize.Recoverable:
         ret(concretize_raw_assignment(lhs, rhs, lhs_srcloc))
@@ -233,7 +233,7 @@ meta:
   | '$(op :: pille_expr_meta.DollarOp) $(name :: Identifier)':
       field symbol_expr:
         syntax_meta.track_origin(
-          '(special_name.symbol($name))',
+          '(unique_member.symbol($name))',
           ~add: syntax_meta.flip_introduce(op),
           ~space: pille_expr_meta.space)
 
@@ -257,7 +257,7 @@ meta:
   | '$(op :: pille_expr_meta.DotDollarOp) $(name :: Identifier)':
       field symbol_expr:
         syntax_meta.track_origin(
-          '(special_name.symbol($name))',
+          '(unique_member.symbol($name))',
           ~add: syntax_meta.flip_introduce(op),
           ~space: pille_expr_meta.space)
 
@@ -284,7 +284,7 @@ export pille_expr.macro
     pille_expr_meta.pack_concretize(
       'concretize_method_call(
          $(pille_expr_meta.unpack_concretize(lhs)),
-         special_name.symbol($member),
+         unique_member.symbol($member),
          [$(pille_expr_meta.unpack_concretize(arg)), ...],
          $(lhs.srcloc()),
          [$(arg.srcloc()), ...])')
@@ -293,7 +293,7 @@ export pille_expr.macro
     pille_expr_meta.pack_concretize(
       'concretize_property_ref(
          $(pille_expr_meta.unpack_concretize(lhs)),
-         special_name.symbol($member))')
+         unique_member.symbol($member))')
 
 fun concretize_method_call(
   receiver_concr :~ Expr,
@@ -453,7 +453,7 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
   try ~escape_as esc:
     let read_concr:
       receiver_concr.type.concretized_method(
-        special_name.symbol(index_read),
+        unique_member.symbol(index_read),
         [key_type, ...])
 
     let read_low = read_concr.lower_call
@@ -467,7 +467,7 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
       let write_concr :~ MethodDefn.Concretized:
         try:
           receiver_concr.type.concretized_method(
-            special_name.symbol(index_write),
+            unique_member.symbol(index_write),
             [key_type, ..., read_concr.result_type])
           ~catch _ :: Exn.Fail.Concretize.Recoverable:
             readonly()

@@ -91,7 +91,7 @@ export rhombus_shorthands:
   pille_global_defn ~defn
   pille_labeled_expr ~at pille/labeled_expr
   pille_local_defn ~at pille/local_defn
-  pille_special_name ~at pille/special_name
+  pille_unique_member ~at pille/unique_member
   rhm_decl ~decl
   rhm_defn ~defn
   rhm_expr ~expr

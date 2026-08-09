@@ -36,5 +36,5 @@ export manual.nonterminal:
   rhombus_body: rhm.block body
   rhombus_expr: rhm.block expr
   rhs_expr: expr expr ~space
-  special_name_id: special_name.def ~defn
+  unique_member_id: rhm.block id
   when_where_option: method ~defn

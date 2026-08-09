@@ -6,7 +6,7 @@
 @title{Generic Operators}
 
 @doc(
-  special_name.def call
+  unique_member call
 
   expr.macro '$callee_expr #%call ($arg_expr, ...)'
 
@@ -22,7 +22,7 @@
 }
 
 @doc(
-  special_name.def new
+  unique_member new
 
   expr.macro '$callee_expr #%comp {$arg_expr, ...}'
 
@@ -46,8 +46,8 @@
 }
 
 @doc(
-  special_name.def index_read
-  special_name.def index_write
+  unique_member index_read
+  unique_member index_write
 
   expr.macro '$callee_expr #%index [$arg_expr, ...]'
 
@@ -95,93 +95,93 @@
 ){}
 
 @doc(
-  special_name.def add
+  unique_member add
   operator lhs + rhs
   operator_order: ~order: addition
 ){}
 
 @doc(
-  special_name.def add_wrap
+  unique_member add_wrap
   operator lhs +% rhs
   operator_order: ~order: addition
 ){}
 
 @doc(
-  special_name.def sub
+  unique_member sub
   operator lhs - rhs
 
-  special_name.def neg
+  unique_member neg
   operator -rhs
 
   operator_order: ~order: addition
 ){}
 
 @doc(
-  special_name.def sub_wrap
+  unique_member sub_wrap
   operator lhs -% rhs
 
-  special_name.def neg_wrap
+  unique_member neg_wrap
   operator -%rhs
 
   operator_order: ~order: addition
 ){}
 
 @doc(
-  special_name.def mul
+  unique_member mul
   operator lhs * rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def mul_wrap
+  unique_member mul_wrap
   operator lhs *% rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def div
+  unique_member div
   operator lhs / rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def div_trunc
+  unique_member div_trunc
   operator lhs div_trunc rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def div_floor
+  unique_member div_floor
   operator lhs div_floor rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def div_ceil
+  unique_member div_ceil
   operator lhs div_ceil rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def rem
+  unique_member rem
   operator lhs % rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def rem_trunc
+  unique_member rem_trunc
   operator lhs rem_trunc rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def rem_floor
+  unique_member rem_floor
   operator lhs rem_floor rhs
   operator_order: ~order: multiplication
 ){}
 
 @doc(
-  special_name.def rem_ceil
+  unique_member rem_ceil
   operator lhs rem_ceil rhs
   operator_order: ~order: multiplication
 ){}
@@ -193,67 +193,67 @@
 ){}
 
 @doc(
-  special_name.def not
+  unique_member not
   operator not rhs
   operator ¬ rhs
   operator_order: ~order: bitwise_negation
 ){}
 
 @doc(
-  special_name.def and
+  unique_member and
   operator lhs and rhs
   operator lhs ∧ rhs
   operator_order: ~order: bitwise_conjunction
 ){}
 
 @doc(
-  special_name.def or
+  unique_member or
   operator lhs or rhs
   operator lhs ∨ rhs
   operator_order: ~order: bitwise_disjunction
 ){}
 
 @doc(
-  special_name.def xor
+  unique_member xor
   operator lhs xor rhs
   operator lhs ⊻ rhs
   operator_order: ~order: bitwise_disjunction
 ){}
 
 @doc(
-  special_name.def eq
+  unique_member eq
   operator lhs == rhs
   operator_order: ~order: equivalence
 ){}
 
 @doc(
-  special_name.def ne
+  unique_member ne
   operator lhs != rhs
   operator lhs ≠ rhs
   operator_order: ~order: equivalence
 ){}
 
 @doc(
-  special_name.def lt
+  unique_member lt
   operator lhs < rhs
   operator_order: ~order: order_comparison
 ){}
 
 @doc(
-  special_name.def gt
+  unique_member gt
   operator lhs > rhs
   operator_order: ~order: order_comparison
 ){}
 
 @doc(
-  special_name.def le
+  unique_member le
   operator lhs <= rhs
   operator lhs ≤ rhs
   operator_order: ~order: order_comparison
 ){}
 
 @doc(
-  special_name.def ge
+  unique_member ge
   operator lhs >= rhs
   operator lhs ≥ rhs
   operator_order: ~order: order_comparison

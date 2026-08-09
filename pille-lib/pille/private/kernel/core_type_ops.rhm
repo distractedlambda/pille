@@ -3,11 +3,11 @@
 import:
   "coerce.rhm" open
   "core_types.rhm" open
-  "special_name.rhm" open
   "specl_annot_forms.rhm" open
   "specl_bind_forms.rhm" open
   "specl_expr_forms.rhm" open
   "specl_fun.rhm" open
+  "unique_member.rhm" open
   pille/concretize open
   pille/lowering
 
@@ -15,7 +15,7 @@ import:
 // Specl(f :: function).$call(arg :: Specl(v), ...)
 MethodDefn.register(
   ~selector:
-    special_name.symbol(call),
+    unique_member.symbol(call),
   ~concretizer:
     fun(receiver_type, arg_types :~ [Type, ...]):
       guard.let SpeclType(f :: Function) = receiver_type | #false
@@ -41,7 +41,7 @@ MethodDefn.register(
 // Tuple `$assign` implementation
 MethodDefn.register(
   ~selector:
-    special_name.symbol(assign),
+    unique_member.symbol(assign),
   ~concretizer:
     fun(receiver_type, arg_types :~ [Type, ...]):
       guard.let receiver_type :: TupleType = receiver_type | #false
@@ -52,7 +52,7 @@ MethodDefn.register(
         try ~escape_as esc:
           let assign_method_concr :~ MethodDefn.Concretized = try:
             elem_type.concretized_method(
-              special_name.symbol(assign),
+              unique_member.symbol(assign),
               [elem_type])
             ~catch _ :: Exn.Fail.Concretize.Recoverable:
               esc(fun(_, _, arg_elem_val): arg_elem_val)

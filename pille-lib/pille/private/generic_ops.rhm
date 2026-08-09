@@ -6,20 +6,20 @@ import:
 
 //==============================================================================
 global_defn.macro 'generic_binops:
-                     $op $order $special_name
+                     $op $order $name
                      ...':
-  'special_name.def $special_name
+  'unique_member $name
    ...
 
    operator
    | lhs $op rhs:
        ~order: $order
        ~transparent
-       lhs.$ $special_name(rhs)
+       lhs.$ $name(rhs)
    | (lhs :: α) $op (rhs :: β):
        ~where γ = unify(α, β)
        ~transparent
-       (lhs :: γ).$ $special_name(rhs :: γ)
+       (lhs :: γ).$ $name(rhs :: γ)
    ...'
 
 export generic_binops:
@@ -47,27 +47,27 @@ export generic_binops:
 
 //==============================================================================
 global_defn.macro 'generic_binpreops:
-                     $op $prefix_order $infix_order $prefix_special_name $infix_special_name
+                     $op $prefix_order $infix_order $prefix_name $infix_name
                      ...':
-  'special_name.def $prefix_special_name
+  'unique_member $prefix_name
    ...
 
-   special_name.def $infix_special_name
+   unique_member $infix_name
    ...
 
    operator
    | $op rhs:
        ~order: $prefix_order
        ~transparent
-       rhs.$ $prefix_special_name()
+       rhs.$ $prefix_name()
    | lhs $op rhs:
        ~order: $infix_order
        ~transparent
-       lhs.$ $infix_special_name(rhs)
+       lhs.$ $infix_name(rhs)
    | (lhs :: α) $op (rhs :: β):
        ~where γ = unify(α, β)
        ~transparent
-       (lhs :: γ).$ $infix_special_name(rhs :: γ)
+       (lhs :: γ).$ $infix_name(rhs :: γ)
    ...'
 
 export generic_binpreops:
@@ -83,7 +83,7 @@ export operator
     prim.not(rhs :: Boolean)
 
 //==============================================================================
-export special_name.def not
+export unique_member not
 
 export operator ¬rhs:
   ~order: bitwise_negation
@@ -113,7 +113,7 @@ export operator lhs !== rhs:
   !(lhs === rhs)
 
 //==============================================================================
-export special_name.def contains
+export unique_member contains
 
 export operator lhs in rhs:
   ~order: equivalence

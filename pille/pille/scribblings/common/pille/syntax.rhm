@@ -85,7 +85,7 @@ meta:
   export fun typeset_member_name(stx):
     match stx
     | '$('$' && dollar_op) $(name :: Identifier)':
-        '$(typeset_expr(dollar_op)) $(typeset_special_name(name))'
+        '$(typeset_expr(dollar_op)) $(typeset_unique_member(name))'
     | '$(name :: Identifier)':
         name
 
@@ -94,7 +94,7 @@ meta:
     | '$('.' && dot_op) $(mn :: MemberName)':
         '$(typeset_expr(dot_op)) $(typeset_member_name(mn))'
     | '$('.$' && dot_dollar_op) $(name :: Identifier)':
-        '$(typeset_expr(dot_dollar_op)) $(typeset_special_name(name))'
+        '$(typeset_expr(dot_dollar_op)) $(typeset_unique_member(name))'
 
   //============================================================================
   export syntax_class Args:
@@ -313,7 +313,7 @@ meta:
     typeset_global_defn ~defn
     typeset_local_defn ~at pille/local_defn
     typeset_operator_order ~operator_order
-    typeset_special_name ~at pille/special_name
+    typeset_unique_member ~at pille/unique_member
 
   //============================================================================
   export fun typeset_where_bind(stx :: Group) :~ Group:

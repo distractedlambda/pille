@@ -32,7 +32,7 @@ export spacer.bridge .$(~left: left, self, tail, ctx, esc):
   ~in: #'#{pille/expr}
   match tail
   | '$(id :: Identifier) $tl ...':
-      let id_adj = spacer.adjust_term(id, #'#{pille/special_name}, esc)
+      let id_adj = spacer.adjust_term(id, #'#{pille/unique_member}, esc)
       '$left $self $id_adj $tl ...'
   | _:
       '$left $self $tail'
@@ -41,7 +41,7 @@ export spacer.bridge $(self, tail, ctx, esc):
   ~in: #'#{pille/expr}
   match tail
   | '$(id :: Identifier) $tl ...':
-      let id_adj = spacer.adjust_term(id, #'#{pille/special_name}, esc)
+      let id_adj = spacer.adjust_term(id, #'#{pille/unique_member}, esc)
       '$self $id_adj $tl ...'
   | _:
       '$self $tail'

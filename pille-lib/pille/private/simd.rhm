@@ -122,8 +122,8 @@ method (tst :: Simd(Boolean, n)).select(thn :: α, els :: β) :: γ:
   prim.select(tst, thn :: γ, els :: γ)
 
 //==============================================================================
-special_name.def sparse_data
-special_name.def sparse_mask
+unique_member sparse_data
+unique_member sparse_mask
 
 export struct SparseSimd(α :: type, n :: pos_int):
   $sparse_data :: Simd(α, n)

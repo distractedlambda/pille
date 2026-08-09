@@ -5,7 +5,6 @@ import:
   "../runtime/profile.rhm" open
   "../util/assert.rhm" open
   "specl_expr.rhm" open
-  "special_name.rhm" open
   ffi open
   pille/concretize open
   pille/llvm

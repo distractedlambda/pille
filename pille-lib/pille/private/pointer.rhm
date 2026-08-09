@@ -107,7 +107,7 @@ method (ptr :: RawPtr).$ge(other :: RawPtr) :: Boolean:
   prim.icmp_uge(ptr, other)
 
 //==============================================================================
-special_name.def ptr_raw
+unique_member ptr_raw
 
 // FIXME: hide $new?
 export struct Ptr(α :: type):
