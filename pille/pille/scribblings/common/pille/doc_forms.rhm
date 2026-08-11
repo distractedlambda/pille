@@ -316,7 +316,7 @@ export doc.bridge method:
         let dot_member_name_ts = typeset_dot_member_name(stx.dot_member_name)
         let args_ts = typeset_args(stx.args)
         let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$method_ts $receiver_ts $dot_member_name_ts $args_ts $res_annot_ts $block_ts',
           ~at: stx))

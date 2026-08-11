@@ -306,13 +306,14 @@ meta:
      ...'
 
   export in_space_typesetters:
-    typeset_specl_annot ~at pille/specl_annot
-    typeset_specl_bind ~at: pille/specl_bind; pille/specl_expr
-    typeset_specl_expr ~at pille/specl_expr
     typeset_expr ~at: pille/expr; pille/specl_expr
     typeset_global_defn ~defn
     typeset_local_defn ~at pille/local_defn
+    typeset_local_defn_or_expr ~at: pille/local_defn; pille/expr
     typeset_operator_order ~operator_order
+    typeset_specl_annot ~at pille/specl_annot
+    typeset_specl_bind ~at: pille/specl_bind; pille/specl_expr
+    typeset_specl_expr ~at pille/specl_expr
     typeset_unique_member ~at pille/unique_member
 
   //============================================================================
