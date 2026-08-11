@@ -18,7 +18,7 @@ export specl_bind.macro 'CoercesTo($δ)':
 export specl_bind.macro 'CoercesFrom($σ)':
   'δ :: type when type_of(faux($σ) :: δ)'
 
-export specl_expr.macro '$σ coerces_to $δ':
+export specl.operator (σ :: type) coerces_to (δ :: type):
   ~order: equivalence
   ~associativity: ~none
-  '$σ matches CoercesTo($δ)'
+  σ matches CoercesTo(δ)
