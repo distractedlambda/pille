@@ -118,7 +118,7 @@ meta:
       name :~ maybe(Identifier)
       type_bind :~ Term
 
-  | '$(using_op :: pille_expr_meta.UsingOp) \
+  | '$(using_op :: local_defn_meta.UsingOp) \
      $(implicit_key :: implicit_meta.ResolveKey) \
      $(maybe_alias :: MaybeImplicitAlias) \
      $(type_bind_ :: MaybeTypeBind)':
@@ -128,7 +128,7 @@ meta:
         syntax_meta.track_origin(
           type_bind_,
           syntax_meta.flip_introduce(using_op),
-          ~space: pille_expr_meta.space)
+          ~space: local_defn_meta.space)
 
   | '$(specl_op :: pille_expr_meta.SpeclOp) \
      $(specl_bind :: specl_bind_meta.Parsed)':

@@ -14,7 +14,7 @@ import:
   pille/lowering
 
 export only_space namespace:
-  meta: pille_expr_meta
+  meta: local_defn_meta
 
 //==============================================================================
 space.transform _implicit:
@@ -127,12 +127,12 @@ export local_defn.block_macro 'using $(key :: implicit_meta.ResolveKey) \
                                $(tl :: NonemptyMulti)':
   let '$(body :: pille_expr_meta.Parsed)' = local_defn_meta.encapsulate_body(tl)
   pille_expr_meta.pack_concretize(
-    'concretize_implicit_let(
+    'concretize_using(
        $key.rhombus_expr,
        $(pille_expr_meta.unpack_concretize(value)),
        fun(): $(pille_expr_meta.unpack_concretize(body)))')
 
-fun concretize_implicit_let(
+fun concretize_using(
   key :~ ImplicitKey,
   value :~ Expr,
   concretize_body :~ Function.assume_of(() -> Expr),
@@ -152,11 +152,6 @@ fun concretize_implicit_let(
         let env = env ++ {value_name: value_val}
         body_low(env))
 
-//==============================================================================
-export pille_expr.macro 'using':
-  ~op_stx: op
-  syntax_meta.error("not an expression form", op)
-
-meta syntax_class pille_expr_meta.UsingOp:
+meta syntax_class local_defn_meta.UsingOp:
   kind: ~sequence
-| '$(bound_as pille_expr_meta.space: 'using')'
+| '$(bound_as local_defn_meta.space: 'using')'
