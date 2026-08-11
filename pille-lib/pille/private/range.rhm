@@ -8,14 +8,14 @@ import:
   "type_traits.rhm" open
 
 //==============================================================================
-export struct Range(α):
+export struct Range(α :: type):
   start :: α
   end :: α
 
-export struct RangeFrom(α):
+export struct RangeFrom(α :: type):
   start :: α
 
-export struct RangeTo(α):
+export struct RangeTo(α :: type):
   end :: α
 
 export struct RangeFull
