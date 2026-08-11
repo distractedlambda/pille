@@ -14,4 +14,5 @@
 @include_section("basic_types/float.scrbl")
 @include_section("basic_types/tuple.scrbl")
 @include_section("basic_types/pointer.scrbl")
+@include_section("basic_types/range.scrbl")
 @include_section("basic_types/simd.scrbl")
