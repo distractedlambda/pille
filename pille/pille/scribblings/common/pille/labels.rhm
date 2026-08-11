@@ -1,21 +1,23 @@
 #lang rhombus/static/and_meta
 
 import:
-  only_meta 0:
-    meta_label:
-      pille open
-
-  only_meta 1:
-    meta_label:
-      only_space operator_order:
+  meta_label:
+    only_meta 0:
         pille open
 
-  meta_label:
-    rhombus as rhm
+    only_meta 1:
+      except_space decl defn:
+        pille open
+
+    rhombus as rhm:
+      expose:
+        Srcloc // why need?
+
     rhombus/meta as rhm_meta
 
 export:
   meta_label:
     all_from(pille)
+    all_from(rhombus)
     rhm
     rhm_meta

@@ -346,11 +346,7 @@ meta:
           | _:
               typeset_where_bind(tl)
       | #'~order:
-          match tl
-          | ': $(order :: Name)':
-              ': $(typeset_operator_order(order))'.relocate(tl)
-          | _:
-              typeset_operator_order(tl)
+          typeset_operator_order(tl)
       | _:
           esc(stx)
       '$kw $tl_ts'.relocate_group(stx)

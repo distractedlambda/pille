@@ -27,5 +27,4 @@ in mind.
 @include_section("lang.scrbl")
 @include_section("hosted.scrbl")
 @include_section("standalone.scrbl")
-@include_section("meta.scrbl")
-@include_section("llvm_bindings.scrbl")
+@include_section("extending.scrbl")

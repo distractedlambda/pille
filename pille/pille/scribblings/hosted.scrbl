@@ -15,7 +15,7 @@
 @(nonterminal:
     expr: block
     id: block
-    pille_body: pille.block body ~at pille/expr
+    pille_body: pille.expr body ~space
     pille_specl_bind: pille.specl_bind specl_bind ~space
     pille_specl_expr: pille.specl_expr specl_expr ~space)
 
@@ -26,8 +26,7 @@
 @section{Embedding Pille within Rhombus}
 @doc(
   expr.macro 'pille $maybe_args:
-                $pille_body
-                ...'
+                $pille_body'
 
   grammar maybe_args
   | ($arg, ...)

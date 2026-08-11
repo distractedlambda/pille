@@ -3,7 +3,10 @@
 @(import:
     "common.rhm" open)
 
-@title{Defining Functions and Operators}
+@title{Functions and Operators}
+
+@//=============================================================================
+@section{Functions}
 
 @doc(
   ~nonterminal:
@@ -11,8 +14,7 @@
 
   global_defn.macro 'fun $id_name($arg, ...) $maybe_res_type:
                        $option; ...
-                       $body
-                       ...'
+                       $body'
 
   global_defn.macro 'fun $id_name
                      | $case
@@ -27,7 +29,6 @@
   | ($arg, ...) $maybe_res_type:
       $case_option; ...
       $body
-      ...
 
   grammar option
   | $common_option
@@ -42,7 +43,11 @@
 
   grammar case_option
   | $when_where_option
+  | ~transparent
 ){}
+
+@//=============================================================================
+@section{Operators}
 
 @doc(
   ~nonterminal:
@@ -60,7 +65,6 @@
   | $pat_maybe_parens $maybe_res_type:
       $option; ...
       $body
-      ...
 
   grammar pat_maybe_parens
   | ($pat)
@@ -78,6 +82,7 @@
   grammar option
   | $precedence_option
   | $when_where_option
+  | ~transparent
 
   grammar precedence_option
   | ~order $name

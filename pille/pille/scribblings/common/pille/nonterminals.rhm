@@ -6,12 +6,9 @@ import:
 
 export manual.nonterminal:
   arg_expr: expr expr ~space
-  body: block ~at pille/expr
+  body: expr ~space
   callee_expr: expr expr ~space
-  specl_annot: specl_annot ~space
-  specl_bind: specl_bind ~space
-  specl_expr: specl_expr ~space
-  specl_literal: #%literal ~at pille/specl_expr
+  decl: rhm.block decl
   defined_name: rhm_meta.defn.macro ~defn
   dot_member_name: method ~defn
   expr: expr ~space
@@ -19,6 +16,8 @@ export manual.nonterminal:
   id: rhm.block
   id_name: namespace ~defn
   id_or_op_name: namespace ~defn
+  implicit_id_name: namespace id_name ~defn
+  implicit_key: using ~at pille/local_defn
   label_arg: #%parens ~at pille/labeled_expr
   label_id: #' ~at pille/expr
   labeled_expr: #' ~at pille/expr
@@ -27,14 +26,24 @@ export manual.nonterminal:
   macro_patterns: rhm_meta.expr.macro ~defn
   maybe_res_type: method ~defn
   member_name: method ~defn
+  method_option: method ~defn
+  nestable_decl: rhm.block nestable_decl
   op_name: namespace ~defn
   pattern: rhm.#%quotes
+  precedence_option: operator ~defn
   prefix_macro_pattern: rhm_meta.defn.macro ~defn
+  priority_id_name: namespace id_name ~defn
   receiver: method ~defn
   rhombus_annot: rhm.(::) annot
   rhombus_bind: rhm.def bind ~defn
   rhombus_body: rhm.block body
+  rhombus_defn: rhm.block defn
   rhombus_expr: rhm.block expr
   rhs_expr: expr expr ~space
+  specl_annot: specl_annot ~space
+  specl_bind: specl_bind ~space
+  specl_expr: specl_expr ~space
+  specl_literal: #%literal ~at pille/specl_expr
+  test_expr: expr expr ~space
   unique_member_id: rhm.block id
   when_where_option: method ~defn

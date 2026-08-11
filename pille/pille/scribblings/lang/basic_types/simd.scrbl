@@ -3,7 +3,25 @@
 @(import:
     "common.rhm" open)
 
-@title{SIMD Operations}
+@title(~tag: "Basic_Types_SIMD_Vectors"){SIMD Vectors}
+
+@section{Dense Vectors}
+
+@doc(
+  type Simd(element :: type, length :: pos_int)
+){
+  A fixed-length array specialized for operations that
+  process elements in parallel.
+
+  Uses of @pille_specl_expr(Simd) types, and their
+  corresponding methods, serve as non-binding directives for
+  code generation to use the target's corresponding
+  @wikipedia_simd registers and instructions. It is legal to
+  use @pille_specl_expr(Simd) types or operations that the
+  target does not natively support, in which case code
+  generation will fall back to ``software'' implementations
+  (often using smaller vectors or scalars).
+}
 
 @doc(
   coercion (elem :: σ) :: Simd(CoercesFrom(σ), _)
@@ -37,10 +55,10 @@
   unify(Simd(α, n), Simd(β, n)):
     Simd(unify(α, β), n)
 ){
-  @tech{Unification} rules to use when at least one of the
-  types is a @pille_specl_expr(Simd) type. The first rule is
-  meant to match the broadcasting coercion, and has lower
-  priority than the second.
+  @tech{Type unification} rules to use when at least one of
+  the types is a @pille_specl_expr(Simd) type. The first
+  rule is meant to match the broadcasting coercion, and has
+  lower priority than the second.
 }
 
 @doc(
@@ -78,7 +96,8 @@
   some logical predicate.
 }
 
-@section{Sparse Operations}
+@section{Sparse Vectors}
+
 @doc(
   type SparseSimd(element :: type, length :: pos_int)
 ){

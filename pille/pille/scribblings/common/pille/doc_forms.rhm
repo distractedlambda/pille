@@ -97,6 +97,35 @@ export doc.bridge unique_member:
           ~at: stx))
 
 //==============================================================================
+export doc.bridge priority:
+  syntax_class DocForm:
+    kind: ~group
+    fields:
+      op
+      name
+  | '$(op :: IdentifierName) $(name :: Identifier)'
+
+  doc_meta.transformer(
+    ~extract_desc:
+      fun(_):
+        "overload priority",
+    ~extract_space:
+      fun(_):
+        #'#{pille/priority},
+    ~extract_name:
+      doc_meta.head_extract_name,
+    ~extract_metavariables:
+      fun(_, _, vars):
+        vars,
+    ~extract_typeset:
+      fun('$(stx :: DocForm)', space, subst):
+        let op_ts = typeset_global_defn(stx.op)
+        let name_ts = typeset_name(stx.name, space, subst)
+        doc_meta.typeset_rhombusblock(
+          '$op_ts $name_ts',
+          ~at: stx))
+
+//==============================================================================
 export doc.bridge type:
   syntax_class DocForm:
     kind: ~group
