@@ -92,7 +92,7 @@ export defn.macro 'implicit \
 
     pille_expr.macro '($name) $('$')(_ :: MaybeIndices)':
       ~all_stx: stx
-      'summon $('$')stx'»'
+      '#%summon $('$')stx'»'
 
 expr.macro 'make_validator([$(index_bind :: specl_bind_meta.Parsed), ...], $value_type_bind)':
   'fun(indices):
@@ -117,7 +117,7 @@ fun make_key_factory(display_name, validator):
     species.key(indices)
 
 //==============================================================================
-export pille_expr.macro 'summon $(key :: implicit_meta.ResolveKey)':
+pille_expr.macro '#%summon $(key :: implicit_meta.ResolveKey)':
   pille_expr_meta.pack_concretize(
     'ImplicitKey.resolve_value($key.rhombus_expr)')
 
