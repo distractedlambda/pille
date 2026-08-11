@@ -56,8 +56,8 @@ meta:
       def [hd_priority_id, tl_priority_id, ...] = [priority_id, ...]
       def [pre_priority_id, ..., _] = [priority_id, ...]
       field priority_defns:
-        'priority.def $hd_priority_id
-         priority.def $tl_priority_id:
+        'priority $hd_priority_id
+         priority $tl_priority_id:
            ~lower_than: $pre_priority_id
          ...'
       def [case_, ...] = [hd_case, tl_case, ...]

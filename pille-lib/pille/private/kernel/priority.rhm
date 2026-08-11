@@ -54,7 +54,7 @@ meta:
       field [lower_than, ...] = []
       field [higher_than, ...] = ['fallback']
 
-defn.macro 'priority.def $(name :: IdentifierName) $(clauses :: PriorityClauses)':
+export defn.macro 'priority $(name :: IdentifierName) $(clauses :: PriorityClauses)':
   ~all_stx: stx
 
   let refl_id = Syntax.make_temp_id(name.name_to_symbol(), ~keep_name: #true)

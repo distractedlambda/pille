@@ -102,7 +102,6 @@ export:
     all_from(rhombus/static)
 
   only_space namespace:
-    priority
     specl
     ub
 
@@ -110,12 +109,12 @@ export:
     implicit
     labeled_expr
     local_defn
-    priority
     specl_annot
     specl_bind
     specl_expr
 
   only_space global_defn namespace space:
+    priority
     unique_member
 
   rename:
