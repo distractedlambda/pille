@@ -753,6 +753,20 @@
   @rhombus(test_expr).
 }
 
+@doc(
+  ~nonterminal:
+    ivar_id: rhm.block id
+    range_expr: expr expr ~space
+
+  expr.macro 'for ($ivar_id #,(pille_expr(in)) $range_expr):
+                $body'
+){
+  Evaluates the @rhombus(range_expr), which must have a
+  @pille_specl_bind(Range(Integral)) type, then repeatedly
+  executes the @rhombus(body) with the @rhombus(ivar_id)
+  bound to each element of the range (in ascending order).
+}
+
 @//=============================================================================
 @section{Aborting Execution}
 

@@ -48,7 +48,7 @@ export expr.macro 'for ($(seq :: ForSequence)): $body':
      expr.preparse body($seq.ivar): $body
      let rng = $seq.rng
      specl.match type_of(rng)
-     | Range(Specl(v)):
+     | Range(Specl(_ :: int)):
          #void
      | Range(BinaryInteger):
          #'loop(i = rng.start):
