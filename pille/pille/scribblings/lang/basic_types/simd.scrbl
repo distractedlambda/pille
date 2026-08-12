@@ -96,6 +96,22 @@
   some logical predicate.
 }
 
+@doc(
+  method (lhs :: Simd(BinaryInteger, _) as α).$add_wrap(rhs :: α) :: α
+
+  method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α
+){}
+
+@doc(
+  method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(
+    offsets :: Simd(BinaryInteger, n),
+  ) :: φ
+
+  method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(
+    offsets :: Simd(BinaryInteger, n),
+  ) :: φ
+){}
+
 @section{Sparse Vectors}
 
 @doc(

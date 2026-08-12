@@ -11,7 +11,7 @@ import:
   "type_traits.rhm" open
 
 //==============================================================================
-coercion (elem :: σ) :: Simd(δ && CoercesFrom(σ), n):
+coercion (elem :: σ) :: Simd(CoercesFrom(σ) as δ, n):
   prim.splat(elem :: δ, n)
 
 //==============================================================================
@@ -74,6 +74,23 @@ method (smd :: Simd(α && Bitwise, n)).reduce_xor() :: α:
 
 method (smd :: Simd(Boolean, n)).parity() :: Boolean:
   smd.reduce_xor()
+
+//==============================================================================
+method (lhs :: Simd(BinaryInteger, _) as α).$add_wrap(rhs :: α) :: α:
+  prim.add(lhs, rhs)
+
+method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α:
+  prim.mul(lhs, rhs)
+
+//==============================================================================
+method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
+  let offsets = offsets.cast_wrap() :: Simd(NativeInt, n)
+  prim.ptradd(ptrs, offsets)
+
+method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
+  let offsets = offsets.cast_wrap() :: Simd(NativeInt, n)
+  let offsets = offsets *% strideof(α)
+  prim.ptradd(ptrs, offsets)
 
 //==============================================================================
 method (lhs :: Simd(α, n)).$eq(rhs :: Simd(α, n)) :: Simd(Boolean, n):

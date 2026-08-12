@@ -26,6 +26,10 @@
   @pille_expr($coerce_to) method, and the
   @pille_global_defn(coercion) form is merely sugar for the
   corresponding @pille_global_defn(method) definition.
+
+  Coercion rules are always resolved with an empty implicit
+  environment, so they cannot take @tech{implicit
+  arguments}.
 }
 
 @doc(
@@ -105,6 +109,9 @@
   resulting types; in other words, it is allowed to have
   overlapping rules as long as they come to the same
   conclusion.
+
+  Unification rules are always resolved (and evaluated) with
+  an empty implicit environment.
 }
 
 @doc(

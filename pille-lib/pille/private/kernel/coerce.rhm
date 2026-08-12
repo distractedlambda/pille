@@ -16,9 +16,10 @@ export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
   | fun(_, val): val
 
   let method_concr :~ MethodDefn.Concretized = try:
-    from_type.concretized_method(
-      unique_member.symbol(coerce_to),
-      [SpeclType(to_type)])
+    ImplicitKey.with_empty_env(_) <| fun():
+      from_type.concretized_method(
+        unique_member.symbol(coerce_to),
+        [SpeclType(to_type)])
     ~catch
     | exn :: Exn.Fail.Concretize.Recoverable:
         error(

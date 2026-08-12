@@ -62,22 +62,18 @@ unify(#%SeqVarying(α, pc), #%SeqVarying(β, pc)):
   #%SeqVarying(unify(α, β), pc)
 
 //==============================================================================
-method (src :: σ).$coerce_to(using program_mask, specl δ && Varying(β && BinaryInteger)) :: δ:
-  ~where SeqVarying(α) = σ
+coercion (src :: #%SeqVarying(α, pc)) :: #%Varying(BinaryInteger as β, pc) as δ:
   ~when α coerces_to β
-  ((src.$seq_start :: β) :: Varying(β))
-    + Varying(β){Simd(β, program_count).iota}
+  δ{(src.$seq_start :: Simd(β, pc)) +% Simd(β, pc).iota}
 
-method (src :: σ).$coerce_to(using program_mask, specl δ && Varying(β && PtrTo(_))) :: δ:
-  ~where SeqVarying(α && PtrTo(_)) = σ
+coercion (src :: #%SeqVarying(PtrTo(_) as α, pc)) :: #%Varying(PtrTo(_) as β, pc) as δ:
   ~when α coerces_to β
-  ((src.$seq_start :: β) :: Varying(β))
-    + Varying(NativeUInt){Simd(NativeUInt, program_count).iota}
+  δ{(src.$seq_start :: Simd(β, pc)) +% Simd(NativeUInt, pc).iota}
 
 unify(#%SeqVarying(α, pc), #%Varying(β, pc)):
   #%Varying(unify(α, β), pc)
 
-unify(#%SeqVarying(α, pc), β && Uniform):
+unify(#%SeqVarying(α, pc), Uniform as β):
   #%Varying(unify(α, β), pc)
 
 //==============================================================================
