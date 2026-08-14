@@ -17,8 +17,8 @@ space.enforest specl_expr:
       Literal
       Packed
       as_rhombus_expr
-      pack_delayed_parse
       pack_rhombus_expr
+      pack_specl_expr
       parse
       unpack_rhombus_expr
 
@@ -42,10 +42,11 @@ space.enforest specl_expr:
     annot.def Packed:
       Term && satisfying(is_packed)
 
-    fun pack_rhombus_expr(rhombus_expr :: Group) :~ Packed:
-      _pack('($rhombus_expr)')
+    fun pack_rhombus_expr(rhm_expr :: Group) :~ Packed:
+      _pack(expr_meta.pack_expr(rhm_expr))
+        .relocate_span([rhm_expr])
 
-    fun pack_delayed_parse(spexp :: Group) :~ Packed:
+    fun pack_specl_expr(spexp :: Group) :~ Packed:
       pack_rhombus_expr('specl_expr.eval($spexp)')
         .relocate_span([spexp])
 
@@ -53,7 +54,9 @@ space.enforest specl_expr:
       _unpack(packed)
 
     fun as_rhombus_expr(spexp :: Group) :~ Term:
-      '(specl_expr.eval($spexp))'.relocate_span([spexp])
+      expr_meta
+        .pack_expr('specl_expr.eval($spexp)')
+        .relocate_span([spexp])
 
     fun parse('$(parsed :: Parsed)') :~ Packed:
       parsed

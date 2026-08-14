@@ -54,7 +54,7 @@ meta syntax_class DynArg:
    $('$(bound_as expr_meta.space: '=')' && eo) \
    $(init_ :: expr_meta.Parsed)':
     field type = type_
-      |> pille.specl_expr_meta.pack_delayed_parse
+      |> pille.specl_expr_meta.pack_specl_expr
       |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
     field init = init_
       |> syntax_meta.track_origin(
@@ -69,7 +69,7 @@ meta syntax_class DynArg:
    $(ao :: pille.expr_meta.AnnotOp) \
    $(type_ :: Group)':
     field type = type_
-      |> pille.specl_expr_meta.pack_delayed_parse
+      |> pille.specl_expr_meta.pack_specl_expr
       |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
     match_def '$(init_ :: expr_meta.Parsed)' = name
     field init:

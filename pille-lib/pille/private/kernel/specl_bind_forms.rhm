@@ -18,9 +18,6 @@ meta:
     only_space namespace:
       specl_bind_meta
 
-  fun specl_bind_meta.encapsulate(stx :: Group) :: Term:
-    '($stx)'.relocate_span([stx])
-
   syntax_class specl_bind_meta.Wildcard:
     kind: ~sequence
   | '$(bound_as specl_bind_meta.space: '_')'

@@ -46,7 +46,7 @@ defn.macro 'specl.def $(spec :: Spec)':
       make_forcer(
         fun():
           specl_expr.eval(
-            $(specl_expr_meta.encapsulate(spec.rhs)) $spec.lhs.annot))
+            $(specl_expr_meta.pack_specl_expr(spec.rhs)) $spec.lhs.annot))
 
     specl_expr.macro '($spec.lhs.name)':
       '$(specl_expr_meta.pack_rhombus_expr('forcer()'))'»'

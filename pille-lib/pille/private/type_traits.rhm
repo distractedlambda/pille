@@ -12,8 +12,8 @@ export specl_bind.macro 'Integral':
 export specl_bind.macro 'FloatingPoint':
   'Float || Double'
 
-export specl_bind.macro 'CoercesTo($δ)':
-  'σ :: type when type_of(faux(σ) :: $(specl_expr_meta.encapsulate(δ)))'
+export specl_bind.macro 'CoercesTo($(δ :: specl_expr_meta.Parsed))':
+  'σ :: type when type_of(faux(σ) :: $δ)'
 
 export specl_bind.macro 'CoercesFrom($σ)':
   'δ :: type when type_of(faux($σ) :: δ)'

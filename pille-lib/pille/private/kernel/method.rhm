@@ -70,12 +70,12 @@ export defn.macro 'coercion \
                    $(dst_type :: SimpleNonemptySequence):
                      $(options_and_body :: Block)':
   ~all_stx: stx
-  let dst_type = specl_bind_meta.encapsulate(dst_type)
+  let dst_type = specl_bind_meta.pack_specl_bind(dst_type)
   '#%method(
      $(stx.srcloc()),
      unique_member.symbol(coerce_to),
      make_method_symbol_name_formatter("$coerce_to")) \
-   $receiver (specl $dst_type && α) $annot_op α $options_and_body'
+   $receiver (specl $dst_type as α) $annot_op α $options_and_body'
 
 //==============================================================================
 meta:
@@ -92,7 +92,7 @@ meta:
   | '$(annot_op :: pille_expr_meta.AnnotOp) $(tl :: NonemptySequence)':
       field normalized:
         syntax_meta.track_origin(
-          specl_bind_meta.encapsulate(tl),
+          specl_bind_meta.pack_specl_bind(tl),
           ~add: syntax_meta.flip_introduce(annot_op),
           ~space: pille_expr_meta.space)
   | '':

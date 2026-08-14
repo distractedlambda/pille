@@ -15,9 +15,6 @@ meta export only_space namespace:
 export specl_annot.macro '#%parens($child)':
   child
 
-meta fun specl_annot_meta.encapsulate(stx :: Group) :~ Term:
-  '($stx)'.relocate_span([stx])
-
 //==============================================================================
 // Dummy binding for AfterInfixParsed usage
 export specl_annot.macro '$lhs :: $_ ...':

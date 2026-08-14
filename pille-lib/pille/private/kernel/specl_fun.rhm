@@ -104,7 +104,7 @@ expr.macro 'compile_case(($(arg :: specl_bind_meta.Parsed), ...) $(res_annot :: 
   let args_extractor = 'fun([$arg_id, ...]): values($arg_id, ...)'
   let args_binding = specl_bind_meta.pack_decomposition(args_extractor, [arg, ...])
   let case_binding = specl_bind_meta.pack_conjunction([args_binding, ww, ...])
-  let annotated_body = '$(specl_expr_meta.encapsulate(body)) $res_annot'
+  let annotated_body = '$(specl_expr_meta.pack_specl_expr(body)) $res_annot'
   let body_thunk = 'fun(): $(specl_expr_meta.as_rhombus_expr(annotated_body))'
   '[$arity_bit,
     fun(args):
