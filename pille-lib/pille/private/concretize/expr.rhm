@@ -1,7 +1,6 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../util/annot.rhm" open
   "type_fwd.rhm" open
   pille/llvm
 

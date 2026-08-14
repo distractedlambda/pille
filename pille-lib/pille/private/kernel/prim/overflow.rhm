@@ -1,7 +1,6 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../../util/annot.rhm" open
   "../../util/assert.rhm" open
   "../core_types.rhm" open
   "../expr.rhm" open

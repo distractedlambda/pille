@@ -2,7 +2,6 @@
 
 import:
   "../runtime/profile.rhm" open
-  "../util/annot.rhm" open
   "../util/equatable_by_identity.rhm" open
   "caches.rhm"
   "exn.rhm" open
@@ -199,24 +198,24 @@ export class Type():
             error.vals(~label: "argument types", arg_types))
 
   //============================================================================
-  annot.def RhombusToPilleWriter:
+  annot RhombusToPilleWriter:
     (frame :: ptr_t, offset :: Nat, value :: Any) -> ~any
 
-  annot.def PilleFromRhombusReadLowerer:
+  annot PilleFromRhombusReadLowerer:
     (ptr :: llvm.Value) -> maybe(llvm.Value)
 
-  annot.def PilleToRhombusWriteLowerer:
+  annot PilleToRhombusWriteLowerer:
     (ptr :: llvm.Value, value :: maybe(llvm.Value)) -> ~any
 
-  annot.def RhombusFromPilleReader:
+  annot RhombusFromPilleReader:
     (frame :: ptr_t, offset :: Nat) -> Any
 
   class RhombusInteropSpec(
     ~byte_size: byte_size :: Nat,
-    ~write_from_rhombus: write_from_rhombus :: Function.assume_of(RhombusToPilleWriter),
+    ~write_from_rhombus: write_from_rhombus :: RhombusToPilleWriter,
     ~read_from_pille: read_from_pille :: PilleFromRhombusReadLowerer,
     ~write_from_pille: write_from_pille :: PilleToRhombusWriteLowerer,
-    ~read_from_rhombus: read_from_rhombus :: Function.assume_of(RhombusFromPilleReader),
+    ~read_from_rhombus: read_from_rhombus :: RhombusFromPilleReader,
   )
 
   final property rhombus_interop :~ RhombusInteropSpec:

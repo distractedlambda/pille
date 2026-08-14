@@ -1,8 +1,5 @@
 #lang rhombus/static/and_meta
 
-meta import:
-  "../util/annot.rhm" open
-
 export:
   specl_expr
   meta:
@@ -39,7 +36,7 @@ space.enforest specl_expr:
     fun is_packed(stx):
       _unpack(stx, fun(_): #false)
 
-    annot.def Packed:
+    annot Packed:
       Term && satisfying(is_packed)
 
     fun pack_rhombus_expr(rhm_expr :: Group) :~ Packed:

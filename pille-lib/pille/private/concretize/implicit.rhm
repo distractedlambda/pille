@@ -1,7 +1,6 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../util/annot.rhm" open
   "../util/equatable_by_identity.rhm" open
   "caches.rhm"
   "exn.rhm" open

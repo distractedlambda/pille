@@ -8,9 +8,6 @@ import:
   pille/concretize open
   rhombus/syntax_map open
 
-meta import:
-  "../util/annot.rhm" open
-
 export:
   specl_bind
   meta:
@@ -65,7 +62,7 @@ space.enforest specl_bind:
     fun is_packed(stx):
       _unpack(stx, fun(_): #false)
 
-    annot.def Packed:
+    annot Packed:
       Term && satisfying(is_packed)
 
     fun parse('$(parsed :: Parsed)') :~ Packed:
