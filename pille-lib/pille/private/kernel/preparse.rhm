@@ -29,22 +29,18 @@ local_defn.block_macro 'pille_expr.preparse $(name :: IdentifierName) $(args :: 
               pille_expr.macro '($args.arg)':
                 '$(pille_expr_meta.pack_concretize(arg_concr_id))'
               ...
-              pille_expr.concretize(
-                $(local_defn_meta.encapsulate_body(body)))
+              pille_expr.concretize_body: $body
             pille_expr.macro '($name)($('$')($arg_stx_id :: pille_expr_meta.Parsed), ...)':
               pille_expr_meta.pack_concretize(
                 'concr_body(
                    $('$')(pille_expr_meta.unpack_concretize($arg_stx_id)),
                    ...)')
-            pille_expr.concretize(
-              $(local_defn_meta.encapsulate_body(tl)))»')
+            pille_expr.concretize_body: $tl»')
   | ~else:
-      let '$(body_p :: pille_expr_meta.Parsed)' = local_defn_meta.encapsulate_body(body)
       pille_expr_meta.pack_concretize(
         '«block:
             let concr_body = fun():
-              $(pille_expr_meta.unpack_concretize(body_p))
+              pille_expr.concretize_body: $body
             pille_expr.macro '($name)':
               '$(pille_expr_meta.pack_concretize('concr_body()'))'
-            pille_expr.concretize(
-              $(local_defn_meta.encapsulate_body(tl)))»')
+            pille_expr.concretize_body: $tl»')

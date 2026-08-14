@@ -26,9 +26,7 @@ pille_expr.macro 'specl.match $(target :: specl_expr_meta.Parsed)
           $(specl_bind_meta.compile(
               bind,
               'tgt',
-              'fun():
-                 pille_expr.concretize(
-                   $(local_defn_meta.encapsulate_body(body)))')),
+              'fun(): pille_expr.concretize_body: $body')),
         ...])')
 
 fun concretize_specl_match(target, cases :~ List):

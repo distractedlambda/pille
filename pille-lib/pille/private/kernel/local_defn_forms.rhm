@@ -27,11 +27,11 @@ meta:
           ~space: pille_expr_meta.space)
   | ': $init_body':
       match_def '$(transformed :: pille_expr_meta.Parsed)':
-        local_defn_meta.encapsulate_body(init_body)
+        pille_expr_meta.pack_body(init_body)
   | '$(ao :: pille_expr_meta.AnnotOp) $type ... \
      $(eo :: pille_expr_meta.EqualsOp) $(unann_init :: Group)':
       match_def '$(init :: pille_expr_meta.Parsed)':
-        '$(pille_expr_meta.encapsulate(unann_init)) $ao $type ...'
+        '$(pille_expr_meta.pack_expr(unann_init)) $ao $type ...'
       field transformed:
         syntax_meta.track_origin(
           init,
@@ -39,7 +39,7 @@ meta:
           ~space: pille_expr_meta.space)
   | '$(ao :: pille_expr_meta.AnnotOp) $type ...: $unann_init':
       match_def '$(transformed :: pille_expr_meta.Parsed)':
-        '$(local_defn_meta.encapsulate_body(unann_init)) $ao $type ...'
+        '$(pille_expr_meta.pack_body(unann_init)) $ao $type ...'
 
   syntax_class local_defn_meta.BindingSpec:
     kind: ~group
@@ -60,8 +60,7 @@ export local_defn.block_macro 'let $(_ :: local_defn_meta.BindingSpec: open)
          block:
            pille_expr.macro '($name)':
              '$(pille_expr_meta.pack_concretize('ref_concr'))'
-           pille_expr.concretize(
-             $(local_defn_meta.encapsulate_body(tl))))')
+           pille_expr.concretize_body: $tl)')
 
 export fun concretize_let_ref(bound_name, type :~ Type):
   Expr.Rvalue(
@@ -98,8 +97,7 @@ export local_defn.block_macro 'var $(_ :: local_defn_meta.BindingSpec: open)
          block:
            pille_expr.macro '($name)':
              '$(pille_expr_meta.pack_concretize('ref_concr'))'
-           pille_expr.concretize(
-             $(local_defn_meta.encapsulate_body(tl))))')
+           pille_expr.concretize_body: $tl)')
 
 fun concretize_var(name, init :~ Expr, body :~ Expr):
   let (init_type, init_low) = init.unpack_rvalue()

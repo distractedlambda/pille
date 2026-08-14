@@ -32,9 +32,6 @@ meta syntax_class pille_expr_meta.DollarOp:
 export pille_expr.macro '#%parens($child)':
   child
 
-meta fun pille_expr_meta.encapsulate(stx :: Group) :: Term:
-  '($stx)'.relocate_span([stx])
-
 //==============================================================================
 export pille_expr.macro '$lhs = $rhs':
   ~weaker_than: ~other

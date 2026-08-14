@@ -16,7 +16,7 @@ export expr.macro 'unless $(test :: Group)
 //==============================================================================
 export expr.macro
 | 'cond | ~else: $else_body':
-    local_defn_meta.encapsulate_body(else_body)
+    expr_meta.pack_body(else_body)
 | 'cond | $(test :: Group): $body':
     ~op_stx: op
     'if $test

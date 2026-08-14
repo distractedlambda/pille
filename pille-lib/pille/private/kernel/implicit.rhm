@@ -125,12 +125,11 @@ pille_expr.macro '#%summon $(key :: implicit_meta.ResolveKey)':
 export local_defn.block_macro 'using $(key :: implicit_meta.ResolveKey) \
                                      $(value :: local_defn_meta.BindingInit)
                                $(tl :: NonemptyMulti)':
-  let '$(body :: pille_expr_meta.Parsed)' = local_defn_meta.encapsulate_body(tl)
   pille_expr_meta.pack_concretize(
     'concretize_using(
        $key.rhombus_expr,
        $(pille_expr_meta.unpack_concretize(value)),
-       fun(): $(pille_expr_meta.unpack_concretize(body)))')
+       fun(): pille_expr.concretize_body: $tl)')
 
 fun concretize_using(
   key :~ ImplicitKey,

@@ -54,8 +54,7 @@ export labeled_expr.macro '#%parens ($(arg :: BlockArg), ...): $body':
               ['concretize_break',
                'concretize_continue',
                $(Function.count(arg, ...))]
-            pille_expr.concretize(
-              $(local_defn_meta.encapsulate_body(body))))»')
+            pille_expr.concretize_body: $body)»')
 
 export labeled_expr.macro '#%block: $body':
   ~label_id: lbl
@@ -218,8 +217,7 @@ meta:
     root_swap: parsed sequence
   | '($(parsed :: pille_expr_meta.Parsed))'
   | ': $body':
-      match_def '$(parsed :: pille_expr_meta.Parsed)':
-        local_defn_meta.encapsulate_body(body)
+      field parsed = pille_expr_meta.pack_body(body)
   | '':
       match_def '$(parsed :: pille_expr_meta.Parsed)':
         '#void'

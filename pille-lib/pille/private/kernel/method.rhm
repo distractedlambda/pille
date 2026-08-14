@@ -280,7 +280,7 @@ defn.macro '#%method($outer_srcloc, $selector, $symbol_name_formatter) \
                     $(if res_type.rhombus_expr
                       | 'check_result_type($(res_type.rhombus_expr), $(res_type.srcloc()))'
                       | '#false'),
-                    fun(): pille_expr.concretize($(local_defn_meta.encapsulate_body(body)))))'))'
+                    fun(): pille_expr.concretize_body: $body))'))'
 
 // HACK
 expr.macro

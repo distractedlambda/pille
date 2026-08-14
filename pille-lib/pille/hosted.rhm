@@ -128,8 +128,7 @@ export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
                    ...
                    values(
                      [$dyn_arg_type_id, ...],
-                     pille.expr.concretize(
-                       $(pille.local_defn_meta.encapsulate_body(body))))»')))')
+                     pille.expr.concretize_body: $body)»')))')
 
   '$stub($specl_arg.init, ...)($dyn_arg.init, ...)'
 

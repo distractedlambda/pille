@@ -14,15 +14,11 @@ import:
 export pille_expr.macro 'if $(test :: pille_expr_meta.Parsed)
                          | $(then :: Multi)
                          | $(else :: Multi)':
-  let '$(parsed_then :: pille_expr_meta.Parsed)':
-    local_defn_meta.encapsulate_body(then)
-  let '$(parsed_else :: pille_expr_meta.Parsed)':
-    local_defn_meta.encapsulate_body(else)
   pille_expr_meta.pack_concretize(
     'concretize_if(
        $(pille_expr_meta.unpack_concretize(test)),
-       fun(): $(pille_expr_meta.unpack_concretize(parsed_then)),
-       fun(): $(pille_expr_meta.unpack_concretize(parsed_else)))')
+       fun(): pille_expr.concretize_body: $then,
+       fun(): pille_expr.concretize_body: $else)')
 
 fun concretize_if(
   test :~ Expr,

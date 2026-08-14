@@ -14,14 +14,15 @@ meta import:
   rhombus/static open
   rhombus/static/meta open
 
-export:
-  only_space namespace:
-    specl_annot
-    specl_bind
-    specl_expr
-    meta
-    pille_expr
-    syntax_parameter
+export only_space namespace:
+  specl_annot
+  specl_bind
+  specl_expr
+  meta
+  pille_expr
+  syntax_parameter
+  meta:
+    pille_expr_meta
 
 //==============================================================================
 space.transform _local_defn:
@@ -43,11 +44,6 @@ export alias 'local_defn':
 meta export namespace local_defn_meta:
   export alias 'space':
     '_local_defn_meta.space'
-
-  export fun encapsulate_body(stx :: Syntax) :: Term:
-    if stx is_a Group
-    | pille_expr_meta.encapsulate(stx) // FIXME: change this if defns should be disallowed
-    | '(block: $stx)'.relocate_span([stx])
 
 //==============================================================================
 meta syntax_class MacroDefinedName:
@@ -101,7 +97,7 @@ export local_defn.block_macro '#%global_defns: $global_defn; ...
   pille_expr_meta.pack_concretize(
     'block:
        $global_defn; ...
-       pille_expr.concretize($(local_defn_meta.encapsulate_body(tl)))')
+       pille_expr.concretize_body: $tl')
 
 //==============================================================================
 defn.macro
@@ -135,18 +131,28 @@ fun concretize_seq(first :~ Expr, second :~ Expr):
         first_low(env)
         second_low(env))
 
-export pille_expr.macro block
-| 'block: $(body :: Group)':
-    // FIXME: error if leading name is bound as a local_defn?
-    body
-| 'block: $hd; $tl; ...':
+expr.macro pille_expr.concretize_body
+| 'pille_expr.concretize_body: $(body :: Group)':
+    // CONSIDER: error if leading name is bound as a local_defn?
+    let '$(body :: pille_expr_meta.Parsed)' = body
+    pille_expr_meta.unpack_concretize(body)
+| 'pille_expr.concretize_body: $hd; $tl; ...':
     match hd
-    | '$(nm :: IdentifierName) $_ ...' where '$(parsed :: _local_defn_meta.Parsed)' = '$nm: $hd; $tl; ...':
-        parsed
+    | '$(nm :: IdentifierName) $_ ...' where '$(parsed_defn :: _local_defn_meta.Parsed)' = '$nm: $hd; $tl; ...':
+        let '$(parsed :: pille_expr_meta.Parsed)' = parsed_defn
+        pille_expr_meta.unpack_concretize(parsed)
     | '$(parsed_hd :: pille_expr_meta.Parsed)':
-        let '$(parsed_tl :: pille_expr_meta.Parsed)':
-          local_defn_meta.encapsulate_body('$tl; ...')
-        pille_expr_meta.pack_concretize(
-          'concretize_seq(
-             $(pille_expr_meta.unpack_concretize(parsed_hd)),
-             $(pille_expr_meta.unpack_concretize(parsed_tl)))')
+        'concretize_seq(
+           $(pille_expr_meta.unpack_concretize(parsed_hd)),
+           pille_expr.concretize_body: $tl; ...)'
+
+meta fun pille_expr_meta.pack_body(stx :: matching('$_; $_; ...')) :~ pille_expr_meta.Packed:
+  if stx is_a Group
+  | pille_expr_meta.pack_expr(stx)
+  | pille_expr_meta
+      .pack_concretize('pille_expr.concretize_body: $stx')
+      .relocate_span([stx])
+
+//==============================================================================
+export pille_expr.macro 'block: $hd; $tl; ...':
+  pille_expr_meta.pack_body('$hd; $tl; ...')
