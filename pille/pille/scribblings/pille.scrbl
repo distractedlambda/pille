@@ -27,4 +27,3 @@ in mind.
 @include_section("lang.scrbl")
 @include_section("hosted.scrbl")
 @include_section("standalone.scrbl")
-@include_section("extending.scrbl")

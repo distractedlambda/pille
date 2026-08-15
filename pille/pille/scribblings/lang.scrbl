@@ -19,5 +19,6 @@
 @include_section("lang/struct.scrbl")
 @include_section("lang/implicit.scrbl")
 @include_section("lang/concr.scrbl")
+@include_section("lang/macros.scrbl")
 @include_section("lang/specl.scrbl")
 @include_section("lang/ub.scrbl")
