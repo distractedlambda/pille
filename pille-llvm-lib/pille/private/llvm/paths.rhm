@@ -1,0 +1,19 @@
+#lang rhombus/static
+
+import:
+  rhombus/envvar
+
+export fun llvm_lib_path() :: Path:
+  let prefix:
+    envvar.getenv("PILLE_LLVM_PREFIX")
+      || error("environment variable PILLE_LLVM_PREFIX is not set")
+  match system.type()
+  | #'macosx:
+      prefix +/ "lib" +/ "libLLVM.dylib"
+  | #'windows:
+      prefix +/ "bin" +/ "LLVM-C.dll"
+  | #'unix:
+      let lib64_path = prefix +/ "lib64" +/ "libLLVM.so"
+      if filesystem.file_exists(lib64_path)
+      | lib64_path
+      | prefix +/ "lib" +/ "libLLVM.so"

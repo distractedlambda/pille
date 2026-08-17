@@ -1,6 +1,7 @@
 #lang racket
 
 (require
+  "paths.rhm"
   ffi/unsafe
   ffi/unsafe/define
   ffi/vector
@@ -12,10 +13,7 @@
    syntax/parse))
 
 (define-ffi-definer define-llvm
-  (ffi-lib
-   (or (getenv "PILLE_LIBLLVM_PATH")
-       (error "environment variable PILLE_LIBLLVM_PATH is not set"))
-   '())
+  (ffi-lib (llvm_lib_path) '())
   #:provide provide-protected)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
