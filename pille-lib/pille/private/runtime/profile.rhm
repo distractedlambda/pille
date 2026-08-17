@@ -94,6 +94,16 @@ export class Profile(
       unification_rules)
 
   //============================================================================
+  private immutable attrs :~ MutableMap.by(===):
+    MutableMap.by(===){}
+
+  method get_or_init_attr(key :~ Any, thunk :~ Function.of_arity(0)) :~ Any.like_result(thunk):
+    attrs.get(key, _) <| fun():
+      let val = thunk()
+      attrs[key] := val
+      val
+
+  //============================================================================
   private immutable codegen_log :: Logger:
     Logger(~topic: #'pille_codegen)
 

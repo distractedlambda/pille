@@ -4,12 +4,10 @@ import:
   "profile.rhm" open
 
 export class PerProfile():
-  private immutable storage :~ WeakMutableMap.by(===):
-    WeakMutableMap.by(===){}
+  private immutable key:
+    Symbol.gen()
 
   method get_or_init(f :~ Function.of_arity(0)) :~ Any.like_result(f):
-    let profile = Profile.require_current()
-    storage.get(profile, _) <| fun():
-      let value = f()
-      storage[profile] := value
-      value
+    Profile
+      .require_current()
+      .get_or_init_attr(key, f)
