@@ -42,8 +42,3 @@ class JitLinker(
   method function_pointer(sym :: Symbol) :: ptr_t:
     link_function(sym)
     llvm_jit.lookup(sym) |> cpointer_to_ptr
-
-def JitLinker.global :: Delay.assume_of(JitLinker):
-  delay:
-    ~sync
-    JitLinker(Profile.jit_default.force())

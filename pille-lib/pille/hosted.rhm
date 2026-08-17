@@ -14,7 +14,6 @@ import:
   "private/kernel/local_defn_forms.rhm":
     expose:
       concretize_let_ref
-  pille
   pille/concretize open
   pille/llvm
   pille/lowering
@@ -24,6 +23,61 @@ import:
 export:
   all_from(self!only_pille_spaces)
   pille
+
+//==============================================================================
+module global_jit ~lang rhombus/static:
+  import:
+    "private/runtime/jit_linker.rhm" open
+    "private/runtime/profile.rhm" open
+    "private/runtime/ub_policy.rhm" open
+    "private/util/defer.rhm" open
+    pille/llvm
+    rhombus/thread open
+
+  def lock = Semaphore(1)
+  def mutable global_linker :~ maybe(JitLinker) = #false
+
+  fun make_linker(ub_policy):
+    JitLinker(
+      Profile(
+        ~code_gen_opt_level: llvm.CodeGenOptLevel.aggressive,
+        ~code_model: llvm.CodeModel.jit_default,
+        ~ub_policy))
+
+  export fun configure_jit(
+    ~ub_policy:
+      ub_policy :: UbPolicy:
+        UbPolicy.from_env.force(),
+  ) :~ Void:
+    lock.wait()
+    defer lock.post()
+    global_linker := make_linker(ub_policy)
+    #void
+
+  export fun with_jit_linker(thunk :~ Function.assume_of(JitLinker -> ~any)) :~ Any.like_result(thunk):
+    lock.wait()
+    defer lock.post()
+    let linker = global_linker || block:
+      let linker = make_linker(UbPolicy.from_env.force())
+      global_linker := linker
+      linker
+    thunk(linker)
+
+import self!global_jit open
+
+//==============================================================================
+module pille_ext ~lang rhombus/static:
+  import:
+    pille open
+    parent!global_jit open
+    "private/runtime/ub_policy.rhm" open
+
+  export:
+    all_from(pille)
+    configure_jit
+    UbPolicy
+
+import self!pille_ext as pille
 
 //==============================================================================
 meta syntax_class SpeclArg:
@@ -124,84 +178,78 @@ export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
                    values(
                      [$dyn_arg_type_id, ...],
                      pille.expr.concretize_body: $body)»')))')
-
-  '$stub($specl_arg.init, ...)($dyn_arg.init, ...)'
+  '$stub([$specl_arg.init, ...], [$dyn_arg.init, ...])'
 
 fun make_stub(
   dyn_arg_syms :: [Symbol, ...],
   concretize :: ([Any, ...]) -> values([Type, ...], Expr),
 ):
-  fun make_specialization(specl_args :: List) :: Function:
-    let linker = JitLinker.global.force()
-    parameterize { Profile.current: linker.profile }:
-      let (dyn_arg_types, body) = concretize(specl_args)
+  let cache_attr_key = Symbol.gen("hosted_cache")
 
-      let RhombusToPilleAdapter(make_callout, read_args, write_result):
-        RhombusToPilleAdapter(
-          [[each dyn_arg_syms, each dyn_arg_types], ...],
-          body.type)
+  fun compile_specialization(specl_args :: List) :: Function:
+    with_jit_linker(_) <| fun(linker :~ JitLinker):
+      let cache = linker.profile.get_or_init_attr(cache_attr_key, MutableMap)
+      cache.get(specl_args, _) <| fun():
+        let callout = parameterize { Profile.current: linker.profile }:
+          let (dyn_arg_types, body) = concretize(specl_args)
 
-      let native_sym:
-        let suffix:
-          match specl_args
-          | []: ""
-          | [arg, ...]: "{" ++ String.join([to_string(arg), ...], ", ") ++ "}"
-        linker.profile.gen_native_symbol("pille" ++ suffix)
+          let RhombusToPilleAdapter(make_callout, read_args, write_result):
+            RhombusToPilleAdapter(
+              [[each dyn_arg_syms, each dyn_arg_types], ...],
+              body.type)
 
-      let body_low = body.lower_rvalue
+          let native_sym:
+            let suffix:
+              match specl_args
+              | []: ""
+              | [arg, ...]: "{" ++ String.join([to_string(arg), ...], ", ") ++ "}"
+            linker.profile.gen_native_symbol("pille" ++ suffix)
 
-      linker.profile.define_function(
-        native_sym,
+          let body_low = body.lower_rvalue
 
-        fun(llvm_ctx):
-          llvm.FunctionType(llvm.VoidType(llvm_ctx), [llvm.PointerType(llvm_ctx)]),
+          linker.profile.define_function(
+            native_sym,
 
-        fun(llvm_fn :: llvm.Function):
-          let builder = llvm.Builder(llvm_fn.context)
-          defer builder.dispose()
+            fun(llvm_ctx):
+              llvm.FunctionType(llvm.VoidType(llvm_ctx), [llvm.PointerType(llvm_ctx)]),
 
-          llvm_fn.call_conv := llvm.CallConv.c
+            fun(llvm_fn :: llvm.Function):
+              let builder = llvm.Builder(llvm_fn.context)
+              defer builder.dispose()
 
-          let frame_ptr = llvm_fn.arguments.first!!
-          lowering.name(frame_ptr, "frame")
+              llvm_fn.call_conv := llvm.CallConv.c
 
-          let entry_bb = llvm_fn.basic_blocks.add("entry")
-          builder.position_at_end(entry_bb)
+              let frame_ptr = llvm_fn.arguments.first!!
+              lowering.name(frame_ptr, "frame")
 
-          lowering.with_builder(builder, _) <| fun():
-            fun terminated(): #void
-            fun unterminated(_): builder.create_ret_void()
-            lowering.handle_termination(~terminated, ~unterminated, _) <| fun():
-              let [arg_val, ...] = read_args(frame_ptr)
-              let res_val = body_low(Map{each dyn_arg_syms: arg_val, ...})
-              write_result(frame_ptr, res_val)
-              #void)
+              let entry_bb = llvm_fn.basic_blocks.add("entry")
+              builder.position_at_end(entry_bb)
 
-      linker.profile.force_deferred_concretization()
+              lowering.with_builder(builder, _) <| fun():
+                fun terminated(): #void
+                fun unterminated(_): builder.create_ret_void()
+                lowering.handle_termination(~terminated, ~unterminated, _) <| fun():
+                  let [arg_val, ...] = read_args(frame_ptr)
+                  let res_val = body_low(Map{each dyn_arg_syms: arg_val, ...})
+                  write_result(frame_ptr, res_val)
+                  #void)
 
-      let fptr = linker.function_pointer(native_sym)
-      let callout = make_callout(fptr)
+          linker.profile.force_deferred_concretization()
 
-      fun retaining_callout(&args):
-        ~name: pille
-        try:
-          callout(&args)
-          ~finally:
-            // Keep the linker from being collected for as long as this function
-            // might be called
-            Function.black_box(linker)
+          let fptr = linker.function_pointer(native_sym)
+          let callout = make_callout(fptr)
 
-      Function.reduce_arity(
-        retaining_callout,
-        1 bits.(<<) dyn_arg_syms.length(),
-        [],
-        [])
+          fun(args):
+            ~name: pille
+            try:
+              callout(&args)
+              ~finally:
+                // Keep the linker from being collected for as long as this function
+                // might be called
+                Function.black_box(linker)
 
-  let specialization_cache = MutableMap{}
+        cache[specl_args] := callout
+        callout
 
-  fun(&specl_args):
-    let spec = specialization_cache.maybe[specl_args]
-    guard !spec | spec
-    let spec = make_specialization(specl_args)
-    specialization_cache[specl_args] := spec
-    spec
+  fun(specl_args, dyn_args):
+    compile_specialization(specl_args)(dyn_args)

@@ -23,24 +23,25 @@ such checks introduce.
 
 Accordingly, Pille defines a subset of undefined behavior as
 @deftech{managed undefined behavior}, where code generation
-changes depending on the policy selected by the
-@tt{PILLE_UB_POLICY} environment variable:
+changes depending on the active @deftech{undefined behavior
+policy}:
 @itemlist(
-  @item{@tt{PILLE_UB_POLICY=allow}: Treat managed undefined
-        behavior just as any other kind, meaning that no
-        guarantees are given for programs that exhibit it.},
-  @item{@tt{PILLE_UB_POLICY=suppress}: Make managed
-        undefined behavior @italic{defined}, but without any
-        guarantees as to the actual definition. This intends
-        to mitigate some of the most insidious aspects of
-        true undefined behavior (its nonlocal and
-        nondeterministic effects) with minimal overhead.},
-  @item{@tt{PILLE_UB_POLICY=check}: Perform runtime checks
-        and @pille_expr(panic) whenever managed undefined
+  @item{@tt{allow}: Treat managed undefined behavior just as
+        any other kind, meaning that no guarantees are given
+        for programs that exhibit it.},
+  @item{@tt{suppress}: Make managed undefined behavior
+        @italic{defined}, but without any guarantees as to
+        the actual definition. This intends to mitigate some
+        of the most insidious aspects of true undefined
+        behavior (its nonlocal and nondeterministic effects)
+        with minimal overhead.},
+  @item{@tt{check}: Perform runtime checks and
+        @pille_expr(panic) whenever managed undefined
         behavior would otherwise be triggered.})
 
-If the @tt{PILLE_UB_POLICY} environment variable is not set,
-then the default policy is @tt{check}.
+Absent any specification from within Rhombus, the active
+policy is controlled by the @tt{PILLE_UB_POLICY} environment
+variable, with @tt{check} as the default.
 
 For some causes of undefined behavior, runtime checks are
 impractical, but suppression is still possible; this is

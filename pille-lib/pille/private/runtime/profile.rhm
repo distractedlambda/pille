@@ -30,8 +30,6 @@ export class Profile(
 ):
   export:
     current
-    default
-    jit_default
     require_current
 
   internal _Profile
@@ -263,16 +261,3 @@ export class Profile(
 
   fun require_current() :: Profile:
     current() || error("no active Pille profile")
-
-  //============================================================================
-  def default :: Delay.assume_of(Profile):
-    delay:
-      ~sync
-      Profile()
-
-  def jit_default :: Delay.assume_of(Profile):
-    delay:
-      ~sync
-      Profile(
-        ~code_gen_opt_level: llvm.CodeGenOptLevel.aggressive,
-        ~code_model: llvm.CodeModel.jit_default)
