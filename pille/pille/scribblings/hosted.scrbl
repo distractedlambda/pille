@@ -9,18 +9,9 @@
     only_meta 0:
       meta_label:
         ffi open
-        pille // FIXME: why need?
         pille/hosted open
-        rhombus/and_meta as ~none:
-          expose:
-            =
-            Boolean
-            Flonum
-            Int
-            List
-            Real
-            block
-            expr)
+        rhombus/and_meta open
+        rhombus/delay open)
 
 @(nonterminal:
     expr: block
@@ -31,7 +22,11 @@
 
 @title{Hosted Execution}
 
-@docmodule(~open, pille/hosted)
+@docmodule(
+  ~use_sources:
+    lib("pille/private/runtime/ub_policy.rhm")
+    lib("pille/hosted.rhm")!global_jit,
+  ~open, pille/hosted)
 
 Hosted execution embeds Pille code within a Rhombus host
 program, backed by a simple JIT compiler. The
@@ -146,6 +141,7 @@ The interoperable basic types are as follow:
   to another type that already is. Specifically, in order
   for some type @rhombus(α, ~var) to be made interoperable
   via this mechanism:
+
   @itemlist(
     @item{There must be an overload of the
     @pille_expr($to_rhombus) method, with receiver type
@@ -156,6 +152,7 @@ The interoperable basic types are as follow:
     @pille_specl_expr(Specl(#,(@rhombus(α, ~var)))) and a
     single argument of type @rhombus(β, ~var), whose return
     type is coercible to @rhombus(α, ~var).})
+
   When converting a Rhombus value to @rhombus(α, ~var), it
   is first converted to @rhombus(β, ~var), then the
   @pille_expr($from_rhombus) method is called (and a
@@ -165,4 +162,54 @@ The interoperable basic types are as follow:
   Rhombus, the @pille_expr($to_rhombus) method is called to
   first convert it to type @rhombus(β, ~var), and then from
   there it is converted to Rhombus.
+
+  These bindings are also provided by
+  @rhombuslangname(pille), so importing
+  @rhombusmodname(pille/hosted) is not necessary to define
+  overloads.
+}
+
+@section{Configuring the JIT}
+
+@doc(
+  fun pille.configure_jit(
+    ~ub_policy:
+      ub_policy :: pille.UbPolicy:
+        pille.UbPolicy.from_env.force(),
+  ) :: Void
+){
+  (Re)Configures the JIT used for hosted execution, while
+  also resetting its state (including discarding any
+  compiled code).
+
+  If this function is not called prior to executing a
+  @rhombus(pille) expression, then it is as though it were
+  called at that point with default values for all
+  arguments.
+
+  The JIT does not currently resolve method overloads or
+  unification rules that were defined since the last
+  (possibly-implicit) call to this function; thus, calling
+  this function is currently necessary to ensure that
+  newly-defined overloads or unification rules take effect
+  for subsequent evaluations of @rhombus(pille)
+  expressions. This is considered a bug, and should
+  eventually be fixed.
+}
+
+@doc(
+  enum pille.UbPolicy
+  | check
+  | suppress
+  | allow
+){
+  Models @tech{undefined behavior policies}.
+}
+
+@doc(
+  def pille.UbPolicy.from_env
+    :: Delay.assume_of(pille.UbPolicy)
+){
+  Resolves to the @tech{undefined behavior policy} implied
+  by the @tt{PILLE_UB_POLICY} environment variable.
 }

@@ -1,0 +1,30 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+pille.configure_jit(~ub_policy: #'check)
+
+check:
+  (pille: pille.ub.checked) ~is #true
+  (pille: pille.ub.suppressed) ~is #false
+  (pille: pille.ub.allowed) ~is #false
+
+pille.configure_jit(~ub_policy: #'suppress)
+
+check:
+  (pille: pille.ub.checked) ~is #false
+  (pille: pille.ub.suppressed) ~is #true
+  (pille: pille.ub.allowed) ~is #false
+
+//==============================================================================
+pille.fun foo() :: Int(32):
+  42
+
+check:
+  (pille: foo()) ~throws "no applicable method"
+
+pille.configure_jit()
+
+check:
+  (pille: foo()) ~is 42
