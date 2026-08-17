@@ -90,7 +90,7 @@ meta syntax_class MaybeArgs:
         | '$hd; $tl; ...':
             let '($specl_tl, ...) ($dyn_tl, ...)' = split_args('$tl; ...')
             match hd
-            | '~specl $hd_tl ...':
+            | '$(_ :: pille.expr_meta.SpeclOp) $hd_tl ...':
                 '($hd_tl ..., $specl_tl, ...) ($dyn_tl, ...)'
             | _:
                 '($specl_tl, ...) ($hd, $dyn_tl, ...)'

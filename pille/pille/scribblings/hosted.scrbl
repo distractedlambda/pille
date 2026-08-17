@@ -33,7 +33,7 @@
   | ε
 
   grammar arg
-  | ~specl $specl_arg
+  | #,(pille_expr(specl)) $specl_arg
   | $dyn_arg
 
   grammar specl_arg

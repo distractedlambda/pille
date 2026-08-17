@@ -20,7 +20,7 @@ check:
   ~is 42
 
 fun dynamic_bit_width(width :: PosInt, val :: Int):
-  pille(~specl width, val :: Int(width)): val
+  pille(specl width, val :: Int(width)): val
 
 check dynamic_bit_width(8, 42) ~is 42
 check dynamic_bit_width(16, 42) ~is 42
@@ -31,7 +31,7 @@ check:
   ~is 42
 
 fun add_by_specl(x :: Int, y :: Int):
-  pille(~specl x, ~specl y): specl(x) + specl(y)
+  pille(specl x, specl y): specl(x) + specl(y)
 
 check add_by_specl(1, 2) ~is 3
 check add_by_specl(5, 9) ~is 14
