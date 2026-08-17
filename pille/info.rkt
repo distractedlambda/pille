@@ -11,4 +11,5 @@
   '("racket-doc"
     "rhombus"
     "rhombus-scribble-lib"
+    "rhombus-ffi"
     "shrubbery"))
