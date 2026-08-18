@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/profile.rhm" open
+  "../runtime/compiler.rhm" open
   "../util/equatable_by_identity.rhm" open
   "caches.rhm"
   "exn.rhm" open
@@ -82,8 +82,8 @@ export class Type():
   private method compute_unidirectional_unification_with(
     other :~ Type,
   ) :~ Type || [Exn.Fail.Concretize.Recoverable, ...]:
-    let profile = Profile.require_current()
-    recur find_rule(rules :~ [UnifyRule, ...] = profile.unification_rules,
+    let compiler = Compiler.require_current()
+    recur find_rule(rules :~ [UnifyRule, ...] = compiler.unification_rules,
                     exns :~ List = []):
       match rules
       | [rule, &rules]:
@@ -155,8 +155,8 @@ export class Type():
     selector :: Any,
     arg_types :: [Type, ...],
   ) :~ MethodDefn.Concretized:
-    let profile = Profile.require_current()
-    recur find_match(defns :~ [MethodDefn, ...] = profile.methods.maybe[selector] || [],
+    let compiler = Compiler.require_current()
+    recur find_match(defns :~ [MethodDefn, ...] = compiler.methods.maybe[selector] || [],
                      exns :~ List = []):
       guard.let [defn, &defns] = defns
       | error(

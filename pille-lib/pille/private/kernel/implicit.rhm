@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/per_profile.rhm" open
+  "../runtime/per_compiler.rhm" open
   "../util/syntax.rhm" open
   "specl_bind.rhm" open
   "specl_bind_forms.rhm" open
@@ -109,7 +109,7 @@ expr.macro 'make_value_type_validator($(value_type_bind :: specl_bind_meta.Parse
          '#void'))'
 
 fun make_key_factory(display_name, validator):
-  let profile_species = PerProfile()
+  let profile_species = PerCompiler()
   fun(indices):
     let species :~ ImplicitKey.Species:
       profile_species.get_or_init(_) <| fun():

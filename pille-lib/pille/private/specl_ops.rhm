@@ -37,8 +37,8 @@ export specl.fun sizeof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
-      "runtime/profile.rhm" open
-    Profile
+      "runtime/compiler.rhm" open
+    Compiler
       .require_current()
       .sizer
       .memory_layout_of(Type.repr(α))
@@ -49,8 +49,8 @@ export specl.fun alignof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
-      "runtime/profile.rhm" open
-    Profile
+      "runtime/compiler.rhm" open
+    Compiler
       .require_current()
       .sizer
       .memory_layout_of(Type.repr(α))
@@ -61,8 +61,8 @@ export specl.fun strideof(α :: type):
   #%rhombus(α):
     import:
       rhombus/static open
-      "runtime/profile.rhm" open
-    Profile
+      "runtime/compiler.rhm" open
+    Compiler
       .require_current()
       .sizer
       .memory_layout_of(Type.repr(α))

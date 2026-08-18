@@ -16,7 +16,7 @@ import:
   rhombus/rx open
 
 //==============================================================================
-export class Profile(
+export class Compiler(
   target :: Target,
   code_gen_opt_level :: llvm.CodeGenOptLevel,
   reloc_mode :: llvm.RelocMode,
@@ -256,8 +256,8 @@ export class Profile(
     force_deferred_concretization()
 
   //============================================================================
-  Parameter.def current :: maybe(Profile):
+  Parameter.def current :: maybe(Compiler):
     #false
 
-  fun require_current() :: Profile:
-    current() || error("no active Pille profile")
+  fun require_current() :: Compiler:
+    current() || error("no active Pille compiler")

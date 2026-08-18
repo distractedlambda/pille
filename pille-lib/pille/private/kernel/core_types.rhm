@@ -1,8 +1,8 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/per_profile.rhm" open
-  "../runtime/profile.rhm" open
+  "../runtime/per_compiler.rhm" open
+  "../runtime/compiler.rhm" open
   "../util/assert.rhm" open
   "specl_expr.rhm" open
   ffi open
@@ -12,13 +12,13 @@ import:
 
 //==============================================================================
 class_clause.macro 'singleton_ctor':
-  'def instances = PerProfile()
+  'def instances = PerCompiler()
    constructor():
      instances.get_or_init(_) <| fun():
        super()()'
 
 class_clause.macro 'nonsingleton_ctor($(arg_id :: Identifier), ...)':
-  'def instance_maps = PerProfile()
+  'def instance_maps = PerCompiler()
    constructor($arg_id, ...):
      let instance_map = instance_maps.get_or_init(MutableMap)
      let key:

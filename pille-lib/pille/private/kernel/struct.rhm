@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/per_profile.rhm" open
+  "../runtime/per_compiler.rhm" open
   "../util/syntax.rhm" open
   "coerce.rhm" open
   "core_types.rhm" open
@@ -102,8 +102,8 @@ class StructSpecies(
   field_count :: Nat,
   concretize_fields :: List -> [Type, ...],
 ):
-  immutable type_maps :: PerProfile:
-    PerProfile()
+  immutable type_maps :: PerCompiler:
+    PerCompiler()
 
 //==============================================================================
 class StructType(

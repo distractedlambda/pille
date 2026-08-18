@@ -1,13 +1,13 @@
 #lang rhombus/static/and_meta
 
 import:
-  "profile.rhm" open
+  "compiler.rhm" open
 
-export class PerProfile():
+export class PerCompiler():
   private immutable key:
     Symbol.gen()
 
   method get_or_init(f :~ Function.of_arity(0)) :~ Any.like_result(f):
-    Profile
+    Compiler
       .require_current()
       .get_or_init_attr(key, f)

@@ -7,7 +7,7 @@ module only_pille_spaces ~lang pille:
 
 import:
   "private/runtime/jit_linker.rhm" open
-  "private/runtime/profile.rhm" open
+  "private/runtime/compiler.rhm" open
   "private/runtime/rhombus_interop.rhm" open
   "private/util/defer.rhm" open
   "private/util/syntax.rhm" open
@@ -28,7 +28,7 @@ export:
 module global_jit ~lang rhombus/static:
   import:
     "private/runtime/jit_linker.rhm" open
-    "private/runtime/profile.rhm" open
+    "private/runtime/compiler.rhm" open
     "private/runtime/ub_policy.rhm" open
     "private/util/defer.rhm" open
     pille/llvm
@@ -39,7 +39,7 @@ module global_jit ~lang rhombus/static:
 
   fun make_linker(ub_policy):
     JitLinker(
-      Profile(
+      Compiler(
         ~code_gen_opt_level: llvm.CodeGenOptLevel.aggressive,
         ~code_model: llvm.CodeModel.jit_default,
         ~ub_policy))
@@ -188,9 +188,9 @@ fun make_stub(
 
   fun compile_specialization(specl_args :: List) :: Function:
     with_jit_linker(_) <| fun(linker :~ JitLinker):
-      let cache = linker.profile.get_or_init_attr(cache_attr_key, MutableMap)
+      let cache = linker.compiler.get_or_init_attr(cache_attr_key, MutableMap)
       cache.get(specl_args, _) <| fun():
-        let callout = parameterize { Profile.current: linker.profile }:
+        let callout = parameterize { Compiler.current: linker.compiler }:
           let (dyn_arg_types, body) = concretize(specl_args)
 
           let RhombusToPilleAdapter(make_callout, read_args, write_result):
@@ -203,11 +203,11 @@ fun make_stub(
               match specl_args
               | []: ""
               | [arg, ...]: "{" ++ String.join([to_string(arg), ...], ", ") ++ "}"
-            linker.profile.gen_native_symbol("pille" ++ suffix)
+            linker.compiler.gen_native_symbol("pille" ++ suffix)
 
           let body_low = body.lower_rvalue
 
-          linker.profile.define_function(
+          linker.compiler.define_function(
             native_sym,
 
             fun(llvm_ctx):
@@ -234,7 +234,7 @@ fun make_stub(
                   write_result(frame_ptr, res_val)
                   #void)
 
-          linker.profile.force_deferred_concretization()
+          linker.compiler.force_deferred_concretization()
 
           let fptr = linker.function_pointer(native_sym)
           let callout = make_callout(fptr)

@@ -3,7 +3,7 @@
 import:
   "private/concretize/repr.rhm" open
   "private/concretize/type.rhm" open
-  "private/runtime/profile.rhm" open
+  "private/runtime/compiler.rhm" open
   "private/util/assert.rhm" open
   "private/util/defer.rhm" open
   lib("ffi/unsafe.rkt") as ffi
@@ -118,8 +118,8 @@ export fun create_internal_function(
   ~inout_mask: inout_mask :: Nat = 0,
   concretize_body :: () -> Map -> maybe(llvm.Value),
 ) :: [maybe(llvm.Value), ...] -> [maybe(llvm.Value), ...]:
-  let profile = Profile.require_current()
-  let native_symbol = profile.gen_native_symbol(display_name)
+  let compiler = Compiler.require_current()
+  let native_symbol = compiler.gen_native_symbol(display_name)
 
   let inout_reprs:
     for List ([_, arg_repr] in args, arg_idx in 0..):
@@ -136,9 +136,9 @@ export fun create_internal_function(
         skip_when repr is_a Repr.Erased
         repr.llvm_type(ctx))
 
-  profile.defer_concretization(_) <| fun():
+  compiler.defer_concretization(_) <| fun():
     let body_low = concretize_body()
-    profile.define_function(
+    compiler.define_function(
       native_symbol,
       llvm_fun_type,
       fun(llvm_fun :~ llvm.Function):

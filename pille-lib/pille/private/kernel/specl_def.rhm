@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/profile.rhm" open
+  "../runtime/compiler.rhm" open
   "../util/syntax.rhm" open
   "specl_bind.rhm" open
   "specl_expr.rhm" open
@@ -58,5 +58,5 @@ fun make_forcer(thunk):
       ~get_cache: fun(): cache,
       ~set_cache: (cache := _),
       ~make_map: WeakMutableMap,
-      Profile.require_current(),
+      Compiler.require_current(),
       fun(_): thunk())

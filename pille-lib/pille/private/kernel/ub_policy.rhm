@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/profile.rhm" open
+  "../runtime/compiler.rhm" open
   "../runtime/ub_policy.rhm" open
   "specl_def.rhm" open
   "specl_expr_forms.rhm" open
@@ -10,12 +10,12 @@ export namespace ub
 
 specl.def ub.checked:
   #%rhombus:
-    Profile.require_current().ub_policy matches UbPolicy.check
+    Compiler.require_current().ub_policy matches UbPolicy.check
 
 specl.def ub.suppressed:
   #%rhombus:
-    Profile.require_current().ub_policy matches UbPolicy.suppress
+    Compiler.require_current().ub_policy matches UbPolicy.suppress
 
 specl.def ub.allowed:
   #%rhombus:
-    Profile.require_current().ub_policy matches UbPolicy.allow
+    Compiler.require_current().ub_policy matches UbPolicy.allow
