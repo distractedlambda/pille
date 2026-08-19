@@ -27,6 +27,7 @@ export class Compiler(
   sizer :: Sizer,
   methods :: MethodDefn.Table,
   unification_rules :: UnifyRule.Table,
+  using_hosted_execution :: Boolean,
 ):
   export:
     current
@@ -57,6 +58,9 @@ export class Compiler(
     ~unification_rules:
       unification_rules :: UnifyRule.Table:
         UnifyRule.snapshot_table(),
+    ~using_hosted_execution:
+      using_hosted_execution :: Boolean:
+        #false,
   ):
     let llvm_target:
       llvm.Target.for_triple(target.triple) || error(
@@ -89,7 +93,8 @@ export class Compiler(
       llvm_data_layout_string,
       sizer,
       methods,
-      unification_rules)
+      unification_rules,
+      using_hosted_execution)
 
   //============================================================================
   private immutable attrs :~ MutableMap.by(===):
@@ -100,6 +105,14 @@ export class Compiler(
       let val = thunk()
       attrs[key] := val
       val
+
+  //============================================================================
+  private immutable retained :~ MutableList:
+    MutableList[]
+
+  method retain(obj :: Any) :~ Void:
+    retained.add(obj)
+    #void
 
   //============================================================================
   private immutable codegen_log :: Logger:

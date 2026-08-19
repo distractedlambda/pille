@@ -1,0 +1,93 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/compiler.rhm" open
+  "../runtime/rhombus_interop.rhm" open
+  "../util/syntax.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "specl_annot.rhm" open
+  "specl_annot_forms.rhm" open
+  "specl_def.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "unique_member.rhm" open
+  ffi open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+//==============================================================================
+export specl.def using_hosted_execution:
+  #%rhombus:
+    Compiler
+      .require_current()
+      .using_hosted_execution
+
+//==============================================================================
+export unique_member from_rhombus
+export unique_member to_rhombus
+
+//==============================================================================
+meta:
+  syntax_class PilleToRhombusArg:
+    kind: ~group
+  | '$(id :: Identifier) $(_ :: pille_expr_meta.EqualsOp) $(init :: pille_expr_meta.Parsed)'
+  | '$(id :: Identifier)':
+      match_def '$(init :: pille_expr_meta.Parsed)' = id
+
+  syntax_class MaybePilleToRhombusArgs:
+    kind: ~sequence
+    fields: [arg :~ Syntax.matched_of(PilleToRhombusArg), ...]
+  | '($(arg :: PilleToRhombusArg), ...)'
+  | '': field [arg, ...] = []
+
+  syntax_class MaybePilleToRhombusResultType:
+    kind: ~sequence
+    fields: type
+  | '$(_ :: pille_expr_meta.AnnotOp) $(ty :: SimpleNonemptySequence)':
+      field type:
+        ty
+          |> specl_expr_meta.parse
+          |> specl_expr_meta.pack_implicitly_annotated(_, specl_annot_meta.parse('type'))
+          |> specl_expr_meta.parse
+  | '':
+      field type = #false
+
+export pille_expr.macro 'rhombus $(args :: MaybePilleToRhombusArgs) \
+                                 $(res_ty :: MaybePilleToRhombusResultType):
+                           $(body :: NonemptyMulti)':
+  pille_expr_meta.pack_concretize(
+    'concretize_embedded_rhombus(
+       [$(pille_expr_meta.unpack_concretize(args.arg.init)), ...],
+       $((res_ty.type ?> specl_expr_meta.unpack_rhombus_expr) || 'VoidType()'),
+       fun($args.arg.id, ...): block: $body)')
+
+fun concretize_embedded_rhombus(
+  [arg :: Expr, ...],
+  res_type :: Type,
+  body :: Function,
+):
+  let compiler = Compiler.require_current()
+
+  unless compiler.using_hosted_execution
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "embedded Rhombus is only supported with hosted execution")
+
+  let adapter = PilleToRhombusAdapter([arg.type, ...], res_type)
+  let callback = adapter.make_callback(body)
+  compiler.retain(callback)
+  Expr.Rvalue(
+    ~type: res_type,
+    ~lower:
+      let [arg_low, ...] = [arg.lower_rvalue, ...]
+      let call_low = adapter.lower_call
+      fun(env):
+        let builder = lowering.builder()
+        let callee_val:
+          let addr = llvm.ConstantInt(builder.intptr_type(), ptr_to_uintptr(callback))
+          builder.create_inttoptr(addr, llvm.PointerType(builder.context))
+        let arg_vals = [arg_low(env), ...]
+        call_low(callee_val, arg_vals))

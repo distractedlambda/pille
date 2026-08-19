@@ -43,6 +43,12 @@ export def rhm_model_doc:
 export expr.macro 'rhm_model_tech($arg, ...)':
   'manual.tech(~doc: rhm_model_doc, $arg, ...)'
 
+export def rhm_ffi_doc:
+  ModulePath'lib("rhombus/ffi/scribblings/rhombus-ffi.scrbl")'
+
+export expr.macro 'rhm_ffi_tech($arg, ...)':
+  'manual.tech(~doc: rhm_ffi_doc, $arg, ...)'
+
 export def language_tech:
   @rhm_guide_tech{language}
 

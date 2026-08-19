@@ -1,0 +1,22 @@
+#lang rhombus/static
+
+import:
+  pille/hosted open
+
+check:
+  pille:
+    rhombus :: UInt(32):
+      42
+  ~is 42
+
+check:
+  pille:
+    rhombus(x = 4 :: UInt(32), y = 5 :: UInt(32)) :: UInt(32):
+      x + y
+  ~is 9
+
+check:
+  pille:
+    rhombus:
+      error("oh noes")
+  ~throws "oh noes"

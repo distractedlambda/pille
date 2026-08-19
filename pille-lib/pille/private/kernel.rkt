@@ -20,6 +20,7 @@ import:
   "kernel/operator.rhm" open
   "kernel/preparse.rhm" open
   "kernel/priority.rhm" open
+  "kernel/rhombus_interop.rhm" open
   "kernel/specl_annot.rhm" open
   "kernel/specl_annot_forms.rhm" open
   "kernel/specl_bind.rhm" open
@@ -137,6 +138,7 @@ export:
     all_from("kernel/method.rhm")
     all_from("kernel/preparse.rhm")
     all_from("kernel/priority.rhm")
+    all_from("kernel/rhombus_interop.rhm")
     all_from("kernel/specl_annot_forms.rhm")
     all_from("kernel/specl_bind.rhm")
     all_from("kernel/specl_bind_forms.rhm")

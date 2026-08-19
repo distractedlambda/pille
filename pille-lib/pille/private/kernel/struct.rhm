@@ -7,6 +7,7 @@ import:
   "core_types.rhm" open
   "expr_forms.rhm" open
   "method.rhm" open
+  "rhombus_interop.rhm" open
   "specl_bind.rhm" open
   "specl_def.rhm" open
   "specl_expr.rhm" open

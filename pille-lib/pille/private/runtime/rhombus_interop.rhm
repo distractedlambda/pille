@@ -32,7 +32,7 @@ export class RhombusToPilleAdapter(
     let frame_size = math.max(args_size, result_spec.byte_size)
 
     fun make_callout(fptr :: ptr_t):
-      let prim_callout = cast (ptr_t/gcable -> void_t)fptr
+      let prim_callout = cast (ptr_t/gcable -> void_t: ~allow_callback_exn) fptr
       fun(&args):
         try:
           let frame = malloc(frame_size)
@@ -63,3 +63,69 @@ export class RhombusToPilleAdapter(
       result_writer(frame_ptr, val)
 
     super(make_callout, read_args, write_result)
+
+export class PilleToRhombusAdapter(
+  make_callback :: Function -> ptr_t,
+  lower_call :: (callee :: llvm.Value, args :: [maybe(llvm.Value), ...]) -> maybe(llvm.Value),
+):
+  constructor(
+    arg_types :: Listable.to_list && [Type, ...],
+    result_type :: Type,
+  ):
+    let arg_specs = [(each arg_types).rhombus_interop, ...]
+    let result_spec = result_type.rhombus_interop
+
+    let arg_writers = [(each arg_specs).write_from_pille, ...]
+    let arg_readers = [(each arg_specs).read_from_rhombus, ...]
+    let result_writer = result_spec.write_from_rhombus
+    let result_reader = result_spec.read_from_pille
+
+    let (arg_offsets :~ List, args_size) = for fold(offsets :~ List = [], next_offset = 0):
+      each spec in arg_specs
+      values(offsets.add(next_offset), next_offset + spec.byte_size)
+
+    let frame_size = math.max(args_size, result_spec.byte_size)
+
+    fun make_callback(f :: Function):
+      let wrapper = fun(frame :~ ptr_t):
+        let args = for List:
+          each:
+            reader in arg_readers
+            offset in arg_offsets
+          reader(frame, offset)
+        let res = f(&args)
+        result_writer(frame, 0, res)
+      let wrapper = wrapper.rename(f.name(), ~realm: f.realm())
+      cast ~from(ptr_t -> void_t) ~to(ptr_t) wrapper
+
+    fun lower_call(callee, args :~ List):
+      let builder = lowering.builder()
+      let frame:
+        let current_bb = builder.insertion_block!!
+        let entry_bb = current_bb.parent!!.basic_blocks.first
+        builder.position_at_start(entry_bb)
+        let alloca_inst:
+          builder.create_alloca(
+            ~name: "frame",
+            llvm.ArrayType(builder.int_type(8), frame_size))
+        builder.position_at_end(current_bb)
+        alloca_inst
+      for (offset in arg_offsets, writer in arg_writers, arg in args):
+        let ptr:
+          builder.create_gep(
+            ~inbounds: #true,
+            ~nuw: #true,
+            builder.int_type(8),
+            frame,
+            [llvm.ConstantInt(builder.intptr_type(), offset)])
+        writer(ptr, arg)
+      let call:
+        builder.create_call(
+          llvm.FunctionType(
+            builder.void_type,
+            [llvm.PointerType(builder.context)]),
+          callee, [frame])
+      call.call_conv := llvm.CallConv.c
+      result_reader(frame)
+
+    super(make_callback, lower_call)

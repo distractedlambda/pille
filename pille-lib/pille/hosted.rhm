@@ -42,7 +42,8 @@ module global_jit ~lang rhombus/static:
       Compiler(
         ~code_gen_opt_level: llvm.CodeGenOptLevel.aggressive,
         ~code_model: llvm.CodeModel.jit_default,
-        ~ub_policy))
+        ~ub_policy,
+        ~using_hosted_execution: #true))
 
   export fun configure_jit(
     ~ub_policy:

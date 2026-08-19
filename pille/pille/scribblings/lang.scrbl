@@ -21,4 +21,5 @@
 @include_section("lang/concr.scrbl")
 @include_section("lang/macros.scrbl")
 @include_section("lang/specl.scrbl")
+@include_section("lang/rhombus.scrbl")
 @include_section("lang/ub.scrbl")
