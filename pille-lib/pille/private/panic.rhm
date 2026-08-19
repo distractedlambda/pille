@@ -1,4 +1,14 @@
 #lang pille/private/kernel
 
+import:
+  "cond.rhm" open
+
 export fun panic() :: Never:
-  prim.trap
+  cond
+  | using_hosted_execution:
+      rhombus:
+        import rhombus/static open
+        error("panic from Pille")
+      prim.unreachable
+  | ~else:
+      prim.trap

@@ -1,7 +1,11 @@
 #lang rhombus/scribble/manual
 
 @(import:
-    "common.rhm" open)
+    "common.rhm" open
+    rhombus/meta open
+    meta_label:
+      pille/hosted open:
+        only_space expr)
 
 @title{Expressions and Control}
 
@@ -777,12 +781,12 @@
   is the canonical way to ``abort'' or ``halt and catch
   fire''.
 
-  Currently, this just executes a target-specific trap
-  instruction, so effectively debugging programs that
-  @pille_expr(panic) requires use of a native debugger than
-  can intercept machine-level traps. In the future, this
-  function is expected to have richer
-  functionality--possibly even gracefully returning control
-  to Rhombus in the case of
-  @seclink("Hosted_Execution"){hosted execution}.
+  When using @tech{hosted execution}, this function only
+  aborts the active @rhombus(pille) form (causing it to
+  throw an exception), and does not prevent subsequent
+  execution of Pille code in the same process. This is
+  intended mainly as an aid for unit-testing and interactive
+  use; panics mean that logical invariants have been
+  violated, and they may leave Pille-managed resources in
+  inconsistent or broken states.
 }
