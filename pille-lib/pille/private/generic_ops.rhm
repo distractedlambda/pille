@@ -120,6 +120,11 @@ export operator lhs in rhs:
   ~transparent
   rhs.$contains(lhs)
 
+export operator lhs ∉ rhs:
+  ~order: equivalence
+  ~transparent
+  ¬(lhs in rhs)
+
 //==============================================================================
 export only_space expr:
   rename:

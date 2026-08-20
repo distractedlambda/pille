@@ -155,6 +155,16 @@
 }
 
 @doc(
+  operator lhs ∉ rhs:
+    ~order: equivalence
+    ~transparent
+    ¬(lhs ∈ rhs)
+){
+  A negated form of @pille_expr(∈)/@pille_expr(in), for
+  convenience.
+}
+
+@doc(
   unique_member add
   operator (lhs :: α) + (rhs :: β):
     ~transparent
