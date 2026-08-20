@@ -277,7 +277,7 @@ doc.bridge specl.fun:
         let name_ts = typeset_name(stx.name, space, subst)
         let args_ts = '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx.args)
         let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$specl_dot_fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
           ~at: stx))
@@ -374,7 +374,7 @@ export doc.bridge property:
         let dot_member_name_ts = typeset_dot_member_name(stx.dot_member_name)
         let assign_pat_ts = (stx.assign_pat.pat ?> typeset_assign_pat) || ''
         let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$property_ts $receiver_ts $dot_member_name_ts $assign_pat_ts $res_annot_ts $block_ts',
           ~at: stx))
@@ -423,7 +423,7 @@ export doc.bridge fun:
           if stx.res_annot.present
           | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
           | ''
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
           ~at: stx))
@@ -461,7 +461,7 @@ doc.bridge specl.operator:
           | '($pat_ts)'.relocate(stx.pat)
           | pat_ts
         let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$specl_dot_operator_ts $pat_ts $res_annot_ts $block_ts',
           ~at: stx))
@@ -503,7 +503,7 @@ export doc.bridge operator:
           if stx.res_annot.present
           | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
           | ''
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$operator_ts $pat_ts $res_annot_ts $block_ts',
           ~at: stx))
@@ -545,7 +545,7 @@ export doc.bridge coercion:
         let receiver_ts = typeset_receiver(stx.receiver)
         let ann_op_ts = typeset_expr(stx.ann_op)
         let to_bind_ts = typeset_specl_bind(stx.to_bind)
-        let block_ts = typeset_optional_block(stx.block)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$coercion_ts $receiver_ts $ann_op_ts $to_bind_ts $block_ts',
           ~at: stx))
