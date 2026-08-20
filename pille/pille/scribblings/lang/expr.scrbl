@@ -574,6 +574,22 @@
       #,(pille_expr(if)) lhs | lhs | rhs_expr)
 }
 
+@doc(
+  expr.macro 'all($expr, $expr, ...)'
+){
+  Has the same behavior as @pille_expr(expr && expr && ...);
+  when there is only one @rhombus(expr), this is an identity
+  operation.
+}
+
+@doc(
+  expr.macro 'any($expr, $expr, ...)'
+){
+  Has the same behavior as @pille_expr(expr || expr || ...);
+  when there is only one @rhombus(expr), this is an identity
+  operation.
+}
+
 @//=============================================================================
 @section{Labels and Jumps}
 @doc(

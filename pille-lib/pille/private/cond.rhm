@@ -37,9 +37,24 @@ export expr.macro '$lhs && $rhs':
      let lhs_v = $lhs
      if lhs_v | $rhs | lhs_v'
 
+export expr.macro
+| 'all($fst)':
+    fst
+| 'all($(fst :: expr_meta.Parsed), $(snd :: expr_meta.Parsed), $tl, ...)':
+    ~op_stx: op
+    '$op($fst && $snd, $tl, ...)'
+
 //==============================================================================
 export expr.macro '$lhs || $rhs':
   ~order: logical_disjunction
   'block:
      let lhs_v = $lhs
      if lhs_v | lhs_v | $rhs'
+
+//==============================================================================
+export expr.macro
+| 'any($fst)':
+    fst
+| 'any($(fst :: expr_meta.Parsed), $(snd :: expr_meta.Parsed), $tl, ...)':
+    ~op_stx: op
+    '$op($fst || $snd, $tl, ...)'
