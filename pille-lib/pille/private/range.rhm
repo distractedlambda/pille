@@ -2,9 +2,10 @@
 
 import:
   "cond.rhm" open
-  "specl_ops.rhm" open
   "generic_ops.rhm" open
+  "iter.rhm" open
   "panic.rhm" open
+  "specl_ops.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
@@ -34,29 +35,24 @@ method (rng :: RangeTo(_)).$contains(val):
   val < rng.end
 
 //==============================================================================
-meta syntax_class ForSequence:
-  kind: ~group
-| '$(ivar :: Identifier) $('$(bound_as expr_meta.space: '∈')' && in_op) $(rng_ :: expr_meta.Parsed)':
-    field rng:
-      syntax_meta.track_origin(
-        rng_,
-        ~add: syntax_meta.flip_introduce(in_op),
-        ~space: expr_meta.space)
+export struct RangeIndex(α):
+  value :: α
 
-export expr.macro 'for ($(seq :: ForSequence)): $body':
-  'block:
-     expr.preparse body($seq.ivar): $body
-     let rng = $seq.rng
-     specl.match type_of(rng)
-     | Range(Specl(_ :: int)):
-         #void
-     | Range(BinaryInteger):
-         #'loop(i = rng.start):
-           unless i < rng.end | break loop
-           body(i)
-           continue loop(i + 1)
-     | _:
-         specl.error("unsupported range type")'
+method (lhs :: RangeIndex(α)).$lt(rhs :: RangeIndex(α)):
+  ~transparent
+  lhs.value < rhs.value
+
+property (rng :: Range(Integral as α)).$start_index:
+  RangeIndex(α){rng.start}
+
+property (rng :: Range(Integral as α)).$end_index:
+  RangeIndex(α){rng.end}
+
+method (rng :: Range(BinaryInteger as α)).$next_index(idx :: RangeIndex(α)):
+  RangeIndex(α){idx.value + 1}
+
+method (rng :: Range(BinaryInteger as α)).$index_read(idx :: RangeIndex(α)):
+  idx.value
 
 //==============================================================================
 export expr.macro

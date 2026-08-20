@@ -35,3 +35,23 @@ check:
       sum := sum + i
     sum
   ~is 45
+
+check:
+  pille:
+    var sum :: Int(32) = 0
+    for (i ∈ 15..99, j ∈ 1..10):
+      sum := sum + j
+    sum
+  ~is 45
+
+check:
+  pille:
+    for (i ∈ 1..1):
+      panic()
+  ~completes
+
+check:
+  pille:
+    for (i ∈ (1 :: Int(32))..1):
+      panic()
+  ~completes

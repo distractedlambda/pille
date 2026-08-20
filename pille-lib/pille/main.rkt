@@ -20,6 +20,7 @@ reexport:
   "private/float.rhm"
   "private/generic_ops.rhm"
   "private/int.rhm"
+  "private/iter.rhm"
   "private/loop.rhm"
   "private/misc.rhm"
   "private/never.rhm"

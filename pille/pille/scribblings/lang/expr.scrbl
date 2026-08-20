@@ -725,7 +725,7 @@
 }
 
 @//=============================================================================
-@section{Loops}
+@section{Imperative Loops}
 
 @doc(
   expr.macro 'while $test_expr:
@@ -773,18 +773,56 @@
   @rhombus(test_expr).
 }
 
+@//=============================================================================
+@section{Sequential Iteration}
+
 @doc(
   ~nonterminal:
-    ivar_id: rhm.block id
-    range_expr: expr expr ~space
+    elem_id: rhm.block id
+    seq_expr: expr expr ~space
 
-  expr.macro 'for ($ivar_id #,(pille_expr(in)) $range_expr):
+  expr.macro 'for ($for_seq, $for_seq, ...):
                 $body'
+
+  grammar for_seq
+  | $elem_id #,(pille_expr(in)) $seq_expr
 ){
-  Evaluates the @rhombus(range_expr), which must have a
-  @pille_specl_bind(Range(Integral)) type, then repeatedly
-  executes the @rhombus(body) with the @rhombus(ivar_id)
-  bound to each element of the range (in ascending order).
+  Iterates over the @rhombus(for_seq)s in lockstep,
+  executing the @rhombus(body) at each step with the element
+  values bound to the @rhombus(elem_id)s. Iteration ends as
+  soon as any sequence ends; the sequences do not need to be
+  of the same length.
+
+  The @rhombus(seq_expr)s are evaluated once prior to the
+  first iteration, and the type of each should overload the
+  @pille_expr($start_index), @pille_expr($end_index), and
+  @pille_expr($next_index) names as described in their
+  documentation entry.
+}
+
+@doc(
+  unique_member start_index
+  unique_member end_index
+  unique_member next_index
+){
+  These names can be overloaded to allow a type to act as a
+  sequence in forms like @pille_expr(for). Specifically:
+  @itemlist(
+    @item{The @pille_expr($start_index) property should
+    return an ``index'' at which iteration should
+    start. There is no constraint on the type of the index,
+    except that there should be a corresponding overload of
+    the @pille_expr($index_read) method.},
+    @item{The @pille_expr($end_index) property should return
+    an index ``one past the end'', or in other words the one
+    at which iteration should cease (without
+    including). This need not have the same type as the
+    start index; it only needs to support @pille_expr(<)
+    comparisons, as in e.g.
+    @pille_expr(#,(pille_expr(seq.$start_index)) < #,(pille_expr(seq.$end_index))).},
+    @item{The @pille_expr($next_index) method should take an
+    index as an argument (with the sequence as the
+    receiver), and return the index which follows.})
 }
 
 @//=============================================================================

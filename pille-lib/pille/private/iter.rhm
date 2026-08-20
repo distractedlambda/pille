@@ -1,0 +1,33 @@
+#lang pille/private/kernel
+
+import:
+  "cond.rhm" open
+  "generic_ops.rhm" open
+
+export unique_member start_index
+export unique_member end_index
+export unique_member next_index
+
+meta syntax_class ForSequence:
+  kind: ~group
+| '$(ivar :: Identifier) $('$(bound_as expr_meta.space: '∈')' && in_op) $(collection_ :: expr_meta.Parsed)':
+    field collection:
+      syntax_meta.track_origin(
+        collection_,
+        ~add: syntax_meta.flip_introduce(in_op),
+        ~space: expr_meta.space)
+
+export expr.macro 'for ($(hd_seq :: ForSequence), $(tl_seq :: ForSequence), ...): $body':
+  let [seq, ...] = [hd_seq, tl_seq, ...]
+  let [collection_id, ...] = [Syntax.make_temp_id(seq.collection), ...]
+  let [index_id, ...] = [Syntax.make_temp_id(seq.ivar), ...]
+  'block:
+     let $collection_id = $seq.collection; ...
+     #'loop($index_id = $(collection_id).$start_index, ...):
+       cond
+       | all($index_id < $(collection_id).$end_index, ...):
+           let $seq.ivar = $(collection_id)[$index_id]; ...
+           block: $body
+           continue loop($(collection_id).$next_index($index_id), ...)
+       | ~else:
+           break loop'

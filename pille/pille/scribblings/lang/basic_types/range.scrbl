@@ -57,3 +57,37 @@
   @pille_specl_expr(RangeTo) (the third case), or
   @pille_specl_expr(RangeFull) (the fourth case).
 }
+
+@doc(
+  property (rng :: Range(Integral as α)).$start_index
+    :: RangeIndex(α)
+
+  property (rng :: Range(Integral as α)).$end_index
+    :: RangeIndex(α)
+
+  method (rng :: Range(BinaryInteger as α))
+    .$next_index(idx :: RangeIndex(α))
+    :: RangeIndex(α)
+
+  method (rng :: Range(BinaryInteger as α))
+    .$index_read(idx :: RangeIndex(α))
+    :: α
+){
+  Overloads that allow @pille_specl_expr(Range) types to act
+  as sequences (and participate in forms like
+  @pille_expr(for)).
+}
+
+@doc(
+  struct RangeIndex(α):
+    value :: α
+
+  method (lhs :: RangeIndex(α)).$lt(rhs :: RangeIndex(α)):
+    ~transparent
+    lhs.value < rhs.value
+){
+  Represents an index into a @pille_specl_expr(Range). While
+  there is no meaningful distinction between indices and
+  elements of @pille_specl_expr(Range)s, a separate type
+  avoids any type-confusion.
+}
