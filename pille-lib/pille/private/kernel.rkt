@@ -96,6 +96,7 @@ export:
     implicit
     method
     property
+    specl_annot
     struct
     unify
 

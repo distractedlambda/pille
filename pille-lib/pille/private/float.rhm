@@ -40,10 +40,10 @@ module annot_impls ~lang rhombus/static/and_meta:
 
 import self!annot_impls
 
-specl_annot.def Float.constant:
+specl_annot Float.constant:
   #%rhombus(annot_impls.FloatConstant)
 
-specl_annot.def Double.constant:
+specl_annot Double.constant:
   #%rhombus(annot_impls.DoubleConstant)
 
 //==============================================================================

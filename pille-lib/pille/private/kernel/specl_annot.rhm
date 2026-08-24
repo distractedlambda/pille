@@ -1,5 +1,8 @@
 #lang rhombus/static/and_meta
 
+import:
+  "../runtime/compiler.rhm" open
+
 export:
   specl_annot
   meta: specl_annot_meta
@@ -51,5 +54,15 @@ space.enforest specl_annot:
     specl_annot_meta.unpack_rhombus_predicate(ann)
 
 //==============================================================================
-defn.macro 'specl_annot.def $(name :: IdentifierName): $(ann :: specl_annot_meta.Parsed)':
-  '«specl_annot.macro '($name)': '$ann'»'
+export defn.macro 'specl_annot $(name :: IdentifierName): $(ann :: Group)':
+  let key = Symbol.gen(name.name_to_symbol())
+  '«fun force_predicate():
+      Compiler
+        .require_current()
+        .get_or_init_attr(
+          #'$key,
+          fun(): specl_annot.predicate($ann))
+
+    specl_annot.macro '($name)':
+      '$(specl_annot_meta.pack_rhombus_predicate(
+           'force_predicate()'))'»'
