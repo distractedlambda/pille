@@ -12,6 +12,7 @@
 @include_section("basic_types/boolean.scrbl")
 @include_section("basic_types/integer.scrbl")
 @include_section("basic_types/float.scrbl")
+@include_section("basic_types/complex.scrbl")
 @include_section("basic_types/tuple.scrbl")
 @include_section("basic_types/pointer.scrbl")
 @include_section("basic_types/range.scrbl")

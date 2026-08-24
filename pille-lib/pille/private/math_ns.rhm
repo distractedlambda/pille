@@ -1,0 +1,3 @@
+#lang rhombus/static
+
+export namespace math

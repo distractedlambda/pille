@@ -6,8 +6,12 @@ import:
         pille open
 
     only_meta 1:
-      except_space decl defn:
-        pille open
+        pille open:
+          except:
+            fun
+            math
+            namespace
+            operator
 
     rhombus as rhm:
       expose:

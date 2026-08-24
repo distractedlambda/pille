@@ -1,0 +1,45 @@
+#lang pille/private/kernel
+
+import:
+  "generic_ops.rhm" open
+  "math_ns.rhm" open
+  "specl_ops.rhm" open
+  "type_traits.rhm" open
+
+export only_space namespace:
+  math
+
+//==============================================================================
+export struct Complex(α):
+  real :: α
+  imag :: α
+
+//==============================================================================
+coercion (src :: Complex(α)) :: Complex(β) as δ:
+  ~when α coerces_to β
+  δ{src.real, src.imag}
+
+unify(Complex(α), Complex(β)):
+  Complex(unify(α, β))
+
+//==============================================================================
+coercion (src :: α) :: Complex(β) as δ:
+  ~priority fallback
+  ~when α coerces_to β
+  ~when Specl(0) coerces_to β
+  δ{src, 0}
+
+unify(α, Complex(β)):
+  ~priority fallback
+  Complex(unify(α, β))
+
+//==============================================================================
+fun math.complex(real :: α, imag :: β):
+  ~where γ = unify(α, β)
+  Complex(γ){real, imag}
+
+fun math.complex_polar(magnitude :: α, angle :: β):
+  ~where FloatingPoint as γ = unify(α, β)
+  let magnitude :: γ = magnitude
+  let angle :: γ = angle
+  Complex(γ){magnitude * angle.cos(), magnitude * angle.sin()}

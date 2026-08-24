@@ -25,6 +25,22 @@ export:
   pille
 
 //==============================================================================
+decl.macro 'merge_namespaces:
+              $(ns_id :: Identifier)
+              ...':
+  'export only_space namespace:
+     $ns_id
+     ...
+
+   namespace ~extend $ns_id:
+     import pille. $ns_id
+     export all_from(. $ns_id)
+   ...'
+
+merge_namespaces:
+  math
+
+//==============================================================================
 module global_jit ~lang rhombus/static:
   import:
     "private/runtime/jit_linker.rhm" open

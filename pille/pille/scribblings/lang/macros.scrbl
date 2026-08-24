@@ -3,9 +3,10 @@
 @(import:
     "common.rhm" open:
       except:
-        fun
-        operator
         ::
+        fun
+        math
+        operator
 
     meta_label:
       only_meta 0:

@@ -16,12 +16,14 @@ decl.macro 'reexport:
 
 reexport:
   "private/boolean.rhm"
+  "private/complex.rhm"
   "private/cond.rhm"
   "private/float.rhm"
   "private/generic_ops.rhm"
   "private/int.rhm"
   "private/iter.rhm"
   "private/loop.rhm"
+  "private/math_ns.rhm"
   "private/misc.rhm"
   "private/never.rhm"
   "private/panic.rhm"
