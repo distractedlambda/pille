@@ -311,6 +311,7 @@ meta:
     typeset_local_defn ~at pille/local_defn
     typeset_local_defn_or_expr ~at: pille/local_defn; pille/expr
     typeset_operator_order ~operator_order
+    typeset_priority ~at pille/priority
     typeset_specl_annot ~at pille/specl_annot
     typeset_specl_bind ~at: pille/specl_bind; pille/specl_expr
     typeset_specl_expr ~at pille/specl_expr
@@ -348,6 +349,8 @@ meta:
               typeset_where_bind(tl)
       | #'~order:
           typeset_operator_order(tl)
+      | #'~priority:
+          typeset_priority(tl)
       | _:
           esc(stx)
       '$kw $tl_ts'.relocate_group(stx)

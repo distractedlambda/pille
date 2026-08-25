@@ -381,14 +381,6 @@ export doc.bridge property:
 
 //==============================================================================
 export doc.bridge fun:
-  syntax_class Arg:
-    kind: ~group
-  | '$(name :: Identifier) $('::' && annot_op) $(type :: Group)'
-
-  syntax_class Args:
-    kind: ~term
-  | '($(arg :: Arg), ...)'
-
   syntax_class DocForm:
     kind: ~group
   | '$(fun :: IdentifierName) \
@@ -409,20 +401,14 @@ export doc.bridge fun:
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
-          [stx.arg.name, ...],
-          specl_bind_metavars(stx.arg.type), ...,
+          arg_metavars(stx.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let fun_ts = typeset_global_defn(stx.fun)
         let name_ts = typeset_name(stx.name, space, subst)
-        let args_ts:
-          '($stx.arg.name $(typeset_expr(stx.arg.annot_op)) $(typeset_specl_bind(stx.arg.type)),
-            ...)'.relocate(stx.args)
-        let res_annot_ts:
-          if stx.res_annot.present
-          | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
-          | ''
+        let args_ts = typeset_args(stx.args)
+        let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
         let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
           '$fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
