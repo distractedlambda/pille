@@ -283,6 +283,81 @@ doc.bridge specl.fun:
           ~at: stx))
 
 //==============================================================================
+doc.bridge specl.method:
+  syntax_class DocForm:
+    kind: ~group
+  | '$(op :: IdentifierName) \
+     $(receiver :: Receiver) \
+     $(dot_member_name :: DotMemberName) \
+     $(args :: SpeclArgs) \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)'
+
+  doc_meta.transformer(
+    ~extract_desc:
+      fun(_):
+        "specl method",
+    ~extract_space:
+      fun(_):
+        #'#{pille/specl_expr},
+    ~extract_name:
+      fun(&_):
+        [],
+    ~extract_metavariables:
+      metavariable_list_extractor <| fun('$(stx :: DocForm)'):
+        List.append(
+          specl_bind_metavars(stx.receiver.arg),
+          specl_bind_metavars(stx.args.arg), ...,
+          optional_block_metavars(stx.block)),
+    ~extract_typeset:
+      fun('$(stx :: DocForm)', space, subst):
+        let op_ts = typeset_global_defn(stx.op)
+        let receiver_ts = typeset_specl_args(stx.receiver)
+        let dot_member_name_ts = typeset_specl_dot_member_name(stx.dot_member_name)
+        let args_ts = typeset_specl_args(stx.args)
+        let res_annot_ts = typeset_specl_expr(stx.res_annot)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
+        doc_meta.typeset_rhombusblock(
+          '$op_ts $receiver_ts $dot_member_name_ts $args_ts $res_annot_ts $block_ts',
+          ~at: stx))
+
+//==============================================================================
+doc.bridge specl.property:
+  syntax_class DocForm:
+    kind: ~group
+  | '$(op :: IdentifierName) \
+     $(receiver :: Receiver) \
+     $(dot_member_name :: DotMemberName) \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)'
+
+  doc_meta.transformer(
+    ~extract_desc:
+      fun(_):
+        "specl property",
+    ~extract_space:
+      fun(_):
+        #'#{pille/specl_expr},
+    ~extract_name:
+      fun(&_):
+        [],
+    ~extract_metavariables:
+      metavariable_list_extractor <| fun('$(stx :: DocForm)'):
+        List.append(
+          specl_bind_metavars(stx.receiver.arg),
+          optional_block_metavars(stx.block)),
+    ~extract_typeset:
+      fun('$(stx :: DocForm)', space, subst):
+        let op_ts = typeset_global_defn(stx.op)
+        let receiver_ts = typeset_specl_args(stx.receiver)
+        let dot_member_name_ts = typeset_specl_dot_member_name(stx.dot_member_name)
+        let res_annot_ts = typeset_specl_expr(stx.res_annot)
+        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
+        doc_meta.typeset_rhombusblock(
+          '$op_ts $receiver_ts $dot_member_name_ts $res_annot_ts $block_ts',
+          ~at: stx))
+
+//==============================================================================
 export doc.bridge method:
   syntax_class DocForm:
     kind: ~group

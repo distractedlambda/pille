@@ -2,13 +2,14 @@
 
 import:
   "cond.rhm" open
-  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "int.rhm" open
   "misc.rhm" open
   "panic.rhm" open
   "pointer.rhm" open
+  "specl_ops.rhm" open
   "type_traits.rhm" open
+  "unify.rhm" open
 
 //==============================================================================
 coercion (elem :: σ) :: Simd(CoercesFrom(σ) as δ, n):
@@ -36,11 +37,11 @@ unify(Simd(α, n), Simd(β, n)):
 
 //==============================================================================
 property (specl σ && Simd(UInt(w), n)).iota :: σ:
-  ~when bit_length(n - 1) ≤ w
+  ~when (n - 1).bit_length ≤ w
   prim.iota(σ)
 
 property (specl σ && Simd(Int(w), n)).iota :: σ:
-  ~when bit_length(n - 1) < w
+  ~when (n - 1).bit_length < w
   prim.iota(σ)
 
 //==============================================================================
@@ -89,7 +90,7 @@ method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, 
 
 method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
   let offsets = offsets.cast_wrap() :: Simd(NativeInt, n)
-  let offsets = offsets *% strideof(α)
+  let offsets = offsets *% α.byte_stride
   prim.ptradd(ptrs, offsets)
 
 //==============================================================================
@@ -272,7 +273,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   offset :: SparseSimd(Int(_), n),
 ) :: φ:
   let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeInt, n)
-  let offset = mask.sparse_mul(offset, strideof(α))
+  let offset = mask.sparse_mul(offset, α.byte_stride)
   prim.retype(
     mask.sparse_add(
       prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
@@ -284,7 +285,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   offset :: SparseSimd(UInt(_), n),
 ) :: φ:
   let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeUInt, n)
-  let offset = mask.sparse_mul(offset, strideof(α))
+  let offset = mask.sparse_mul(offset, α.byte_stride)
   prim.retype(
     mask.sparse_add(
       prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
@@ -298,7 +299,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   prim.retype(
     mask.sparse_add(
       prim.retype(ptr, ~to: SparseSimd(RawPtr, n)),
-      offset * strideof(α)),
+      offset * α.byte_stride),
     ~to: φ)
 
 //==============================================================================
@@ -666,7 +667,7 @@ method (mask :: Simd(Boolean, n)).sparse_load(
   ptr :: RawPtr,
   specl α :: type,
 ) :: SparseSimd(α, n):
-  mask.sparse_load(ptr, α, alignof(α))
+  mask.sparse_load(ptr, α, α.byte_align)
 
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptr :: RawPtr,
@@ -692,7 +693,7 @@ method (mask :: Simd(Boolean, n)).sparse_load(
   ptrs :: SparseSimd(RawPtr, n),
   specl α :: type,
 ) :: SparseSimd(α, n):
-  mask.sparse_load(ptrs, α, alignof(α))
+  mask.sparse_load(ptrs, α, α.byte_align)
 
 method (mask :: Simd(Boolean, n)).sparse_load(
   ptrs :: SparseSimd(RawPtr, n),
@@ -721,7 +722,7 @@ method (mask :: Simd(Boolean, n)).sparse_store(
   ptr :: RawPtr,
   value :: SparseSimd(α, n),
 ) :: Void:
-  mask.sparse_store(ptr, value, alignof(α))
+  mask.sparse_store(ptr, value, α.byte_align)
 
 method (mask :: Simd(Boolean, n)).sparse_store(
   ptr :: RawPtr,
@@ -750,7 +751,7 @@ method (mask :: Simd(Boolean, n)).sparse_store(
   ptrs :: SparseSimd(RawPtr, n),
   value :: SparseSimd(α, n),
 ) :: Void:
-  mask.sparse_store(ptrs, value, alignof(α))
+  mask.sparse_store(ptrs, value, α.byte_align)
 
 method (mask :: Simd(Boolean, n)).sparse_store(
   ptrs :: SparseSimd(RawPtr, n),

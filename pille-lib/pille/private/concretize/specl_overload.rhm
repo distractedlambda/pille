@@ -1,0 +1,105 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/equatable_by_identity.rhm" open
+  "exn.rhm" open
+  "priority.rhm" open
+
+export SpeclOverload
+class SpeclOverload(
+  srcloc :~ maybe(Srcloc),
+  selector :~ Any,
+  priority :~ Priority,
+  impl :~ Function.assume_of((Any, [Any, ...]) -> Any),
+):
+  internal _SpeclOverload
+
+  equatable_by_identity
+
+  constructor ~error
+
+  export:
+    Impl
+    Table
+    dispatch
+    register
+    snapshot_table
+
+  annot Impl:
+    (receiver :: Any, args :: [Any, ...]) -> Any
+
+  annot Table:
+    Map.of(Any, [SpeclOverload, ...])
+
+  Parameter.def current_table :~ Table:
+    Map{}
+
+  fun register(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    ~selector: selector :: Any,
+    ~priority: priority :: Priority = Priority.new_automatic(),
+    ~impl: impl :: Impl,
+  ) :: Void:
+    let tbl = current_table()
+    current_table(
+      tbl ++ {
+        selector:
+          List.cons(
+            _SpeclOverload(srcloc, selector, priority, impl),
+            tbl.maybe[selector] || [])})
+
+  fun snapshot_table() :~ Table:
+    for Map ((sel, defns) in current_table()):
+      let defns = defns.sort(_) <| fun(fst :~ SpeclOverload, snd :~ SpeclOverload):
+        fst.priority.is_higher_than(snd.priority)
+      values(sel, defns)
+
+  fun dispatch(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    table :~ Table,
+    receiver :: Any,
+    selector :: Any,
+    args :: [Any, ...],
+  ) :: Any:
+    recur find_match(overloads :~ [SpeclOverload, ...] = table.maybe[selector] || [],
+                     exns :~ List = []):
+      guard.let [ovl, &overloads] = overloads
+      | error(
+          ~srcloc,
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "no applicable specl overload",
+          error.val(~label: "receiver", receiver),
+          error.val(~label: "selector", selector),
+          error.vals(~label: "arguments", args),
+          error.cause(each exns), ...)
+      try ~escape_as esc:
+        let result:
+          try:
+            ovl.impl(receiver, args)
+            ~catch exn :: Exn.Fail.Concretize.Recoverable:
+              esc(find_match(overloads, exns ++ [exn]))
+        recur check_ambiguity(overloads :~ [SpeclOverload, ...] = overloads):
+          guard.let [other_ovl, &overloads] = overloads
+          | result
+          guard !ovl.priority.is_higher_than(other_ovl.priority)
+          | check_ambiguity(overloads)
+          try ~escape_as esc_ambig:
+            let other_result:
+              try:
+                other_ovl.impl(receiver, args)
+                ~catch _ :: Exn.Fail.Concretize.Recoverable:
+                  esc_ambig(check_ambiguity(overloads))
+            guard result == other_result
+            | error(
+                ~srcloc,
+                ~exn: Exn.Fail.Concretize,
+                "specl overload ambiguity",
+                ~details: ["two overloads disagree, and neither takes priority"],
+                error.text(~label: "first overload", ovl.srcloc?.to_report_string() || "???"),
+                error.val(~label: "first overload's result", result),
+                error.text(~label: "second overload", ovl.srcloc?.to_report_string() || "???"),
+                error.val(~label: "second overload's result", other_result),
+                error.val(~label: "receiver", receiver),
+                error.val(~label: "selector", selector),
+                error.vals(~label: "arguments", args))
+            check_ambiguity(overloads)

@@ -15,7 +15,7 @@ fun check_align(ptr :: RawPtr, specl align :: alignment) :: Void:
 
 //==============================================================================
 method (ptr :: RawPtr).load(specl α :: type) :: α:
-  ptr.load(α, alignof(α))
+  ptr.load(α, α.byte_align)
 
 //==============================================================================
 method (ptr :: RawPtr).load(specl α :: type, specl align :: alignment) :: α:
@@ -31,7 +31,7 @@ method (ptr :: RawPtr).load(specl α :: type, specl align :: alignment) :: α:
 
 //==============================================================================
 method (ptr :: RawPtr).store(value :: α) :: Void:
-  ptr.store(value, alignof(α))
+  ptr.store(value, α.byte_align)
 
 //==============================================================================
 method (ptr :: RawPtr).store(value :: α, specl align :: alignment) :: Void:
@@ -129,7 +129,7 @@ unify(PtrMut(α), Ptr(α)): Ptr(α)
 
 //==============================================================================
 method (specl φ && PtrTo(α)).from_raw(raw :: RawPtr):
-  when ub.checked | check_align(raw, alignof(α))
+  when ub.checked | check_align(raw, α.byte_align)
   φ{raw}
 
 //==============================================================================
@@ -149,14 +149,14 @@ method (specl φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$add(offset :: UInt(_)) :: φ:
   let offset = offset.cast_exact() :: NativeUInt
-  φ{ptr.raw + offset*strideof(α)}
+  φ{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
   let offset = offset.cast_exact() :: NativeInt
-  φ{ptr.raw + offset*strideof(α)}
+  φ{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
-  φ{ptr.raw + offset*strideof(α)}
+  φ{ptr.raw + offset * α.byte_stride}
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:
@@ -186,14 +186,14 @@ method (ptr :: φ && PtrTo(α)).$ge(other :: φ) :: Boolean:
 
 //==============================================================================
 method (ptr :: PtrTo(α)).$index_read() :: α:
-  prim.load(α, if ub.suppressed | 1 | alignof(α), ptr)
+  prim.load(α, if ub.suppressed | 1 | α.byte_align, ptr)
 
 method (ptr :: PtrTo(α)).$index_read(idx :: Integral) :: α:
   (ptr + idx)[]
 
 //==============================================================================
 method (ptr :: PtrMut(α)).$index_write(value :: α) :: Void:
-  prim.store(if ub.suppressed | 1 | alignof(α), ptr, value)
+  prim.store(if ub.suppressed | 1 | α.byte_align, ptr, value)
 
 method (ptr :: PtrMut(α)).$index_write(idx :: Integral, value :: α) :: Void:
   (ptr + idx)[] := value

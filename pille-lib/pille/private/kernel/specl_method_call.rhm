@@ -1,0 +1,19 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/compiler.rhm" open
+  pille/concretize open
+
+//==============================================================================
+export fun eval_specl_method_call(
+  ~srcloc: srcloc :: maybe(Srcloc) = #false,
+  receiver :: Any,
+  selector :: Any,
+  args :: [Any, ...],
+) :~ Any:
+  SpeclOverload.dispatch(
+    ~srcloc,
+    Compiler.require_current().specl_overloads,
+    receiver,
+    selector,
+    args)

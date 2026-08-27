@@ -22,7 +22,7 @@ pille.fun foo() :: Int(32):
   42
 
 check:
-  (pille: foo()) ~throws "no applicable method"
+  (pille: foo()) ~throws "no applicable overload"
 
 pille.configure_jit()
 

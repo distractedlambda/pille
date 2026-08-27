@@ -32,7 +32,7 @@
   Loads a value of type @rhombus(α) from the memory at
   @rhombus(ptr), with an assumed alignment of
   @rhombus(align) (which defaults to
-  @pille_specl_expr(alignof(α))).
+  @pille_specl_expr(α.byte_align)).
 
   It is @tech{managed undefined behavior} for @rhombus(ptr)
   to not have at least the alignment given by
@@ -49,7 +49,7 @@
 ){
   Stores @rhombus(value) to the memory at @rhombus(ptr),
   with an assumed alignment of @rhombus(align) (which
-  defaults to @pille_specl_expr(alignof(α))).
+  defaults to @pille_specl_expr(α.byte_align)).
 
   It is @tech{managed undefined behavior} for @rhombus(ptr)
   to not have at least the alignment given by
@@ -123,7 +123,7 @@
 
   In contrast to a @pille_specl_expr(RawPtr), a
   @pille_specl_expr(Ptr) is guaranteed to be aligned to at
-  least @pille_specl_expr(alignof(α)). There are no
+  least @pille_specl_expr(α.byte_align). There are no
   additional guarantees, however; a @pille_specl_expr(Ptr)
   may or may not point to dereferencable memory, and even if
   it does, it might not point to valid instances of
@@ -139,7 +139,7 @@
 
   In contrast to a @pille_specl_expr(RawPtr), a
   @pille_specl_expr(PtrMut) is guaranteed to be aligned to
-  at least @pille_specl_expr(alignof(α)). There are no
+  at least @pille_specl_expr(α.byte_align). There are no
   additional guarantees, however; a
   @pille_specl_expr(PtrMut) may or may not point to
   dereferencable memory, and even if it does, it might not
@@ -171,7 +171,7 @@
   @pille_specl_expr(PtrMut) from a
   @pille_specl_expr(RawPtr). It is @tech{managed undefined
   behavior} for @rhombus(raw) to not be aligned to at least
-  @pille_specl_expr(alignof(α)).
+  @pille_specl_expr(α.byte_align).
 }
 
 @doc(
@@ -184,7 +184,7 @@
 
   When assigning, it is @tech{managed undefined behavior}
   for @rhombus(new_raw) to not be aligned to at least
-  @pille_specl_expr(alignof(α)).
+  @pille_specl_expr(α.byte_align).
 }
 
 @doc(
@@ -195,7 +195,7 @@
   Like the @pille_expr($add) and @pille_expr($sub) methods
   on @pille_specl_expr(RawPtr), except that the
   @rhombus(offset) or @rhombus(amount) is scaled by
-  @pille_specl_expr(strideof(α)).
+  @pille_specl_expr(α.byte_stride).
 }
 
 @doc(
@@ -245,9 +245,9 @@
 @doc(
   specl_annot.macro 'alignment'
 
-  specl.fun sizeof(α :: type) :: nat
+  specl.property (α :: type).byte_size :: nat
 
-  specl.fun alignof(α :: type) :: alignment
+  specl.property (α :: type).byte_align :: alignment
 
-  specl.fun strideof(α :: type) :: nat
+  specl.property (α :: type).byte_stride :: nat
 ){}

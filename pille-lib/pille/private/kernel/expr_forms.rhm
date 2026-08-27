@@ -3,11 +3,12 @@
 import:
   "../util/list_of_values.rhm" open
   "coerce.rhm" open
+  "core_types.rhm" open
+  "expr.rhm" open
+  "method_call.rhm" open
   "specl_annot_forms.rhm" open
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
-  "core_types.rhm" open
-  "expr.rhm" open
   "unique_member.rhm" open
   pille/concretize open
   pille/lowering
@@ -138,8 +139,9 @@ meta syntax_class pille_expr_meta.AssignOp:
 
 fun concretize_assignment(lhs :~ Expr, rhs :~ Expr, lhs_srcloc):
   try ~escape_as ret:
-    let assign_method_concr :~ MethodDefn.Concretized = try:
-      lhs.type.concretized_method(
+    let assign_method_concr :~ Overload.Concretized = try:
+      resolve_overload(
+        lhs.type,
         unique_member.symbol(assign),
         [rhs.type])
       ~catch exn :: Exn.Fail.Concretize.Recoverable:
@@ -300,7 +302,8 @@ fun concretize_method_call(
   [arg_srcloc, ...],
 ):
   let method_concr:
-    receiver_concr.type.concretized_method(
+    resolve_overload(
+      receiver_concr.type,
       name,
       [arg_concr.type, ...])
 
@@ -340,7 +343,8 @@ fun concretize_method_call(
 fun concretize_property_ref(receiver_concr :~ Expr, name):
   try ~escape_as esc:
     let read_concr:
-      receiver_concr.type.concretized_method(
+      resolve_overload(
+        receiver_concr.type,
         ReadSelector(name),
         [])
 
@@ -354,9 +358,10 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
         error.val(~label: "property", name))
 
     try ~escape_as readonly:
-      let write_concr :~ MethodDefn.Concretized:
+      let write_concr :~ Overload.Concretized:
         try:
-          receiver_concr.type.concretized_method(
+          resolve_overload(
+            receiver_concr.type,
             WriteSelector(name),
             [read_concr.result_type])
           ~catch _ :: Exn.Fail.Concretize.Recoverable:
@@ -449,7 +454,8 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
 
   try ~escape_as esc:
     let read_concr:
-      receiver_concr.type.concretized_method(
+      resolve_overload(
+        receiver_concr.type,
         unique_member.symbol(index_read),
         [key_type, ...])
 
@@ -461,9 +467,10 @@ fun concretize_index(receiver_concr :~ Expr, [key_concr :~ Expr, ...]):
         "'$index_read' method cannot have 'inout' arguments")
 
     try ~escape_as readonly:
-      let write_concr :~ MethodDefn.Concretized:
+      let write_concr :~ Overload.Concretized:
         try:
-          receiver_concr.type.concretized_method(
+          resolve_overload(
+            receiver_concr.type,
             unique_member.symbol(index_write),
             [key_type, ..., read_concr.result_type])
           ~catch _ :: Exn.Fail.Concretize.Recoverable:

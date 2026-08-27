@@ -106,6 +106,61 @@
 ){}
 
 @//=============================================================================
+@section(~tag: "Specl_Methods"){Properties and Methods}
+
+@doc(
+  ~nonterminal:
+    maybe_res_annot: specl.fun ~defn
+
+  global_defn.macro 'specl.method $sig:
+                       $specl_method_option; ...
+                       $specl_expr'
+
+  grammar sig
+  | ($specl_bind) $specl_dot_member_name ($specl_bind, ...) $maybe_res_annot
+
+  grammar specl_dot_member_name
+  | #,(pille_specl_expr(.)) $specl_member_name
+  | #,(pille_specl_expr(.$)) $unique_member_id
+
+  grammar specl_member_name
+  | $id
+  | #,(pille_specl_expr($)) $unique_member_id
+
+  grammar specl_method_option
+  | $when_where_option
+  | $srcloc_option
+  | $priority_option
+){
+  Defines an overload for the
+  @deftech{specialization-language method} with the given
+  @nontermref(specl_member_name).
+}
+
+@doc(
+  ~nonterminal:
+    maybe_res_annot: specl.fun ~defn
+
+  global_defn.macro 'specl.property $sig:
+                       $specl_method_option; ...
+                       $specl_expr'
+
+  grammar sig
+  | ($specl_bind) $specl_dot_member_name $maybe_res_annot
+){
+  Defines an overload for read access (the only kind) to the
+  @deftech{specialization-language property} with the given
+  @nontermref(specl_member_name).
+}
+
+@doc(
+  specl_expr.macro '$'
+){
+  Specially recognized in the syntax of
+  @nontermref(specl_member_name), but otherwise an error.
+}
+
+@//=============================================================================
 @section(~tag: "Specl_Expressions"){Expressions}
 
 @doc(
@@ -129,6 +184,22 @@
   Specially-recognized by some syntactic forms, but
   otherwise an error.
 }
+
+@doc(
+  specl_expr.macro '$specl_expr . $specl_member_name ($specl_expr, ...)'
+
+  specl_expr.macro '$specl_expr . $specl_member_name'
+
+  operator_order: ~order: member_access
+){}
+
+@doc(
+  specl_expr.macro '$specl_expr .$ $unique_member_id ($specl_expr, ...)'
+
+  specl_expr.macro '$specl_expr .$ $unique_member_id'
+
+  operator_order: ~order: member_access
+){}
 
 @doc(
   specl_expr.macro '$specl_expr #%call ($specl_expr, ...)'
@@ -199,19 +270,22 @@
 ){}
 
 @doc(
-  specl.operator (lhs :: comparable) < (rhs :: comparable)
-    :: boolean
-  specl.operator (lhs :: comparable) <= (rhs :: comparable)
-    :: boolean
-  specl.operator (lhs :: comparable) ≤ (rhs :: comparable)
-    :: boolean
-  specl.operator (lhs :: comparable) > (rhs :: comparable)
-    :: boolean
-  specl.operator (lhs :: comparable) >= (rhs :: comparable)
-    :: boolean
-  specl.operator (lhs :: comparable) ≥ (rhs :: comparable)
-    :: boolean
+  specl.operator lhs < rhs
+  specl.operator lhs <= rhs
+  specl.operator lhs ≤ rhs
+  specl.operator lhs > rhs
+  specl.operator lhs >= rhs
+  specl.operator lhs ≥ rhs
   operator_order: ~order: order_comparison
+
+  specl.method (lhs :: comparable).$lt(rhs :: comparable)
+    :: boolean
+  specl.method (lhs :: comparable).$le(rhs :: comparable)
+    :: boolean
+  specl.method (lhs :: comparable).$gt(rhs :: comparable)
+    :: boolean
+  specl.method (lhs :: comparable).$ge(rhs :: comparable)
+    :: boolean
 ){}
 
 @//=============================================================================
@@ -326,42 +400,63 @@
 ){}
 
 @doc(
-  specl.operator (lhs :: number) + (rhs :: number) :: number
-  specl.operator (lhs :: number) - (rhs :: number) :: number
-  operator_order: ~order: addition
+  specl.operator lhs + rhs:
+    ~order: addition
 
-  specl.operator - (rhs :: number) :: number
-  operator_order: ~order: multiplication
+  specl.operator lhs - rhs:
+    ~order: addition
+
+  specl.operator -rhs:
+    ~order: multiplication
+
+  specl.method (lhs :: number).$add(rhs :: number) :: number
+  specl.method (lhs :: number).$sub(rhs :: number) :: number
+  specl.method (rhs :: number).$neg() :: number
 ){}
 
 @doc(
-  specl.operator (lhs :: number) * (rhs :: number) :: number
-  specl.operator (lhs :: number) / (rhs :: number) :: number
+  specl.operator lhs * rhs
+  specl.operator lhs / rhs
   operator_order: ~order: multiplication
+
+  specl.method (lhs :: number).$mul(rhs :: number) :: number
+  specl.method (lhs :: number).$div(rhs :: number) :: number
 ){}
 
 @doc(
-  specl.operator (lhs :: real) div_trunc (rhs :: real) :: real
-  specl.operator (lhs :: real) div_floor (rhs :: real) :: real
-  specl.operator (lhs :: real) div_ceil (rhs :: real) :: real
+  specl.operator lhs div_trunc rhs
+  specl.operator lhs div_floor rhs
+  specl.operator lhs div_ceil rhs
   operator_order: ~order: multiplication
+
+  specl.method (lhs :: real).$div_trunc(rhs :: real) :: real
+  specl.method (lhs :: real).$div_floor(rhs :: real) :: real
+  specl.method (lhs :: real).$div_ceil(rhs :: real) :: real
 ){}
 
 @doc(
-  specl.operator (lhs :: real) rem_trunc (rhs :: real) :: real
-  specl.operator (lhs :: real) rem_floor (rhs :: real) :: real
-  specl.operator (lhs :: real) rem_ceil (rhs :: real) :: real
+  specl.operator lhs rem_trunc rhs
+  specl.operator lhs rem_floor rhs
+  specl.operator lhs rem_ceil rhs
   operator_order: ~order: multiplication
+
+  specl.method (lhs :: real).$rem_trunc(rhs :: real) :: real
+  specl.method (lhs :: real).$rem_floor(rhs :: real) :: real
+  specl.method (lhs :: real).$rem_ceil(rhs :: real) :: real
 ){}
 
 @doc(
-  specl.operator (lhs :: nonneg_real) % (rhs :: nonneg_real) :: nonneg_real
+  specl.operator lhs % rhs
   operator_order: ~order: multiplication
+
+  specl.method (lhs :: nonneg_real).$rem(rhs :: nonneg_real) :: nonneg_real
 ){}
 
 @doc(
-  specl.operator (lhs :: number) ** (rhs :: number) :: number
+  specl.operator lhs ** rhs
   operator_order: ~order: exponentiation
+
+  specl.method (lhs :: number).$pow(rhs :: number) :: number
 ){}
 
 @doc(
@@ -372,39 +467,44 @@
 @section(~tag: "Specl_Bitwise"){Bit-Level Operations}
 
 @doc(
-  specl.operator not (rhs :: boolean) :: boolean
-  specl.operator not (rhs :: int) :: int
-  specl.operator ¬ (rhs :: boolean) :: boolean
-  specl.operator ¬ (rhs :: int) :: int
+  specl.operator not rhs
+  specl.operator ¬rhs
   operator_order: ~order: bitwise_negation
+
+  specl.method (rhs :: boolean).$not() :: boolean
+  specl.method (rhs :: int).$not() :: int
 ){}
 
 @doc(
-  specl.operator (lhs :: boolean) and (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) and (rhs :: int) :: int
-  specl.operator (lhs :: boolean) ∧ (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) ∧ (rhs :: int) :: int
+  specl.operator lhs and rhs
+  specl.operator lhs ∧ rhs
   operator_order: ~order: bitwise_conjunction
+
+  specl.method (lhs :: boolean).$and(rhs :: boolean) :: boolean
+  specl.method (lhs :: int).$and(rhs :: int) :: int
 ){}
 
 @doc(
-  specl.operator (lhs :: boolean) or (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) or (rhs :: int) :: int
-  specl.operator (lhs :: boolean) ∨ (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) ∨ (rhs :: int) :: int
+  specl.operator lhs or rhs
+  specl.operator lhs ∨ rhs
   operator_order: ~order: bitwise_disjunction
+
+  specl.method (lhs :: boolean).$or(rhs :: boolean) :: boolean
+  specl.method (lhs :: int).$or(rhs :: int) :: int
 ){}
 
 @doc(
-  specl.operator (lhs :: boolean) xor (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) xor (rhs :: int) :: int
-  specl.operator (lhs :: boolean) ⊻ (rhs :: boolean) :: boolean
-  specl.operator (lhs :: int) ⊻ (rhs :: int) :: int
+  specl.operator lhs xor rhs
+  specl.operator lhs ⊻ rhs
   operator_order: ~order: bitwise_disjunction
+
+  specl.method (lhs :: boolean).$xor(rhs :: boolean) :: boolean
+  specl.method (lhs :: int).$xor(rhs :: int) :: int
+
 ){}
 
 @doc(
-  specl.fun bit_length(n :: int) :: nat
+  specl.property (n :: int).bit_length :: nat
 ){}
 
 @section(~tag: "Specl_Escaping_to_Rhombus"){Escaping to Rhombus}

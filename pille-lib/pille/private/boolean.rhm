@@ -1,8 +1,9 @@
 #lang pille/private/kernel
 
 import:
-  "specl_ops.rhm" open
   "generic_ops.rhm" open
+  "specl_ops.rhm" open
+  "unify.rhm" open
 
 //==============================================================================
 coercion (specl value :: boolean) :: Boolean:

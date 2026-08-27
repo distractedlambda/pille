@@ -2,26 +2,37 @@
 
 import:
   "core_types.rhm" open
+  "method_call.rhm" open
   "unique_member.rhm" open
   pille/concretize open
   pille/llvm
 
 //==============================================================================
-annot Coercer:
+export unique_member coerce_to
+
+//==============================================================================
+export annot Coercer:
   (Map, maybe(llvm.Value)) -> maybe(llvm.Value)
 
-export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
+export fun resolve_coercer(
+  ~srcloc: srcloc :: maybe(Srcloc) = #false,
+  from_type :: Type,
+  to_type :: Type,
+) :: Coercer:
   guard !(from_type === to_type)
   | fun(_, val): val
 
-  let method_concr :~ MethodDefn.Concretized = try:
+  let ovl_concr :~ Overload.Concretized = try:
     ImplicitKey.with_empty_env(_) <| fun():
-      from_type.concretized_method(
+      resolve_overload(
+        ~srcloc,
+        from_type,
         unique_member.symbol(coerce_to),
         [SpeclType(to_type)])
     ~catch
     | exn :: Exn.Fail.Concretize.Recoverable:
         error(
+          ~srcloc,
           ~exn: Exn.Fail.Concretize.Recoverable,
           "incompatible types",
           ~details: ["types do not match, and no coercion is available"],
@@ -29,22 +40,23 @@ export fun resolve_coercer(from_type :: Type, to_type :: Type) :: Coercer:
           error.val(~label: "actual type", from_type),
           error.cause(exn))
 
-  guard method_concr.result_type === to_type
+  guard ovl_concr.result_type === to_type
   | error(
+      ~srcloc,
       ~exn: Exn.Fail.Concretize,
       "'$coerce_to' method's result type must equal the destination type",
       error.val(~label: "source type", from_type),
       error.val(~label: "destination type", to_type),
-      error.val(~label: "'$coerce_to' result type", method_concr.result_type))
+      error.val(~label: "'$coerce_to' result type", ovl_concr.result_type))
 
-  guard method_concr.inout_mask == 0
+  guard ovl_concr.inout_mask == 0
   | error(
       ~exn: Exn.Fail.Concretize,
       "'$coerce_to' method cannot have 'inout' arguments",
       error.val(~label: "source type", from_type),
       error.val(~label: "destination type", to_type))
 
-  let call_low = method_concr.lower_call
+  let call_low = ovl_concr.lower_call
 
   fun(env, from_val):
     let [result_val] = call_low(env, [from_val, #false])

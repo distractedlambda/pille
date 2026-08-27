@@ -81,6 +81,8 @@
   ~nonterminal:
     priority_option: method ~defn
 
+  unique_member unify_with
+
   global_defn.macro 'unify($specl_bind, $specl_bind):
                        $option; ...
                        $unified_type'
@@ -100,15 +102,18 @@
   be unified, and the @rhombus(unified_type) should evaluate
   to a type that both input types can coerce to.
 
+  A unification rule is equivalent to an overload of the
+  @pille_specl_expr($unify_with)
+  @tech{specialization-language method}, and the
+  @pille_global_defn(unify) form is merely sugar for the
+  corresponding @pille_global_defn(specl.method) definition.
+
   When searching for an applicable unification rule,
   concretization attempts both orderings of input types, so
   it is not necessary to explicitly define ``mirror''
-  versions of asymmetric rules. Moreover, concretization
-  only signals an ambiguity if multiple rules apply (without
-  distinguishing priority) @italic{and} yield different
-  resulting types; in other words, it is allowed to have
-  overlapping rules as long as they come to the same
-  conclusion.
+  versions of asymmetric rules. If both orderings resolve to
+  viable overloads, however, then they must yield the same
+  resulting type.
 
   Unification rules are always resolved (and evaluated) with
   an empty implicit environment.

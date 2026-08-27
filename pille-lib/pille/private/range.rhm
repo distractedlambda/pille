@@ -7,6 +7,7 @@ import:
   "panic.rhm" open
   "specl_ops.rhm" open
   "type_traits.rhm" open
+  "unify.rhm" open
 
 //==============================================================================
 export struct Range(α :: type):

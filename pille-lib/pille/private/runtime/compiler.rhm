@@ -1,8 +1,6 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../concretize/method.rhm" open
-  "../concretize/unify.rhm" open
   "../util/defer.rhm" open
   "../util/readable_string_or_symbol.rhm" open
   "artifact.rhm" open
@@ -10,7 +8,7 @@ import:
   "sizer.rhm" open
   "target.rhm" open
   "ub_policy.rhm" open
-  lib("ffi/unsafe.rkt") as ffi
+  pille/concretize open
   pille/llvm
   rhombus/delay open
   rhombus/rx open
@@ -25,8 +23,8 @@ export class Compiler(
   llvm_target :: llvm.Target,
   llvm_data_layout_string :: String,
   sizer :: Sizer,
-  methods :: MethodDefn.Table,
-  unification_rules :: UnifyRule.Table,
+  overloads :: Overload.Table,
+  specl_overloads :: SpeclOverload.Table,
   using_hosted_execution :: Boolean,
 ):
   export:
@@ -52,12 +50,12 @@ export class Compiler(
     ~ub_policy:
       ub_policy :: UbPolicy:
         UbPolicy.from_env.force(),
-    ~methods:
-      methods :: MethodDefn.Table:
-        MethodDefn.snapshot_table(),
-    ~unification_rules:
-      unification_rules :: UnifyRule.Table:
-        UnifyRule.snapshot_table(),
+    ~overloads:
+      overloads :: Overload.Table:
+        Overload.snapshot_table(),
+    ~specl_overloads:
+      specl_overloads :: SpeclOverload.Table:
+        SpeclOverload.snapshot_table(),
     ~using_hosted_execution:
       using_hosted_execution :: Boolean:
         #false,
@@ -92,8 +90,8 @@ export class Compiler(
       llvm_target,
       llvm_data_layout_string,
       sizer,
-      methods,
-      unification_rules,
+      overloads,
+      specl_overloads,
       using_hosted_execution)
 
   //============================================================================

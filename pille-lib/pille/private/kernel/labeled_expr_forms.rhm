@@ -10,6 +10,7 @@ import:
   "labeled_expr.rhm" open
   "local_defn.rhm" open
   "local_defn_forms.rhm" open
+  "unify.rhm" open
   pille/concretize open
   pille/llvm
   pille/lowering
@@ -106,7 +107,7 @@ fun concretize_labeled_block(
   let body :~ Expr = concretize_body(concretize_break, concretize_continue)
   let break_keys = break_keys.snapshot()
   let break_types :~ [Type, ...] = break_types.snapshot()
-  let result_type = body.type.unify(&break_types)
+  let result_type = eval_unify([body.type, &break_types])
   let body_coe = resolve_coercer(body.type, result_type)
   let break_coes = [resolve_coercer(each break_types, result_type), ...]
 

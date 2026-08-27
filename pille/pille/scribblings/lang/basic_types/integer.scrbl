@@ -56,13 +56,17 @@
 }
 
 @doc(
-  property (specl Int(w)).min_value :: Specl(-(2**(w - 1)))
+  specl.property (Int(w)).min_value:
+    -(2**(w - 1))
 
-  property (specl Int(w)).max_value :: Specl(2**(w - 1) - 1)
+  specl.property (Int(w)).max_value:
+    2**(w - 1) - 1
 
-  property (specl UInt(w)).min_value :: Specl(0)
+  specl.property (UInt(w)).min_value:
+    0
 
-  property (specl UInt(w)).max_value :: Specl(2**w - 1)
+  specl.property (UInt(w)).max_value:
+    2**w - 1
 ){}
 
 @doc(
@@ -82,7 +86,7 @@
 
 @doc(
   coercion (specl val :: int) :: Int(dst_width):
-    ~when dst_width > bit_length(val)
+    ~when dst_width > val.bit_length
 ){
   Coerces @rhombus(val) to any
   @pille_specl_expr(Int) type which can represent it.
@@ -90,7 +94,7 @@
 
 @doc(
   unify(Specl(v :: int), Int(w)):
-    Int(max(bit_length(v) + 1, w))
+    Int(max(v.bit_length + 1, w))
 ){}
 
 @doc(
@@ -110,7 +114,7 @@
 
 @doc(
   coercion (specl val :: nat) :: UInt(dst_width):
-    ~when dst_width ≥ bit_length(val)
+    ~when dst_width ≥ val.bit_length
 ){
   Coerces @rhombus(val) to any
   @pille_specl_expr(UInt) type which can represent it.
@@ -118,7 +122,7 @@
 
 @doc(
   unify(Specl(v :: nat), UInt(w)):
-    UInt(max(bit_length(v), w))
+    UInt(max(v.bit_length, w))
 ){}
 
 @doc(
@@ -141,7 +145,7 @@
 @doc(
   unify(Specl(v1 :: int), Specl(v2 :: int)):
     ~when v1 < 0 || v2 < 0
-    Int(max(bit_length(v1), bit_length(v2)) + 1)
+    Int(max(v1.bit_length, v2.bit_length) + 1)
 ){
   Unifies two @pille_specl_expr(Specl) types representing
   @pille_specl_annot(int)s (that are not both also
@@ -151,7 +155,7 @@
 
 @doc(
   unify(Specl(v1 :: nat), Specl(v2 :: nat)):
-    UInt(bit_length(max(v1, v2)))
+    UInt(max(v1, v2).bit_length)
 ){
   Unifies two @pille_specl_expr(Specl) types representing
   @pille_specl_annot(nat)s to the narrowest

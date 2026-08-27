@@ -68,4 +68,4 @@ check:
 check:
   pille(c :: Boolean = #true):
     if c | #false | 7
-  ~throws "types could not be unified"
+  ~throws "types cannot be unified"

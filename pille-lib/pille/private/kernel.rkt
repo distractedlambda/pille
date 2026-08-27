@@ -4,6 +4,7 @@ module reader ~lang rhombus/reader:
   ~lang "kernel.rhm"
 
 import:
+  "kernel/coerce.rhm" open
   "kernel/cond_comp.rhm" open
   "kernel/core_type_forms.rhm" open
   "kernel/core_type_ops.rhm" open
@@ -29,6 +30,7 @@ import:
   "kernel/specl_expr.rhm" open
   "kernel/specl_expr_forms.rhm" open
   "kernel/specl_fun.rhm" open
+  "kernel/specl_method.rhm" open
   "kernel/specl_operator.rhm" open
   "kernel/struct.rhm" open
   "kernel/ub_policy.rhm" open
@@ -125,6 +127,7 @@ export:
     pille_operator as operator
 
   only_space specl_annot specl_bind specl_expr pille_expr labeled_expr local_defn priority unique_member:
+    all_from("kernel/coerce.rhm")
     all_from("kernel/cond_comp.rhm")
     all_from("kernel/core_type_forms.rhm")
     all_from("kernel/core_type_ops.rhm")
@@ -146,6 +149,7 @@ export:
     all_from("kernel/specl_expr_forms.rhm")
     all_from("kernel/struct.rhm")
     all_from("kernel/ub_policy.rhm")
+    all_from("kernel/unify.rhm")
     all_from("kernel/unique_member.rhm")
 
   meta:

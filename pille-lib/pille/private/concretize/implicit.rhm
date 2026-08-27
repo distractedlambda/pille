@@ -5,12 +5,12 @@ import:
   "caches.rhm"
   "exn.rhm" open
   "expr.rhm" open
-  "type_fwd.rhm" open
+  "type.rhm" open
 
 class.together:
   class Species(
     display_name :: String,
-    validator :: [Any, ...] -> _Type -> ~any,
+    validator :: [Any, ...] -> Type -> ~any,
   ):
     ~name: ImplicitKey.Species
 
@@ -30,7 +30,7 @@ class.together:
   class ImplicitKey(
     species :~ Species,
     indices :~ [Any, ...],
-    private validator :~ Function.assume_of(_Type -> ~any),
+    private validator :~ Function.assume_of(Type -> ~any),
   ):
     internal _ImplicitKey
 
@@ -38,7 +38,7 @@ class.together:
 
     equatable_by_identity
 
-    method validate_value_type(ty :: _Type) :~ Void:
+    method validate_value_type(ty :: Type) :~ Void:
       validator(ty)
       #void
 

@@ -89,12 +89,26 @@ meta:
     | '$(name :: Identifier)':
         name
 
+  export fun typeset_specl_member_name(stx):
+    match stx
+    | '$('$' && dollar_op) $(name :: Identifier)':
+        '$(typeset_specl_expr(dollar_op)) $(typeset_unique_member(name))'
+    | '$(name :: Identifier)':
+        name
+
   export fun typeset_dot_member_name(stx):
     match stx
     | '$('.' && dot_op) $(mn :: MemberName)':
         '$(typeset_expr(dot_op)) $(typeset_member_name(mn))'
     | '$('.$' && dot_dollar_op) $(name :: Identifier)':
         '$(typeset_expr(dot_dollar_op)) $(typeset_unique_member(name))'
+
+  export fun typeset_specl_dot_member_name(stx):
+    match stx
+    | '$('.' && dot_op) $(mn :: MemberName)':
+        '$(typeset_specl_expr(dot_op)) $(typeset_specl_member_name(mn))'
+    | '$('.$' && dot_dollar_op) $(name :: Identifier)':
+        '$(typeset_specl_expr(dot_dollar_op)) $(typeset_unique_member(name))'
 
   //============================================================================
   export syntax_class Args:

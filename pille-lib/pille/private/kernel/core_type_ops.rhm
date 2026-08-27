@@ -3,43 +3,38 @@
 import:
   "coerce.rhm" open
   "core_types.rhm" open
+  "method_call.rhm" open
   "specl_annot_forms.rhm" open
+  "specl_bind.rhm" open
   "specl_bind_forms.rhm" open
   "specl_expr_forms.rhm" open
   "specl_fun.rhm" open
+  "specl_method.rhm" open
   "unique_member.rhm" open
   pille/concretize open
   pille/lowering
 
 //==============================================================================
-// Specl(f :: function).$call(arg :: Specl(v), ...)
-MethodDefn.register(
+// Specialization function `$call` implementation
+SpeclOverload.register(
   ~selector:
     unique_member.symbol(call),
-  ~concretizer:
-    fun(receiver_type, arg_types :~ [Type, ...]):
-      guard.let SpeclType(f :: Function) = receiver_type | #false
-      let [arg, ...]:
-        for List (arg_type in arg_types, arg_idx in 0..):
-          guard.let SpeclType(arg) = arg_type
+  ~impl:
+    fun(receiver, args :~ List):
+      specl_bind.compile(
+        _ :: function,
+        receiver,
+        block:
+          let (arities, _, _) = Function.arity(receiver)
+          guard arities bits.(?) args.length()
           | error(
               ~exn: Exn.Fail.Concretize.Recoverable,
-              "argument to Specl function must have Specl type",
-              error.val(~label: "callee type", receiver_type),
-              error.val(~label: "argument index", arg_idx),
-              error.val(~label: "argument type", arg_type))
-          arg
-      let result = f(arg, ...)
-      MethodDefn.Concretized(
-        ~result_type:
-          SpeclType(result),
-        ~lower_call:
-          fun(env, [#false, ...]):
-            [#false]))
+              "wrong number of arguments in call")
+          receiver(&args)))
 
 //==============================================================================
 // Tuple `$assign` implementation
-MethodDefn.register(
+Overload.register(
   ~selector:
     unique_member.symbol(assign),
   ~concretizer:
@@ -50,8 +45,9 @@ MethodDefn.register(
       let [slot, ...] = receiver_type.slots
       let [lower_elem_update, ...] = for List (elem_type in receiver_type.elements):
         try ~escape_as esc:
-          let assign_method_concr :~ MethodDefn.Concretized = try:
-            elem_type.concretized_method(
+          let assign_method_concr :~ Overload.Concretized = try:
+            resolve_overload(
+              elem_type,
               unique_member.symbol(assign),
               [elem_type])
             ~catch _ :: Exn.Fail.Concretize.Recoverable:
@@ -70,7 +66,7 @@ MethodDefn.register(
               error(
                 ~exn: Exn.Fail.Concretize,
                 "'$assign' method cannot take new value as 'inout'")
-      MethodDefn.Concretized(
+      Overload.Concretized(
         ~result_type:
           VoidType(),
         ~inout_mask:
@@ -87,12 +83,12 @@ MethodDefn.register(
                 ...])]))
 
 //==============================================================================
-export specl.fun tuple_length(α && AnyTuple):
+specl.property (AnyTuple as α).length:
   #%rhombus(α):
     TupleType.elements(α).length()
 
 //==============================================================================
-export specl.fun TupleElement(α && AnyTuple, idx :: nat):
+specl.method (AnyTuple as α).ElementAt(idx :: nat):
   #%rhombus(α, idx):
     let TupleType(element_types) = α
     guard idx < element_types.length()

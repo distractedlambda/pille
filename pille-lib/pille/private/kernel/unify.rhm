@@ -2,48 +2,71 @@
 
 import:
   "../util/syntax.rhm" open
+  "implicit.rhm" open
   "priority.rhm" open
   "specl_bind.rhm" open
   "specl_expr.rhm" open
+  "specl_method_call.rhm" open
+  "unique_member.rhm" open
   "when_where.rhm" open
   pille/concretize open
   rhombus/delay open
 
-meta:
-  syntax_class Spec:
-    kind: ~group
-    fields:
-      fst_type
-      snd_type
-      [ww, ...]
-      priority_expr
-      body
-  | '($(fst_type :: specl_bind_meta.Parsed),
-      $(snd_type :: specl_bind_meta.Parsed)): $(oab :: OptionsAndBody)':
-      def ([ww_opt, ...], [other_opt, ...]):
-        [oab.option, ...].partition((_ matches '$('~when' || '~where') $_ ...'))
-      match_def '$(ww :: WhenWhereOption); ...':
-        '$ww_opt; ...'
-      match_def '$(group_option_sequence
-                   | '~priority $(block_or_tail priority :: IdentifierName)':
-                       field priority_expr = 'priority.reflect($priority)'
-                       default priority_expr = 'Priority.new_automatic()')':
-        '$other_opt; ...'
-      match_def '$(body :: Group)' = oab.body
+//==============================================================================
+export unique_member unify_with
 
-export defn.macro 'unify $(spec :: Spec)':
-  ~all_stx: stx
-  'UnifyRule.register(
-     ~srcloc:
-       $(stx.srcloc()),
-     ~priority:
-       $spec.priority_expr,
-     ~eval:
-       fun(fst_type, snd_type):
-         $(specl_bind_meta.compile(
-             specl_bind_meta.pack_conjunction(
-               [specl_bind_meta.pack_parallel_bindings(
-                  [spec.fst_type, spec.snd_type]),
-                spec.ww, ...]),
-             '[fst_type, snd_type]',
-             specl_expr_meta.as_rhombus_expr(spec.body))))'
+//==============================================================================
+export fun eval_unify(
+  ~srcloc: srcloc :: maybe(Srcloc) = #false,
+  types :: [Type, ...],
+) :: Type:
+  fun eval_oneway(fst :~ Type, snd :~ Type) :~ Type:
+    let res = ImplicitKey.with_empty_env(_) <| fun():
+      eval_specl_method_call(fst, unique_member.symbol(unify_with), [snd])
+    unless res is_a Type
+    | error(
+        ~srcloc,
+        ~exn: Exn.Fail.Concretize,
+        "result of '$unify_with' method must be a type",
+        error.val(~label: "first type", fst),
+        error.val(~label: "second type", snd),
+        error.val(~label: "result", res))
+    res
+
+  match types
+  | [fst]:
+      fst
+  | [fst, snd]:
+      guard !(fst === snd)
+      | fst
+      try ~escape_as esc:
+        let fwd_res = try:
+          eval_oneway(fst, snd)
+          ~catch fwd_exn :: Exn.Fail.Concretize.Recoverable:
+            try:
+              esc <| eval_oneway(snd, fst)
+              ~catch rev_exn :: Exn.Fail.Concretize.Recoverable:
+                error(
+                  ~srcloc,
+                  ~exn: Exn.Fail.Concretize.Recoverable,
+                  "types cannot be unified",
+                  error.vals(~label: "types", [fst, snd]),
+                  error.cause(fwd_exn),
+                  error.cause(rev_exn))
+        let rev_res = try:
+          eval_oneway(snd, fst)
+          ~catch _ :: Exn.Fail.Concretize.Recoverable:
+            esc(fwd_res)
+        unless fwd_res === rev_res
+        | error(
+            ~srcloc,
+            ~exn: Exn.Fail.Concretize,
+            "type unification is non-commutative",
+            ~details: ["changing the order of inputs types changes the result"],
+            error.vals(~label: "types", [fst, snd]),
+            error.val(~label: "forward result", fwd_res),
+            error.val(~label: "reverse result", rev_res))
+        fwd_res
+
+  | [fst, snd, &types]:
+      eval_unify(~srcloc, [eval_unify(~srcloc, [fst, snd]), &types])

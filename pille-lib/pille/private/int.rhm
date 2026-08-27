@@ -9,24 +9,24 @@ import:
 
 //==============================================================================
 export specl.def NativeInt:
-  Int(sizeof(RawPtr) * 8)
+  Int(RawPtr.byte_size * 8)
 
 export specl.def NativeUInt:
-  UInt(sizeof(RawPtr) * 8)
+  UInt(RawPtr.byte_size * 8)
 
 //==============================================================================
-property (specl Int(w)).min_value:
-  specl(-(2**(w - 1)))
+specl.property (Int(w)).min_value:
+  -(2**(w - 1))
 
-property (specl Int(w)).max_value:
-  specl(2**(w - 1) - 1)
+specl.property (Int(w)).max_value:
+  2**(w - 1) - 1
 
 //==============================================================================
-property (specl UInt(w)).min_value:
+specl.property (UInt(w)).min_value:
   0
 
-property (specl UInt(w)).max_value:
-  specl(2**w - 1)
+specl.property (UInt(w)).max_value:
+  2**w - 1
 
 //==============================================================================
 coercion (from :: UInt(from_width)) :: α && UInt(to_width):
@@ -57,30 +57,30 @@ unify(Int(w1), Int(w2)):
 
 //==============================================================================
 coercion (specl value :: nat) :: α && UInt(width):
-  ~when bit_length(value) ≤ width
+  ~when value.bit_length ≤ width
   prim.constant_int(α, value)
 
 //==============================================================================
 unify(Specl(v1 :: nat), Specl(v2 :: nat)):
-  UInt(bit_length(max(v1, v2)))
+  UInt(max(v1, v2).bit_length)
 
 //==============================================================================
 unify(Specl(v :: nat), UInt(w)):
-  UInt(max(bit_length(v), w))
+  UInt(max(v.bit_length, w))
 
 //==============================================================================
 coercion (specl value :: int) :: α && Int(width):
-  ~when bit_length(value) < width
+  ~when value.bit_length < width
   prim.constant_int(α, value)
 
 //==============================================================================
 unify(Specl(v1 :: int), Specl(v2 :: int)):
   ~when v1 < 0 || v2 < 0
-  Int(max(bit_length(v1), bit_length(v2)) + 1)
+  Int(max(v1.bit_length, v2.bit_length) + 1)
 
 //==============================================================================
 unify(Specl(v :: int), Int(w)):
-  Int(max(bit_length(v) + 1, w))
+  Int(max(v.bit_length + 1, w))
 
 //==============================================================================
 method (lhs :: Int(n)).$add(rhs :: Int(n)) :: Int(n):

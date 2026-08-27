@@ -29,9 +29,9 @@ reexport:
   "private/range.rhm"
   "private/simd.rhm"
   "private/specl_ops.rhm"
-  "private/specl_type.rhm"
   "private/tuple.rhm"
   "private/type_traits.rhm"
+  "private/unify.rhm"
   "private/void.rhm"
 
 export:

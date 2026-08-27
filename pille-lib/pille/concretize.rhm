@@ -14,11 +14,11 @@ reexport:
   "private/concretize/expr.rhm"
   "private/concretize/implicit.rhm"
   "private/concretize/memory_layout.rhm"
-  "private/concretize/method.rhm"
+  "private/concretize/overload.rhm"
   "private/concretize/priority.rhm"
   "private/concretize/repr.rhm"
+  "private/concretize/specl_overload.rhm"
   "private/concretize/type.rhm"
-  "private/concretize/unify.rhm"
 
 import:
   "private/concretize/caches.rhm"

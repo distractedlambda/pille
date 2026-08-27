@@ -36,7 +36,7 @@ check:
 check:
   pille:
     apply_scale_twice(4)
-  ~throws "no applicable method definition"
+  ~throws "no applicable overload"
 
 check:
   pille:

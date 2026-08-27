@@ -33,6 +33,7 @@ export manual.nonterminal:
   precedence_option: operator ~defn
   prefix_macro_pattern: rhm_meta.defn.macro ~defn
   priority_id_name: namespace id_name ~defn
+  priority_option: method ~defn
   receiver: method ~defn
   rhombus_annot: rhm.(::) annot
   rhombus_bind: rhm.def bind ~defn
@@ -42,8 +43,12 @@ export manual.nonterminal:
   rhs_expr: expr expr ~space
   specl_annot: specl_annot ~space
   specl_bind: specl_bind ~space
+  specl_dot_member_name: specl.method ~defn
   specl_expr: specl_expr ~space
   specl_literal: #%literal ~at pille/specl_expr
+  specl_member_name: specl.method ~defn
+  specl_method_option: specl.method ~defn
+  srcloc_option: method ~defn
   test_expr: expr expr ~space
   unique_member_id: rhm.block id
   when_where_option: method ~defn

@@ -1,3 +1,0 @@
-#lang rhombus/static/and_meta
-
-export annot.delayed_declare _Type

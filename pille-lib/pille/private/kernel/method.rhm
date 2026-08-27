@@ -218,7 +218,7 @@ defn.macro '#%method($outer_srcloc, $selector, $symbol_name_formatter) \
   let receiver_name_sym = make_arg_name_sym(receiver)
   let [arg_name_sym, ...] = [make_arg_name_sym(arg), ...]
 
-  'define_method(
+  'define_overload(
      $(srcloc || outer_srcloc),
      $selector,
      $(if priority
@@ -318,7 +318,7 @@ fun prepare_concretize_body(implicits, res_type, concr_body):
 
 // TODO: This is terrifying, fragile, and may already be wrong in subtle and unknown ways
 //       It needs to be rewritten
-fun define_method(
+fun define_overload(
   srcloc,
   selector,
   priority,
@@ -369,7 +369,7 @@ fun define_method(
         | mask,
         idx + 1)
 
-  MethodDefn.register(
+  Overload.register(
     ~srcloc,
     ~selector,
     ~priority,
@@ -475,7 +475,7 @@ fun define_method(
                fun(env, raw_arg_vals):
                  internal_call_low(raw_arg_vals)]
 
-        MethodDefn.Concretized(
+        Overload.Concretized(
           ~result_type: res_type,
           ~inout_mask: method_inout_mask,
           ~lower_call:

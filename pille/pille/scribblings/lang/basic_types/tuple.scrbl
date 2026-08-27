@@ -14,11 +14,11 @@
 ){}
 
 @doc(
-  specl.fun tuple_length(τ && AnyTuple) :: nat
+  specl.property (AnyTuple as τ).length :: nat
 ){}
 
 @doc(
-  specl.fun TupleElement(τ && AnyTuple, idx :: nat) :: type
+  specl.method (AnyTuple as τ).ElementAt(idx :: nat) :: type
 ){}
 
 @doc(
@@ -26,13 +26,13 @@
 ){}
 
 @doc(
-  method (tup :: τ && AnyTuple).$index_read(specl idx :: nat)
-    :: TupleElement(τ, idx)
+  method (tup :: AnyTuple as τ).$index_read(specl idx :: nat)
+    :: τ.ElementAt(idx)
 ){}
 
 @doc(
-  method (inout tup :: τ && AnyTuple).$index_write(
+  method (inout tup :: AnyTuple as τ).$index_write(
     specl idx :: nat,
-    elem :: equal_to(TupleElement(τ, idx)),
+    elem :: CoercesTo(τ.ElementAt(idx)),
   ) :: Void
 ){}

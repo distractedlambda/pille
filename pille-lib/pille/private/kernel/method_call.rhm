@@ -1,0 +1,39 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../runtime/compiler.rhm" open
+  "core_types.rhm" open
+  pille/concretize open
+
+//==============================================================================
+export fun resolve_overload(
+  ~srcloc: srcloc :: maybe(Srcloc) = #false,
+  receiver_type :: Type,
+  selector :: Any,
+  arg_types :: [Type, ...],
+) :~ Overload.Concretized:
+  let compiler = Compiler.require_current()
+  try ~escape_as esc:
+    match values(receiver_type, arg_types)
+    | (SpeclType(receiver), [SpeclType(arg), ...]):
+        try:
+          esc <| block:
+            let result = SpeclOverload.dispatch(
+              ~srcloc,
+              compiler.specl_overloads,
+              receiver,
+              selector,
+              [arg, ...])
+            Overload.Concretized(
+              ~result_type: SpeclType(result),
+              ~lower_call: fun(_, _): [#false])
+          ~catch _ :: Exn.Fail.Concretize.Recoverable:
+            #void
+    | (_, _):
+        #void
+    Overload.dispatch(
+      ~srcloc,
+      compiler.overloads,
+      receiver_type,
+      selector,
+      arg_types)

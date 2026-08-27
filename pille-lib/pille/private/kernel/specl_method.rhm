@@ -1,0 +1,105 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/syntax.rhm" open
+  "specl_bind.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_ns.rhm" open
+  "unify.rhm" open
+  "unique_member.rhm" open
+  "when_where.rhm" open
+  pille/concretize open
+
+export only_space namespace:
+  specl
+
+//==============================================================================
+defn.macro 'specl.method ($receiver) $(member :: specl_expr_meta.DotMemberName) $tail ...':
+  ~all_stx: stx
+  '#%specl_method($(stx.srcloc()), $member.symbol_expr) ($receiver) $tail ...'
+
+//==============================================================================
+defn.macro 'specl.property ($receiver) $(member :: specl_expr_meta.DotMemberName) $tail ...':
+  ~all_stx: stx
+  '#%specl_method($(stx.srcloc()), ReadSelector($member.symbol_expr)) ($receiver) () $tail ...'
+
+//==============================================================================
+export defn.macro 'unify($fst, $snd) $tail ...':
+  ~all_stx: stx
+  '#%specl_method($(stx.srcloc()), unique_member.symbol(unify_with)) ($fst) ($snd) $tail ...'
+
+//==============================================================================
+meta:
+  syntax_class MaybeResAnnot:
+    kind: ~sequence
+  | '$(_ :: specl_expr_meta.AnnotOp) $(_ :: SimpleNonemptySequence)'
+  | ''
+
+  syntax_class MaybeSrcloc:
+    kind: ~term
+  | '$slc':
+      match_when slc.unwrap() is_a maybe(Srcloc)
+
+  syntax_class Impl:
+    kind: ~multi
+  | '$(_ :: OptionsAndBody: open)':
+      unless body is_a Group
+      | syntax_meta.error(
+          "only one body group expected",
+          body)
+      def ([ww_opt_, ...], [other_opt, ...]):
+        [option, ...].partition(_) <| fun(opt):
+          opt matches '$('~when' || '~where') $_ ...'
+      field [ww_opt, ...] = [ww_opt_, ...]
+      match_def '$(group_option_sequence
+                   | '~srcloc $(block_or_tail srcloc_ :: MaybeSrcloc)':
+                       field srcloc = srcloc_.unwrap()
+                       default srcloc = #false
+                   | '~priority $(block_or_tail priority :: IdentifierName)')':
+        '$other_opt; ...'
+
+defn.macro '#%specl_method($outer_srcloc, $selector) \
+            ($receiver_bind) \
+            ($arg_bind, ...) \
+            $(res_annot :: MaybeResAnnot) \
+            : $(impl :: Impl: open)':
+  'block:
+     SpeclOverload.register(
+       ~srcloc:
+         $(impl.srcloc || outer_srcloc),
+       ~selector:
+         $selector,
+       ~priority:
+         $(impl.priority || 'Priority.new_automatic()'),
+       ~impl:
+         #%specl_method_impl(
+           $receiver_bind,
+           [$arg_bind, ...] $res_annot,
+           [$impl.ww_opt, ...],
+           $impl.body))'
+
+expr.macro '#%specl_method_impl(
+              $(receiver_bind :: specl_bind_meta.Parsed),
+              [$(arg_bind :: specl_bind_meta.Parsed), ...] $res_annot ...,
+              [$(ww :: WhenWhereOption), ...],
+              $body)':
+  'fun(receiver, args):
+     check_arity(args, $(Function.count(arg_bind, ...)))
+     $(specl_bind_meta.compile(
+         specl_bind_meta.pack_conjunction(
+           [specl_bind_meta.pack_parallel_bindings(
+              [receiver_bind,
+               specl_bind_meta.pack_parallel_bindings(
+                 [arg_bind, ...])]),
+            ww, ...]),
+         '[receiver, args]',
+         'specl_expr.eval($(specl_expr_meta.pack_specl_expr(body)) $res_annot ...)'))'
+
+fun check_arity(args :~ List, expected :~ Nat):
+  unless args.length() == expected
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "arity mismatch",
+      error.val(~label: "overload's arity", expected),
+      error.vals(~label: "call-site arity", args.length()))

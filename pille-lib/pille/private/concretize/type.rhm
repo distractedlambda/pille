@@ -1,15 +1,10 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/compiler.rhm" open
   "../util/equatable_by_identity.rhm" open
   "caches.rhm"
   "exn.rhm" open
-  "implicit.rhm" open
-  "method.rhm" open
   "repr.rhm" open
-  "type_fwd.rhm" open
-  "unify.rhm" open
   ffi open
   pille/llvm
 
@@ -38,164 +33,6 @@ export class Type():
   abstract protected method compute_repr() :: Repr
 
   private field cached_repr = caches.unkeyed.init()
-
-  //============================================================================
-  final method unify :~ Type
-  | unify():
-      this
-  | unify(other :: _Type):
-      guard !(this === other) | this
-      // FIXME: this caching logic should probably be factored out somehow, but
-      // it doesn't neatly fit into the pattern used elsewhere in this file
-      // (since it involves two caches that must be kept in sync)
-      match this.unification_cache.get(other, #false)
-      | #false:
-          this.unification_cache[other] := #'in_progress
-          other.unification_cache[this] := #'in_progress
-          let unified = try:
-            ImplicitKey.with_empty_env(_) <| fun():
-              this.compute_bidirectional_unification_with(other)
-            ~catch
-            | exn :: Exn.Fail.Concretize.Recoverable:
-                this.unification_cache[other] := exn
-                other.unification_cache[this] := exn
-                throw exn
-            | exn:
-                this.unification_cache.remove(other)
-                other.unification_cache.remove(this)
-                throw exn
-          this.unification_cache[other] := unified
-          other.unification_cache[this] := unified
-          unified
-      | #'in_progress:
-          error(
-            ~exn: Exn.Fail.Concretize,
-            "circular dependency in type unification",
-            error.vals(~label: "types", [this, other]))
-      | unified :: Type:
-          unified
-      | exn:
-          throw exn
-  | unify(hd, tl, ...):
-      unify(hd).unify(tl, ...)
-
-  private method compute_unidirectional_unification_with(
-    other :~ Type,
-  ) :~ Type || [Exn.Fail.Concretize.Recoverable, ...]:
-    let compiler = Compiler.require_current()
-    recur find_rule(rules :~ [UnifyRule, ...] = compiler.unification_rules,
-                    exns :~ List = []):
-      match rules
-      | [rule, &rules]:
-          try ~escape_as esc:
-            guard.let unified!!:
-              try:
-                rule.eval(this, other)
-                ~catch exn :: Exn.Fail.Concretize.Recoverable:
-                  esc(find_rule(rules, exns ++ [exn]))
-            | find_rule(rules, exns)
-
-            for (other_rule in rules):
-              skip_when rule.priority.is_higher_than(other_rule.priority)
-              keep_let other_unified!!:
-                try:
-                  other_rule.eval(this, other)
-                  ~catch _ :: Exn.Fail.Concretize.Recoverable:
-                    #false
-              unless unified === other_unified
-              | error(
-                  ~exn: Exn.Fail.Concretize,
-                  "type unification is ambiguous",
-                  ~details: ["at least two applicable rules disagree"],
-                  error.vals(~label: "types", [this, other]),
-                  error.text(~label: "first rule", rule.srcloc?.to_report_string() || "???"),
-                  error.val(~label: "first rule's result", unified),
-                  error.text(~label: "second rule", other_rule.srcloc?.to_report_string() || "???"),
-                  error.val(~label: "second rule's result", other_unified))
-
-            unified
-      | []:
-          exns
-
-  private method compute_bidirectional_unification_with(other :~ Type) :~ Type:
-    try ~escape_as esc:
-      match this.compute_unidirectional_unification_with(other)
-      | fwd_type :: Type:
-          match other.compute_unidirectional_unification_with(this)
-          | rev_type :: Type:
-              if fwd_type === rev_type
-              | fwd_type
-              | error(
-                  ~exn: Exn.Fail.Concretize,
-                  "type unification is ambiguous",
-                  ~details: ["swapping input types yields a different result"],
-                  error.vals(~label: "types", [this, other]),
-                  error.val(~label: "forward unification", fwd_type),
-                  error.val(~label: "reverse unification", rev_type))
-          | _:
-              fwd_type
-      | [fwd_exn, ...]:
-          match other.compute_unidirectional_unification_with(this)
-          | rev_type :: Type:
-              rev_type
-          | [rev_exn, ...]:
-              error(
-                ~exn: Exn.Fail.Concretize.Recoverable,
-                "types could not be unified",
-                error.vals(~label: "types", [this, other]),
-                error.cause(fwd_exn), ...,
-                error.cause(rev_exn), ...)
-
-  private immutable unification_cache :~ WeakMutableMap.by(===):
-    WeakMutableMap.by(===){}
-
-  //============================================================================
-  final method concretized_method(
-    ~srcloc: srcloc :: maybe(Srcloc) = #false,
-    selector :: Any,
-    arg_types :: [Type, ...],
-  ) :~ MethodDefn.Concretized:
-    let compiler = Compiler.require_current()
-    recur find_match(defns :~ [MethodDefn, ...] = compiler.methods.maybe[selector] || [],
-                     exns :~ List = []):
-      guard.let [defn, &defns] = defns
-      | error(
-          ~srcloc,
-          ~exn: Exn.Fail.Concretize.Recoverable,
-          "no applicable method definition",
-          error.val(~label: "receiver type", this),
-          error.val(~label: "selector", selector),
-          error.vals(~label: "argument types", arg_types),
-          error.cause(each exns),
-          ...)
-      try ~escape_as esc:
-        guard.let concr!!:
-          try:
-            defn.concretizer(this, arg_types)
-            ~catch exn :: Exn.Fail.Concretize.Recoverable:
-              esc(find_match(defns, exns ++ [exn]))
-        | find_match(defns, exns)
-        recur check_ambiguity(defns :~ [MethodDefn, ...] = defns):
-          guard.let [other_defn, &defns] = defns
-          | concr
-          guard !defn.priority.is_higher_than(other_defn.priority)
-          | check_ambiguity(defns)
-          guard.let other_concr!!:
-            try:
-              other_defn.concretizer(this, arg_types)
-              ~catch _ :: Exn.Fail.Concretize.Recoverable:
-                #false
-          | check_ambiguity(defns)
-          error(
-            ~srcloc,
-            ~exn: Exn.Fail.Concretize,
-            "ambiguous method call",
-            ~details: ["at least two definitions match, and neither takes priority"],
-            error.text(~label: "first match", defn.srcloc?.to_report_string() || "???"),
-            error.text(~label: "second match", other_defn.srcloc?.to_report_string() || "???"),
-            error.val(~label: "receiver type", this),
-            error.val(~label: "selector", selector),
-            error.vals(~label: "argument types", arg_types))
 
   //============================================================================
   annot RhombusToPilleWriter:
@@ -231,7 +68,3 @@ export class Type():
       error.val(~label: "type", this))
 
   private field cached_rhombus_interop = caches.unkeyed.init()
-
-//==============================================================================
-annot.delayed_complete _Type:
-  Type

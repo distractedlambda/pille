@@ -332,6 +332,16 @@
 }
 
 @doc(
+  unique_member pow
+  operator lhs ** rhs:
+    ~transparent
+    ~order: exponentiation
+){
+  Like @pille_expr(+), but for the exponentiation or ``power''
+  operation.
+}
+
+@doc(
   unique_member not
 
   operator not rhs:

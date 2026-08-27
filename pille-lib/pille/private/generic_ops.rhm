@@ -1,12 +1,13 @@
 #lang pille/private/kernel
 
 import:
-  "specl_ops.rhm" open
   "type_traits.rhm" open
+  "unify.rhm" open
 
 //==============================================================================
 global_defn.macro 'generic_binops:
-                     $op $order $name
+                     $op $order $name $(term_option_sequence
+                                        | '~no_specl': field no_specl = #true)
                      ...':
   'unique_member $name
    ...
@@ -20,13 +21,20 @@ global_defn.macro 'generic_binops:
        ~where γ = unify(α, β)
        ~transparent
        (lhs :: γ).$ $name(rhs :: γ)
+   ...
+
+   $(if no_specl
+     | ''
+     | 'specl.operator lhs $op rhs:
+          ~order: $order
+          lhs.$ $name(rhs)')
    ...'
 
 export generic_binops:
   + addition add
-  +% addition add_wrap
+  +% addition add_wrap ~no_specl
   * multiplication mul
-  *% multiplication mul_wrap
+  *% multiplication mul_wrap ~no_specl
   / multiplication div
   div_trunc multiplication div_trunc
   div_floor multiplication div_floor
@@ -35,11 +43,12 @@ export generic_binops:
   rem_trunc multiplication rem_trunc
   rem_floor multiplication rem_floor
   rem_ceil multiplication rem_ceil
+  ** exponentiation pow
   ∧ bitwise_conjunction and
   ∨ bitwise_disjunction or
   ⊻ bitwise_disjunction xor
-  == equivalence eq
-  != equivalence ne
+  == equivalence eq ~no_specl
+  != equivalence ne ~no_specl
   < order_comparison lt
   > order_comparison gt
   <= order_comparison le
@@ -47,7 +56,9 @@ export generic_binops:
 
 //==============================================================================
 global_defn.macro 'generic_binpreops:
-                     $op $prefix_order $infix_order $prefix_name $infix_name
+                     $op $prefix_order $infix_order $prefix_name $infix_name \
+                       $(term_option_sequence
+                         | '~no_specl': field no_specl = #true)
                      ...':
   'unique_member $prefix_name
    ...
@@ -68,11 +79,22 @@ global_defn.macro 'generic_binpreops:
        ~where γ = unify(α, β)
        ~transparent
        (lhs :: γ).$ $infix_name(rhs :: γ)
+   ...
+
+   $(if no_specl
+     | ''
+     | 'specl.operator
+        | $op rhs:
+            ~order: $prefix_order
+            rhs.$ $prefix_name()
+        | lhs $op rhs:
+            ~order: $infix_order
+            lhs.$ $infix_name(rhs)')
    ...'
 
 export generic_binpreops:
   - multiplication addition neg sub
-  -% multiplication addition neg_wrap sub_wrap
+  -% multiplication addition neg_wrap sub_wrap ~no_specl
 
 //==============================================================================
 export operator
@@ -82,12 +104,22 @@ export operator
 | ! (rhs :: CoercesTo(Boolean)) :: Boolean:
     prim.not(rhs :: Boolean)
 
+export specl.operator !rhs:
+  ~order: logical_negation
+  #%rhombus(rhs):
+    import rhombus/static open
+    !rhs
+
 //==============================================================================
 export unique_member not
 
 export operator ¬rhs:
   ~order: bitwise_negation
   ~transparent
+  rhs.$not()
+
+export specl.operator ¬rhs:
+  ~order: bitwise_negation
   rhs.$not()
 
 //==============================================================================
@@ -126,7 +158,7 @@ export operator lhs ∉ rhs:
   ¬(lhs in rhs)
 
 //==============================================================================
-export only_space expr:
+export only_space expr specl_expr:
   rename:
     ¬ as not
     ∧ as and

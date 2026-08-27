@@ -1,0 +1,9 @@
+#lang pille/private/kernel
+
+//==============================================================================
+export specl.fun unify(α :: type, β :: type):
+  #%rhombus(α, β):
+    import:
+      "kernel/unify.rhm" open
+      rhombus/static open
+    eval_unify([α, β])

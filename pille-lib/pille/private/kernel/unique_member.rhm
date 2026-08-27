@@ -36,7 +36,6 @@ bind.macro 'unique_member.symbol($(name :: Identifier))':
 //==============================================================================
 export unique_member assign
 export unique_member call
-export unique_member coerce_to
 export unique_member index_read
 export unique_member index_write
 export unique_member new

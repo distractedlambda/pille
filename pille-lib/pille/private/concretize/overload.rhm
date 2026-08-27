@@ -1,0 +1,129 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../util/equatable_by_identity.rhm" open
+  "exn.rhm" open
+  "priority.rhm" open
+  "type.rhm" open
+  pille/llvm
+
+//============================================================================
+export class ReadSelector(property :: Symbol)
+
+export class WriteSelector(property :: Symbol)
+
+//============================================================================
+annot.delayed_declare _Concretized
+
+//============================================================================
+export Overload
+class Overload(
+  srcloc :~ maybe(Srcloc),
+  selector :~ Any,
+  priority :~ Priority,
+  concretizer :~ Function.assume_of((Type, [Type, ...]) -> maybe(_Concretized)),
+):
+  internal _Overload
+
+  equatable_by_identity
+
+  constructor ~error
+
+  export:
+    Concretized
+    Concretizer
+    Table
+    dispatch
+    register
+    snapshot_table
+
+  class Concretized(
+    ~result_type:
+      result_type :: Type,
+    ~inout_mask:
+      inout_mask :: Nat = 0,
+    ~lower_call:
+      lower_call :: (
+        env :: Map,
+        explicit_vals :: [maybe(llvm.Value), ...],
+      ) -> [maybe(llvm.Value), maybe(llvm.Value), ...])
+
+  annot Concretizer:
+    (receiver_type :: Type, arg_types :: [Type, ...]) -> maybe(Concretized)
+
+  annot Table:
+    Map.of(Any, [Overload, ...])
+
+  Parameter.def current_table :~ Table:
+    Map{}
+
+  fun register(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    ~selector: selector :: Any,
+    ~priority: priority :: Priority = Priority.new_automatic(),
+    ~concretizer: concretizer :: Concretizer,
+  ) :: Void:
+    let tbl = current_table()
+    current_table(
+      tbl ++ {
+        selector:
+          List.cons(
+            _Overload(srcloc, selector, priority, concretizer),
+            tbl.maybe[selector] || [])})
+
+  fun snapshot_table() :~ Table:
+    for Map ((sel, defns) in current_table()):
+      let defns = defns.sort(_) <| fun(fst :~ Overload, snd :~ Overload):
+        fst.priority.is_higher_than(snd.priority)
+      values(sel, defns)
+
+  fun dispatch(
+    ~srcloc: srcloc :: maybe(Srcloc) = #false,
+    table :~ Table,
+    receiver_type :: Type,
+    selector :: Any,
+    arg_types :: [Type, ...],
+  ) :~ Concretized:
+    recur find_match(overloads :~ [Overload, ...] = table.maybe[selector] || [],
+                     exns :~ List = []):
+      guard.let [ovl, &overloads] = overloads
+      | error(
+          ~srcloc,
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "no applicable overload",
+          error.val(~label: "receiver type", receiver_type),
+          error.val(~label: "selector", selector),
+          error.vals(~label: "argument types", arg_types),
+          error.cause(each exns),
+          ...)
+      try ~escape_as esc:
+        guard.let concr!!:
+          try:
+            ovl.concretizer(receiver_type, arg_types)
+            ~catch exn :: Exn.Fail.Concretize.Recoverable:
+              esc(find_match(overloads, exns ++ [exn]))
+        | find_match(overloads, exns)
+        recur check_ambiguity(overloads :~ [Overload, ...] = overloads):
+          guard.let [other_ovl, &overloads] = overloads
+          | concr
+          guard !ovl.priority.is_higher_than(other_ovl.priority)
+          | check_ambiguity(overloads)
+          guard.let other_concr!!:
+            try:
+              other_ovl.concretizer(receiver_type, arg_types)
+              ~catch _ :: Exn.Fail.Concretize.Recoverable:
+                #false
+          | check_ambiguity(overloads)
+          error(
+            ~srcloc,
+            ~exn: Exn.Fail.Concretize,
+            "overload ambiguity",
+            ~details: ["at least two overloads match, and neither takes priority"],
+            error.text(~label: "first overload", ovl.srcloc?.to_report_string() || "???"),
+            error.text(~label: "second overload", other_ovl.srcloc?.to_report_string() || "???"),
+            error.val(~label: "receiver type", receiver_type),
+            error.val(~label: "selector", selector),
+            error.vals(~label: "argument types", arg_types))
+
+annot.delayed_complete _Concretized:
+  Overload.Concretized

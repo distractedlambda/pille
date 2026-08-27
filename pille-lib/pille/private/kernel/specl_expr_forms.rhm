@@ -2,11 +2,13 @@
 
 import:
   "../util/syntax.rhm" open
+  "expr.rhm" open
   "specl_annot.rhm" open
   "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
   "specl_expr.rhm" open
-  "expr.rhm" open
+  "specl_method_call.rhm" open
+  "unique_member.rhm" open
   pille/concretize open
 
 //==============================================================================
@@ -137,20 +139,7 @@ meta def function_specl_annot:
 export specl_expr.macro '$lhs #%call ($(arg :: specl_expr_meta.Parsed), ...)':
   ~stronger_than: ~other
   ~associativity: ~left
-  specl_expr_meta.pack_rhombus_expr(
-    'call_impl(
-       $(specl_expr_meta.pack_implicitly_annotated(lhs, function_specl_annot)
-           |> specl_expr_meta.unpack_rhombus_expr),
-       [$(specl_expr_meta.unpack_rhombus_expr(arg)),
-        ...])')
-
-fun call_impl(f :~ Function, args :~ List):
-  let (arities, _, _) = f.arity()
-  guard arities bits.(?) args.length()
-  | error(
-      ~exn: Exn.Fail.Concretize.Recoverable,
-      "wrong number of arguments in call")
-  f(&args)
+  '$lhs.$call($arg, ...)'
 
 //==============================================================================
 export specl_expr.macro '$lhs && $rhs':
@@ -238,3 +227,92 @@ fun match_impl(target, cases :~ List):
       "no matching case",
       error.cause(each exns),
       ...)
+
+//==============================================================================
+export specl_expr.macro '($) $rhs':
+  ~stronger_than: ~other
+  ~op_stx: op
+  syntax_meta.error("not a specl operator", op)
+
+meta syntax_class specl_expr_meta.DollarOp:
+  kind: ~sequence
+| '$(bound_as specl_expr_meta.space: '$')'
+
+//==============================================================================
+meta:
+  syntax_class specl_expr_meta.MemberName:
+    kind: ~sequence
+    fields: symbol_expr
+  | '$(name :: Identifier)':
+      field symbol_expr:
+        expr_meta.pack_expr('#'$name')
+  | '$(op :: specl_expr_meta.DollarOp) $(name :: Identifier)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          expr_meta.pack_expr('unique_member.symbol($name)'),
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: specl_expr_meta.space)
+
+  syntax_class specl_expr_meta.DotOp:
+    kind: ~sequence
+  | '$(bound_as specl_expr_meta.space: '.')'
+
+  syntax_class specl_expr_meta.DotDollarOp:
+    kind: ~sequence
+  | '$(bound_as specl_expr_meta.space: '.$')'
+
+  syntax_class specl_expr_meta.DotMemberName:
+    kind: ~sequence
+    fields: symbol_expr
+  | '$(op :: specl_expr_meta.DotOp) $(name :: specl_expr_meta.MemberName)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          name.symbol_expr,
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: specl_expr_meta.space)
+  | '$(op :: specl_expr_meta.DotDollarOp) $(name :: Identifier)':
+      field symbol_expr:
+        syntax_meta.track_origin(
+          expr_meta.pack_expr('unique_member.symbol($name)'),
+          ~add: syntax_meta.flip_introduce(op),
+          ~space: specl_expr_meta.space)
+
+export specl_expr.macro
+| '$lhs . $(member :: specl_expr_meta.MemberName) ($(arg :: specl_expr_meta.Parsed), ...)':
+    ~order: member_access
+    ~all_stx: stx
+    specl_expr_meta.pack_rhombus_expr(
+      'eval_specl_method_call(
+         ~srcloc: $(stx.srcloc()),
+         $(specl_expr_meta.unpack_rhombus_expr(lhs)),
+         $(member.symbol_expr),
+         [$(specl_expr_meta.unpack_rhombus_expr(arg)), ...])')
+
+| '$lhs . $(member :: specl_expr_meta.MemberName)':
+    ~all_stx: stx
+    specl_expr_meta.pack_rhombus_expr(
+      'eval_specl_method_call(
+         ~srcloc: $(stx.srcloc()),
+         $(specl_expr_meta.unpack_rhombus_expr(lhs)),
+         ReadSelector($(member.symbol_expr)),
+         [])')
+
+export specl_expr.macro
+| '$lhs .$ $(member :: Identifier) ($(arg :: specl_expr_meta.Parsed), ...)':
+    ~order: member_access
+    ~all_stx: stx
+    specl_expr_meta.pack_rhombus_expr(
+      'eval_specl_method_call(
+         ~srcloc: $(stx.srcloc()),
+         $(specl_expr_meta.unpack_rhombus_expr(lhs)),
+         unique_member.symbol($member),
+         [$(specl_expr_meta.unpack_rhombus_expr(arg)), ...])')
+
+| '$lhs .$ $(member :: Identifier)':
+    ~all_stx: stx
+    specl_expr_meta.pack_rhombus_expr(
+      'eval_specl_method_call(
+         ~srcloc: $(stx.srcloc()),
+         $(specl_expr_meta.unpack_rhombus_expr(lhs)),
+         ReadSelector(unique_member.symbol($member)),
+         [])')
