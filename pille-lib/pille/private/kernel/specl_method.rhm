@@ -2,6 +2,7 @@
 
 import:
   "../util/syntax.rhm" open
+  "priority.rhm" open
   "specl_bind.rhm" open
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
@@ -71,7 +72,7 @@ defn.macro '#%specl_method($outer_srcloc, $selector) \
        ~selector:
          $selector,
        ~priority:
-         $(impl.priority || 'Priority.new_automatic()'),
+         $((impl.priority && 'priority.reflect($impl.priority)') || 'Priority.new_automatic()'),
        ~impl:
          #%specl_method_impl(
            $receiver_bind,
