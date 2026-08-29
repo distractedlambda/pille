@@ -464,6 +464,90 @@
   specl.fun max(x :: real, y :: real) :: real
 ){}
 
+@doc(
+  specl.fun abs(x):
+    x.$abs()
+
+  specl.method (x :: real).$abs() :: real
+){}
+
+@doc(
+  specl.fun floor(x):
+    x.$floor()
+
+  specl.method (x :: real).$floor() :: real
+){}
+
+@doc(
+  specl.fun ceil(x):
+    x.$ceil()
+
+  specl.method (x :: real).$ceil() :: real
+){}
+
+@doc(
+  specl.fun round(x):
+    x.$round()
+
+  specl.method (x :: real).$round() :: real
+){}
+
+@doc(
+  specl.fun trunc(x):
+    x.$trunc()
+
+  specl.method (x :: real).$trunc() :: real
+){}
+
+@doc(
+  specl.fun sqrt(x):
+    x.$sqrt()
+
+  specl.method (x :: number).$sqrt() :: number
+){}
+
+@doc(
+  specl.fun exp(x):
+    x.$exp()
+
+  specl.method (x :: number).$exp() :: number
+){}
+
+@doc(
+  specl.fun sin(x):
+    x.$sin()
+
+  specl.method (x :: number).$sin() :: number
+){}
+
+@doc(
+  specl.fun cos(x):
+    x.$cos()
+
+  specl.method (x :: number).$cos() :: number
+){}
+
+@doc(
+  specl.fun tan(x):
+    x.$tan()
+
+  specl.method (x :: number).$tan() :: number
+){}
+
+@doc(
+  specl.fun asin(x):
+    x.$asin()
+
+  specl.method (x :: number).$asin() :: number
+){}
+
+@doc(
+  specl.fun acos(x):
+    x.$acos()
+
+  specl.method (x :: number).$acos() :: number
+){}
+
 @section(~tag: "Specl_Bitwise"){Bit-Level Operations}
 
 @doc(

@@ -221,3 +221,27 @@ specl.property (n :: int).bit_length:
   #%rhombus(n):
     import rhombus/static open
     bits.length(n)
+
+//==============================================================================
+global_defn.macro 'math_methods:
+                     $pille_name $pille_ann $rhm_name
+                     ...':
+  'specl.method(x :: $pille_ann).$ $pille_name():
+     #%rhombus(x):
+       import rhombus/static open
+       math. $rhm_name(x)
+   ...'
+
+math_methods:
+  abs real abs
+  acos number acos
+  asin number asin
+  ceil real ceiling
+  cos number cos
+  exp number exp
+  floor real floor
+  round real round
+  sin number sin
+  sqrt number sqrt
+  tan number tan
+  trunc real truncate

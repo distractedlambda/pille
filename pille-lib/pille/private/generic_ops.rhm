@@ -5,6 +5,36 @@ import:
   "unify.rhm" open
 
 //==============================================================================
+global_defn.macro 'generic_funops:
+                     $name($hd_arg_id, $tl_arg_id, ...)
+                     ...':
+  'unique_member $name
+   ...
+
+   specl.fun $name($hd_arg_id, $tl_arg_id, ...):
+     $hd_arg_id.$ $name($tl_arg_id, ...)
+   ...
+
+   fun $name($hd_arg_id, $tl_arg_id, ...):
+     ~transparent
+     $hd_arg_id.$ $name($tl_arg_id, ...)
+   ...'
+
+export generic_funops:
+  abs(x)
+  acos(x)
+  asin(x)
+  ceil(x)
+  cos(x)
+  exp(x)
+  floor(x)
+  round(x)
+  sin(x)
+  sqrt(x)
+  tan(x)
+  trunc(x)
+
+//==============================================================================
 global_defn.macro 'generic_binops:
                      $op $order $name $(term_option_sequence
                                         | '~no_specl': field no_specl = #true)

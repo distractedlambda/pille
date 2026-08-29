@@ -475,6 +475,105 @@
 }
 
 @//=============================================================================
+@section{Generic Math Functions}
+
+@doc(
+  unique_member abs
+
+  fun abs(x):
+    ~transparent
+    x.$abs()
+){}
+
+@doc(
+  unique_member floor
+
+  fun floor(x):
+    ~transparent
+    x.$floor()
+){}
+
+@doc(
+  unique_member ceil
+
+  fun ceil(x):
+    ~transparent
+    x.$ceil()
+){}
+
+@doc(
+  unique_member round
+
+  fun round(x):
+    ~transparent
+    x.$round()
+){}
+
+@doc(
+  unique_member trunc
+
+  fun trunc(x):
+    ~transparent
+    x.$trunc()
+){}
+
+@doc(
+  unique_member sqrt
+
+  fun sqrt(x):
+    ~transparent
+    x.$sqrt()
+){}
+
+@doc(
+  unique_member exp
+
+  fun exp(x):
+    ~transparent
+    x.$exp()
+){}
+
+@doc(
+  unique_member sin
+
+  fun sin(x):
+    ~transparent
+    x.$sin()
+){}
+
+@doc(
+  unique_member cos
+
+  fun cos(x):
+    ~transparent
+    x.$cos()
+){}
+
+@doc(
+  unique_member tan
+
+  fun tan(x):
+    ~transparent
+    x.$tan()
+){}
+
+@doc(
+  unique_member asin
+
+  fun asin(x):
+    ~transparent
+    x.$asin()
+){}
+
+@doc(
+  unique_member acos
+
+  fun acos(x):
+    ~transparent
+    x.$acos()
+){}
+
+@//=============================================================================
 @section{Conditionals}
 
 @doc(
