@@ -1,10 +1,11 @@
 #lang rhombus/static/and_meta
 
 import:
-  "../runtime/per_compiler.rhm" open
   "../runtime/compiler.rhm" open
+  "../runtime/per_compiler.rhm" open
   "../util/assert.rhm" open
   "specl_expr.rhm" open
+  "unique_member.rhm" open
   ffi open
   pille/concretize open
   pille/llvm
@@ -454,6 +455,35 @@ export class RawPtrType():
   private implements Printable
   private override describe(_, _):
     "RawPtr"
+
+//==============================================================================
+export class InitExprType(selector :: Any, args :: [Type, ...]):
+  extends Type
+
+  nonsingleton_ctor(selector, args)
+
+  //============================================================================
+  override compute_repr():
+    TupleType(args).repr
+
+  //============================================================================
+  private implements Printable
+  private override describe(_, rec):
+    PrintDesc.list(
+      "InitExpr'",
+      [match selector
+       | ReadSelector(sym):
+           PrintDesc.concat(".", to_string(sym))
+       | unique_member.symbol(new):
+           PrintDesc.list(".{", [rec(each args), ...], "}")
+       | unique_member.symbol(call):
+           PrintDesc.list(".(", [rec(each args), ...], ")")
+       | sym :: Symbol:
+           PrintDesc.list(
+             PrintDesc.concat(".", to_string(sym), "("),
+             [rec(each args), ...],
+             ")")],
+      "'")
 
 //==============================================================================
 fun write_rhombus_int_bytes(frame :~ ptr_t, offset :~ Nat, val :~ Int, num_bytes :~ Nat):

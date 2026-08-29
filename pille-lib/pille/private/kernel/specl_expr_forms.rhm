@@ -115,6 +115,16 @@ fun check_annot(val, pred, srcloc, annot_str):
       error.annot(annot_str))
   val
 
+meta syntax_class specl_expr_meta.ParsedAs(annot_stx):
+  kind: ~group
+  fields: parsed
+  root_swap: parsed group
+| '$(unann :: specl_expr_meta.Parsed)':
+    match_def '$(parsed :: specl_expr_meta.Parsed)':
+      specl_expr_meta.pack_implicitly_annotated(
+        unann,
+        specl_annot_meta.parse(annot_stx))
+
 //==============================================================================
 export specl_expr.macro '$lhs is_a $(rhs :: specl_annot_meta.AfterInfixParsed('is_a')) $()':
   ~order: equivalence

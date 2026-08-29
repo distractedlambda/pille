@@ -16,3 +16,4 @@
 @include_section("basic_types/pointer.scrbl")
 @include_section("basic_types/range.scrbl")
 @include_section("basic_types/simd.scrbl")
+@include_section("basic_types/init_expr.scrbl")

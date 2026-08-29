@@ -122,15 +122,15 @@ export specl_bind.macro 'PtrTo($(α :: specl_bind_meta.Parsed))':
   '(Ptr(τ) || PtrMut(τ)) where $α = τ'
 
 //==============================================================================
-coercion (p :: PtrMut(α)) :: φ && Ptr(α):
-  φ{p.$ptr_raw}
+coercion (p :: PtrMut(α)) :: Ptr(α):
+  .{p.$ptr_raw}
 
 unify(PtrMut(α), Ptr(α)): Ptr(α)
 
 //==============================================================================
-method (specl φ && PtrTo(α)).from_raw(raw :: RawPtr):
+method (specl φ && PtrTo(α)).from_raw(raw :: RawPtr) :: φ:
   when ub.checked | check_align(raw, α.byte_align)
-  φ{raw}
+  .{raw}
 
 //==============================================================================
 property (ptr :: PtrTo(_)).raw :: RawPtr:
@@ -149,14 +149,14 @@ method (specl φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$add(offset :: UInt(_)) :: φ:
   let offset = offset.cast_exact() :: NativeUInt
-  φ{ptr.raw + offset * α.byte_stride}
+  .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
   let offset = offset.cast_exact() :: NativeInt
-  φ{ptr.raw + offset * α.byte_stride}
+  .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
-  φ{ptr.raw + offset * α.byte_stride}
+  .{ptr.raw + offset * α.byte_stride}
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:

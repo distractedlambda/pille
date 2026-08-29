@@ -150,21 +150,21 @@ export struct SparseSimd(α :: type, n :: pos_int):
 coercion (src :: σ) :: δ && SparseSimd(α, n):
   ~when !(α matches SparseSimd(_, _))
   ~where CoercesTo(Simd(α, n)) = σ
-  δ{src, #true}
+  .{src, #true}
 
 coercion (src :: SparseSimd(UInt(ws), n)) :: δ && SparseSimd(UInt(wd), n):
   ~when ws < wd
-  δ{prim.zext(src.$sparse_data, ~to: Simd(UInt(wd), n)),
+  .{prim.zext(src.$sparse_data, ~to: Simd(UInt(wd), n)),
     src.$sparse_mask}
 
 coercion (src :: SparseSimd(UInt(ws), n)) :: δ && SparseSimd(Int(wd), n):
   ~when ws < wd
-  δ{prim.zext(src.$sparse_data, ~to: Simd(Int(wd), n)),
+  .{prim.zext(src.$sparse_data, ~to: Simd(Int(wd), n)),
     src.$sparse_mask}
 
 coercion (src :: SparseSimd(Int(ws), n)) :: δ && SparseSimd(Int(wd), n):
   ~when ws < wd
-  δ{prim.sext(src.$sparse_data, ~to: Simd(Int(wd), n)),
+  .{prim.sext(src.$sparse_data, ~to: Simd(Int(wd), n)),
     src.$sparse_mask}
 
 //==============================================================================
@@ -186,17 +186,17 @@ method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.add_nsw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.add_nsw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.add(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.add(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.sadd_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
   ~where γ && SparseSimd(UInt(_), n) = unify(α, β)
@@ -204,17 +204,17 @@ method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.add_nuw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.add_nuw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.add(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.add(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.uadd_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_add(
@@ -234,7 +234,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
       let underflow = offset.$sparse_data < 0 && new ≥ ptr.$sparse_data
       when mask.select(overflow ∨ underflow, #false).any() | panic()
       new
-  SparseSimd(RawPtr, n){data, mask}
+  .{data, mask}
 
 method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: SparseSimd(RawPtr, n),
@@ -252,7 +252,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
       let overflow = new < ptr.$sparse_data
       when mask.select(overflow, #false).any() | panic()
       new
-  SparseSimd(RawPtr, n){data, mask}
+  .{data, mask}
 
 method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: SparseSimd(RawPtr, n),
@@ -309,17 +309,17 @@ method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.sub_nsw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.sub_nsw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.sub(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.sub(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.ssub_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
   ~where γ && SparseSimd(UInt(_), n) = unify(α, β)
@@ -327,17 +327,17 @@ method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.sub_nuw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.sub_nuw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.sub(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.sub(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.usub_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_sub(
@@ -374,17 +374,17 @@ method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.mul_nsw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.mul_nsw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.mul(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.mul(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.smul_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
   ~where γ && SparseSimd(UInt(_), n) = unify(α, β)
@@ -392,17 +392,17 @@ method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
   let rhs = rhs :: γ
   cond
   | ub.allowed:
-      γ{prim.mul_nuw(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.mul_nuw(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.suppressed:
-      γ{prim.mul(lhs.$sparse_data, rhs.$sparse_data),
+      .{prim.mul(lhs.$sparse_data, rhs.$sparse_data),
         #void}
   | ub.checked:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.umul_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
       when mask.select(res[1], #false).any() | panic()
-      γ{res[0], mask}
+      .{res[0], mask}
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
@@ -414,17 +414,17 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+      .{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let nonzero = rhs.$sparse_data != 0
       cond
       | ub.suppressed:
-          γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
+          .{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
           unless mask.select(nonzero, #true).all() | panic()
-          γ{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+          .{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
 fun opt_vp_udiv(lhs :: α, rhs :: α, mask):
@@ -444,17 +444,17 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
+      .{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let nonzero = rhs.$sparse_data != 0
       cond
       | ub.suppressed:
-          γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
+          .{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
           unless mask.select(nonzero, #true).all() | panic()
-          γ{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
+          .{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
 fun opt_vp_urem(lhs :: α, rhs :: α, mask):
@@ -475,17 +475,17 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+      .{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let safe = sdiv_safe(lhs.$sparse_data, rhs.$sparse_data)
       cond
       | ub.suppressed:
-          γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
+          .{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
           unless mask.select(safe, #true).all() | panic()
-          γ{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
+          .{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
 fun opt_vp_sdiv(lhs :: α, rhs :: α, mask):
@@ -502,17 +502,17 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
     check_mask_covers(mask, rhs)
   cond
   | ub.allowed:
-      γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
+      .{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
         #void}
   | ~else:
       let safe = sdiv_safe(lhs.$sparse_data, rhs.$sparse_data)
       cond
       | ub.suppressed:
-          γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
+          .{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
           unless mask.select(safe, #true).all() | panic()
-          γ{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
+          .{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
 fun opt_vp_srem(lhs :: α, rhs :: α, mask):
@@ -526,7 +526,7 @@ fun sdiv_safe(lhs :: Simd(Int(w), n), rhs :: Simd(Int(w), n)):
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_not(smd :: γ && SparseSimd(Bitwise, n)) :: γ:
   when ub.checked | check_mask_covers(mask, smd)
-  γ{prim.not(smd.$sparse_data),
+  .{prim.not(smd.$sparse_data),
     mask}
 
 method (mask :: Simd(Boolean, n)).sparse_and(lhs :: α, rhs :: β) :: γ:
@@ -536,7 +536,7 @@ method (mask :: Simd(Boolean, n)).sparse_and(lhs :: α, rhs :: β) :: γ:
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  γ{prim.and(lhs.$sparse_data, rhs.$sparse_data),
+  .{prim.and(lhs.$sparse_data, rhs.$sparse_data),
     mask}
 
 method (mask :: Simd(Boolean, n)).sparse_or(lhs :: α, rhs :: β) :: γ:
@@ -546,7 +546,7 @@ method (mask :: Simd(Boolean, n)).sparse_or(lhs :: α, rhs :: β) :: γ:
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  γ{prim.or(lhs.$sparse_data, rhs.$sparse_data),
+  .{prim.or(lhs.$sparse_data, rhs.$sparse_data),
     mask}
 
 method (mask :: Simd(Boolean, n)).sparse_xor(lhs :: α, rhs :: β) :: γ:
@@ -556,7 +556,7 @@ method (mask :: Simd(Boolean, n)).sparse_xor(lhs :: α, rhs :: β) :: γ:
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  γ{prim.xor(lhs.$sparse_data, rhs.$sparse_data),
+  .{prim.xor(lhs.$sparse_data, rhs.$sparse_data),
     mask}
 
 //==============================================================================
@@ -567,7 +567,7 @@ method (mask :: Simd(Boolean, n)).sparse_eq(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_eq(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_eq(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_ne(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(Bitwise || RawPtr || PtrTo(_), n) = unify(α, β)
@@ -576,7 +576,7 @@ method (mask :: Simd(Boolean, n)).sparse_ne(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_ne(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_ne(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_lt(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(UInt(_) || RawPtr || PtrTo(_), n) = unify(α, β)
@@ -585,7 +585,7 @@ method (mask :: Simd(Boolean, n)).sparse_lt(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_ult(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_ult(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_lt(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(Int(_), n) = unify(α, β)
@@ -594,7 +594,7 @@ method (mask :: Simd(Boolean, n)).sparse_lt(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_slt(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_slt(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_le(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(UInt(_) || RawPtr || PtrTo(_), n) = unify(α, β)
@@ -603,7 +603,7 @@ method (mask :: Simd(Boolean, n)).sparse_le(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_ule(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_ule(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_le(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(Int(_), n) = unify(α, β)
@@ -612,7 +612,7 @@ method (mask :: Simd(Boolean, n)).sparse_le(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_sle(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_sle(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_gt(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(UInt(_) || RawPtr || PtrTo(_), n) = unify(α, β)
@@ -621,7 +621,7 @@ method (mask :: Simd(Boolean, n)).sparse_gt(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_ugt(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_ugt(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_gt(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(Int(_), n) = unify(α, β)
@@ -630,7 +630,7 @@ method (mask :: Simd(Boolean, n)).sparse_gt(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_sgt(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_sgt(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(UInt(_) || RawPtr || PtrTo(_), n) = unify(α, β)
@@ -639,7 +639,7 @@ method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_uge(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_uge(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(Boolean, n):
   ~where γ && SparseSimd(Int(_), n) = unify(α, β)
@@ -648,7 +648,7 @@ method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(
   when ub.checked
   | check_mask_covers(mask, lhs)
     check_mask_covers(mask, rhs)
-  SparseSimd(Boolean, n){prim.icmp_sge(lhs.$sparse_data, rhs.$sparse_data), mask}
+  .{prim.icmp_sge(lhs.$sparse_data, rhs.$sparse_data), mask}
 
 //==============================================================================
 fun check_align
@@ -683,7 +683,7 @@ method (mask :: Simd(Boolean, n)).sparse_load(
   | ub.checked:
       check_align(ptr, align)
       prim.masked_load(ptr, align, mask, prim.poison(Simd(α, n)))
-  SparseSimd(α, n){data, mask}
+  .{data, mask}
 
 method (mask :: Simd(Boolean, n)).sparse_load(ptr :: PtrTo(α)) :: SparseSimd(α, n):
   mask.sparse_load(ptr.raw, α)
@@ -710,7 +710,7 @@ method (mask :: Simd(Boolean, n)).sparse_load(
       check_mask_covers(mask, ptrs)
       check_align(mask, ptrs.$sparse_data, align)
       prim.masked_gather(ptrs.$sparse_data, align, mask, prim.poison(Simd(α, n)))
-  SparseSimd(α, n){data, mask}
+  .{data, mask}
 
 method (mask :: Simd(Boolean, n)).sparse_load(ptrs :: SparseSimd(PtrTo(α), n)) :: SparseSimd(α, n):
   mask.sparse_load(
@@ -783,25 +783,25 @@ struct SparseCastExact(α, n):
   mask :: Simd(Boolean, n)
   src :: SparseSimd(α, n)
 
-method (mask :: Simd(Boolean, n)).sparse_cast_exact(src :: SparseSimd(α, n)):
+method (mask :: Simd(Boolean, n)).sparse_cast_exact(src :: SparseSimd(α, n)) :: SparseCastExact(α, n):
   when ub.checked | check_mask_covers(mask, src)
-  SparseCastExact(α, n){mask, src}
+  .{mask, src}
 
 coercion (cast :: SparseCastExact(Int(w1), n)) :: δ && SparseSimd(Int(w2), n):
   cond
   | w1 ≤ w2:
       cast.src
   | ub.allowed:
-      δ{prim.trunc_nsw(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
+      .{prim.trunc_nsw(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
         #void}
   | ub.suppressed:
-      δ{prim.trunc(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
+      .{prim.trunc(cast.src.$sparse_data, ~to: Simd(Int(w2), n)),
         #void}
   | ub.checked:
       let src_data = cast.src.$sparse_data
       let in_bounds = (src_data ≥ Int(w2).min_value) ∧ (src_data ≤ Int(w2).max_value)
       unless cast.mask.select(in_bounds, #true).all() | panic()
-      δ{prim.trunc_nsw(src_data, ~to: Simd(Int(w2), n)),
+      .{prim.trunc_nsw(src_data, ~to: Simd(Int(w2), n)),
         cast.mask}
 
 coercion (cast :: SparseCastExact(UInt(w1), n)) :: δ && SparseSimd(UInt(w2), n):
@@ -809,16 +809,16 @@ coercion (cast :: SparseCastExact(UInt(w1), n)) :: δ && SparseSimd(UInt(w2), n)
   | w1 ≤ w2:
       cast.src
   | ub.allowed:
-      δ{prim.trunc_nuw(cast.src.$sparse_data, ~to: Simd(UInt(w2), n)),
+      .{prim.trunc_nuw(cast.src.$sparse_data, ~to: Simd(UInt(w2), n)),
         #void}
   | ub.suppressed:
-      δ{prim.trunc(cast.src.$sparse_data, ~to: Simd(UInt(w2), n)),
+      .{prim.trunc(cast.src.$sparse_data, ~to: Simd(UInt(w2), n)),
         #void}
   | ub.checked:
       let src_data = cast.src.$sparse_data
       let in_bounds = src_data ≤ UInt(w2).max_value
       unless cast.mask.select(in_bounds, #true).all() | panic()
-      δ{prim.trunc_nuw(src_data, ~to: Simd(UInt(w2), n)),
+      .{prim.trunc_nuw(src_data, ~to: Simd(UInt(w2), n)),
         cast.mask}
 
 // TODO: other casts
@@ -837,14 +837,14 @@ method (mask :: μ && Simd(Boolean, n)).sparse_select(test :: SparseSimd(Boolean
   | check_mask_covers(mask, test)
     check_mask_covers(prim.select(mask, test.$sparse_data, #false :: μ), lhs)
     check_mask_covers(prim.select(mask, ¬test.$sparse_data, #false :: μ), rhs)
-  γ{prim.select(test.$sparse_data, lhs.$sparse_data, rhs.$sparse_data),
+  .{prim.select(test.$sparse_data, lhs.$sparse_data, rhs.$sparse_data),
     mask}
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_assign(inout dst :: δ && SparseSimd(_, n), src :: CoercesTo(δ)) :: Void:
   let src = src :: δ
   when ub.checked | check_mask_covers(mask, src)
-  dst := δ{prim.select(mask, src.$sparse_data, dst.$sparse_data),
+  dst := .{prim.select(mask, src.$sparse_data, dst.$sparse_data),
            if ub.checked | mask ∨ dst.$sparse_mask | #void}
 
 //==============================================================================

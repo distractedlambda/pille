@@ -1,6 +1,10 @@
 #lang rhombus/static/and_meta
 
 import:
+  "core_types.rhm" open
+  "expr.rhm" open
+  "expr_forms.rhm" open
+  "prim.rhm"
   "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
   "specl_bind_forms.rhm" open
@@ -8,9 +12,7 @@ import:
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
   "specl_fun.rhm" open
-  "core_types.rhm" open
-  "expr.rhm" open
-  "prim.rhm"
+  "unique_member.rhm" open
   pille/concretize open
 
 //==============================================================================
@@ -147,3 +149,104 @@ fun simd_extractor(target):
 export specl.def RawPtr:
   #%rhombus:
     RawPtrType()
+
+//==============================================================================
+export specl_expr.macro
+| '«InitExpr'$(dmn :: pille_expr_meta.DotMemberName)($(arg :: specl_expr_meta.ParsedAs('type')), ...)'»':
+    specl_expr_meta.pack_rhombus_expr(
+      'InitExprType(
+         $dmn.symbol_expr,
+         [$(specl_expr_meta.unpack_rhombus_expr(arg)), ...])')
+
+| '«InitExpr'$(dmn :: pille_expr_meta.DotMemberName)'»':
+    specl_expr_meta.pack_rhombus_expr(
+      'InitExprType(
+         ReadSelector($dmn.symbol_expr),
+         [])')
+
+| '«InitExpr'$(_ :: pille_expr_meta.DotOp)($(arg :: specl_expr_meta.ParsedAs('type')), ...)'»':
+    specl_expr_meta.pack_rhombus_expr(
+      'InitExprType(
+         unique_member.symbol(call),
+         [$(specl_expr_meta.unpack_rhombus_expr(arg)), ...])')
+
+| '«InitExpr'$(_ :: pille_expr_meta.DotOp){$(arg :: specl_expr_meta.ParsedAs('type')), ...}'»':
+    specl_expr_meta.pack_rhombus_expr(
+      'InitExprType(
+         unique_member.symbol(new),
+         [$(specl_expr_meta.unpack_rhombus_expr(arg)), ...])')
+
+//==============================================================================
+export pille_expr.macro '«InitExpr'$sig'»':
+  'specl(InitExpr'$sig')'
+
+//==============================================================================
+export specl_bind.macro
+| '«InitExpr'$(_ :: specl_bind_meta.Wildcard)'»':
+    specl_bind_meta.pack_decomposition('any_init_expr_extractor')
+
+| '«InitExpr'$(dmn :: pille_expr_meta.DotMemberName)($(arg :: specl_bind_meta.Parsed), ...)'»':
+    specl_bind_meta.pack_decomposition(
+      'make_init_expr_extractor(
+         $dmn.symbol_expr,
+         $(Function.count(arg, ...)))',
+      [arg, ...])
+
+| '«InitExpr'$(dmn :: pille_expr_meta.DotMemberName)'»':
+    specl_bind_meta.pack_decomposition(
+      'make_init_expr_extractor(
+         ReadSelector($dmn.symbol_expr),
+         0)')
+
+| '«InitExpr'$(_ :: pille_expr_meta.DotOp)($(arg :: specl_bind_meta.Parsed), ...)'»':
+    specl_bind_meta.pack_decomposition(
+      'make_init_expr_extractor(
+         unique_member.symbol(call),
+         $(Function.count(arg, ...)))',
+      [arg, ...])
+
+| '«InitExpr'$(_ :: pille_expr_meta.DotOp){$(arg :: specl_bind_meta.Parsed), ...}'»':
+    specl_bind_meta.pack_decomposition(
+      'make_init_expr_extractor(
+         unique_member.symbol(new),
+         $(Function.count(arg, ...)))',
+      [arg, ...])
+
+fun any_init_expr_extractor(target):
+  guard.let InitExprType(_, _) = target
+  | error(
+      ~exn: Exn.Fail.Concretize.Recoverable,
+      "binding requires an InitExpr type",
+      error.val(~label: "target", target))
+  values()
+
+fun make_init_expr_extractor(selector, arity :~ Nat):
+  fun(target):
+    guard.let InitExprType(tgt_selector, tgt_args) = target
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        "binding requires an InitExpr type",
+        error.val(~label: "target", target))
+
+    unless selector == tgt_selector
+    | let sel_desc = match selector
+      | ReadSelector(sym):
+          "." ++ to_string(sym)
+      | unique_member.symbol(call):
+          ".(...)"
+      | unique_member.symbol(new):
+          ".{...}"
+      | sym :: Symbol:
+          "." ++ to_string(sym) ++ "(...)"
+      error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        @str{binding requires an InitExpr(@sel_desc) type},
+        error.val(~label: "target", target))
+
+    unless arity == tgt_args.length()
+    | error(
+        ~exn: Exn.Fail.Concretize.Recoverable,
+        @str{binding requires an InitExpr type of arity @arity},
+        error.val(~label: "target", target))
+
+    values(&tgt_args)

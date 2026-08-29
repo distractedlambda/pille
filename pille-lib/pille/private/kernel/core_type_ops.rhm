@@ -2,8 +2,10 @@
 
 import:
   "coerce.rhm" open
+  "core_type_forms.rhm" open
   "core_types.rhm" open
   "method_call.rhm" open
+  "priority.rhm" open
   "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
   "specl_bind_forms.rhm" open
@@ -98,3 +100,29 @@ specl.method (AnyTuple as α).ElementAt(idx :: nat):
         error.val(~label: "tuple type", α),
         error.val(~label: "index", idx))
     element_types[idx]
+
+//==============================================================================
+// `$coerce_to` impl for initializer expressions
+Overload.register(
+  ~selector:
+    unique_member.symbol(coerce_to),
+  ~concretizer:
+    fun(receiver_type, arg_types :~ [Type, ...]):
+      guard.let InitExprType(selector, init_arg_types) = receiver_type | #false
+      guard.let [SpeclType(tgt :: Type) as tgt_specl] = arg_types | #false
+      let init_ovl = resolve_overload(tgt_specl, selector, init_arg_types)
+      guard init_ovl.inout_mask == 0
+      | error(
+          ~exn: Exn.Fail.Concretize.Recoverable,
+          "initializer expressions cannot supply 'inout' arguments")
+      let init_res_coe = resolve_coercer(init_ovl.result_type, tgt)
+      Overload.Concretized(
+        ~result_type:
+          tgt,
+        ~lower_call:
+          let [init_arg_slot, ...] = TupleType(init_arg_types).slots
+          let init_ovl_low = init_ovl.lower_call
+          fun(env, [recv_val, #false]):
+            let init_arg_vals = [lowering.packing.get(recv_val, init_arg_slot), ...]
+            let [init_res_val] = init_ovl_low(env, [#false, &init_arg_vals])
+            [init_res_coe(env, init_res_val)]))

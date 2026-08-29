@@ -277,6 +277,31 @@ export pille_expr.macro
          $(pille_expr_meta.unpack_concretize(lhs)),
          $(member.symbol_expr))')
 
+| '. $(member :: pille_expr_meta.MemberName) ($(arg :: pille_expr_meta.Parsed), ...)':
+    ~order: member_access
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         $(member.symbol_expr),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...])')
+
+| '. $(member :: pille_expr_meta.MemberName)':
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         ReadSelector($(member.symbol_expr)),
+         [])')
+
+| '. ($(arg :: pille_expr_meta.Parsed), ...)':
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         unique_member.symbol(call),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...])')
+
+| '. {$(arg :: pille_expr_meta.Parsed), ...}':
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         unique_member.symbol(new),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...])')
+
 export pille_expr.macro
 | '$lhs .$ $(member :: Identifier) ($(arg :: pille_expr_meta.Parsed), ...)':
     ~order: member_access
@@ -293,6 +318,19 @@ export pille_expr.macro
       'concretize_property_ref(
          $(pille_expr_meta.unpack_concretize(lhs)),
          unique_member.symbol($member))')
+
+| '.$ $(member :: Identifier) ($(arg :: pille_expr_meta.Parsed), ...)':
+    ~order: member_access
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         unique_member.symbol($member),
+         [$(pille_expr_meta.unpack_concretize(arg)), ...])')
+
+| '.$ $(member :: Identifier)':
+    pille_expr_meta.pack_concretize(
+      'concretize_init_expr(
+         ReadSelector(unique_member.symbol($member)),
+         [])')
 
 fun concretize_method_call(
   receiver_concr :~ Expr,
@@ -416,6 +454,15 @@ fun concretize_property_ref(receiver_concr :~ Expr, name):
           let receiver_val = receiver_low(env)
           let [result] = read_low(env, [receiver_val])
           result)
+
+fun concretize_init_expr(selector, [arg :~ Expr, ...]):
+  Expr.Rvalue(
+    ~type:
+      InitExprType(selector, [arg.type, ...]),
+    ~lower:
+      let [arg_low, ...] = [arg.lower_rvalue, ...]
+      fun(env):
+        lowering.packing.pack([arg_low(env), ...]))
 
 //==============================================================================
 export pille_expr.macro '$callee #%call ($arg, ...)':

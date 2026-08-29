@@ -43,14 +43,14 @@ method (lhs :: RangeIndex(α)).$lt(rhs :: RangeIndex(α)):
   ~transparent
   lhs.value < rhs.value
 
-property (rng :: Range(Integral as α)).$start_index:
-  RangeIndex(α){rng.start}
+property (rng :: Range(Integral as α)).$start_index :: RangeIndex(α):
+  .{rng.start}
 
-property (rng :: Range(Integral as α)).$end_index:
-  RangeIndex(α){rng.end}
+property (rng :: Range(Integral as α)).$end_index :: RangeIndex(α):
+  .{rng.end}
 
-method (rng :: Range(BinaryInteger as α)).$next_index(idx :: RangeIndex(α)):
-  RangeIndex(α){idx.value + 1}
+method (rng :: Range(BinaryInteger as α)).$next_index(idx :: RangeIndex(α)) :: RangeIndex(α):
+  .{idx.value + 1}
 
 method (rng :: Range(BinaryInteger as α)).$index_read(idx :: RangeIndex(α)):
   idx.value
@@ -84,15 +84,12 @@ export expr.macro
           '(make_range_to($rhs))'.relocate_span([op, rhs]),
           '$rhs.tail ...')
 
-fun make_range_from(start :: α):
-  ~transparent
-  RangeFrom(α){start}
+fun make_range_from(start :: α) :: RangeFrom(α):
+  .{start}
 
-fun make_range(start :: α, stop :: β):
+fun make_range(start :: α, stop :: β) :: Range(γ):
   ~where γ = unify(α, β)
-  ~transparent
-  Range(γ){start, stop}
+  .{start, stop}
 
-fun make_range_to(stop :: α):
-  ~transparent
-  RangeTo(α){stop}
+fun make_range_to(stop :: α) :: RangeTo(α):
+  .{stop}
