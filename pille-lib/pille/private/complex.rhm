@@ -1,0 +1,124 @@
+#lang pille/private/kernel
+
+import:
+  "generic_ops.rhm" open
+  "specl_ops.rhm" open
+  "type_traits.rhm" open
+  "unify.rhm" open
+
+//==============================================================================
+export namespace complex
+
+//==============================================================================
+export struct Complex(ρ :: type, ι :: type):
+  real_part :: ρ
+  imag_part :: ι
+
+//==============================================================================
+export specl.fun complex(real_part :: real, imag_part :: real):
+  #%rhombus(real_part, imag_part):
+    import rhombus/static open
+    math.complex(real_part, imag_part)
+
+export fun complex
+| (specl real_part :: real, specl imag_part :: real):
+    specl(complex(real_part, imag_part))
+| (real_part :: ρ, imag_part :: ι) :: Complex(ρ, ι):
+    .{real_part, imag_part}
+
+//==============================================================================
+specl.property (z :: number).real_part:
+  #%rhombus(z):
+    import rhombus/static open
+    math.real_part(z)
+
+specl.property (z :: number).imag_part:
+  #%rhombus(z):
+    import rhombus/static open
+    math.imag_part(z)
+
+//==============================================================================
+specl.def complex.i:
+  #%rhombus:
+    import rhombus/static open
+    math.i
+
+property (specl Complex(ρ, ι)).i :: Complex(ρ, ι):
+  ~when Specl(0) coerces_to ρ
+  ~when Specl(1) coerces_to ι
+  .{0, 1}
+
+//==============================================================================
+coercion (z :: Complex(ρ₁, ι₁)) :: Complex(ρ₂, ι₂):
+  ~when ρ₁ coerces_to ρ₂
+  ~when ι₁ coerces_to ι₂
+  .{z.real_part, z.imag_part}
+
+unify(Complex(ρ₁, ι₁), Complex(ρ₂, ι₂)):
+  Complex(unify(ρ₁, ρ₂), unify(ι₁, ι₂))
+
+//==============================================================================
+coercion (src :: α) :: Complex(ρ, ι):
+  ~priority fallback
+  ~when α coerces_to ρ
+  ~when Specl(0) coerces_to ι
+  .{src, 0}
+
+unify(α, Complex(ρ, ι)):
+  ~priority fallback
+  Complex(unify(α, ρ), unify(α, ι))
+
+//==============================================================================
+coercion (specl z :: number) :: Complex(ρ, ι):
+  ~when Specl(z.real_part) coerces_to ρ
+  ~when Specl(z.imag_part) coerces_to ι
+  .{z.real_part, z.imag_part}
+
+unify(Specl(z :: number), Complex(ρ, ι)):
+  Complex(
+    unify(Specl(z.real_part), ρ),
+    unify(Specl(z.imag_part), ι))
+
+//==============================================================================
+specl.property (z :: number).magnitude_squared:
+  #%rhombus(z):
+    import rhombus/static open
+    let rl = math.real_part(z)
+    let im = math.imag_part(z)
+    rl*rl + im+im
+
+specl.property (z :: number).magnitude:
+  #%rhombus(z):
+    import rhombus/static open
+    math.magnitude(z)
+
+property (z :: Complex(_, _)).magnitude_squared:
+  ~transparent
+  (z.real_part * z.real_part) + (z.imag_part * z.imag_part)
+
+property (z :: Complex(_, _)).magnitude:
+  ~transparent
+  sqrt(z.magnitude_squared)
+
+//==============================================================================
+method (lhs :: Complex(_, _)).$add(rhs :: Complex(_, _)):
+  ~transparent
+  complex(
+    lhs.real_part + rhs.real_part,
+    lhs.imag_part + rhs.imag_part)
+
+method (lhs :: Complex(_, _)).$sub(rhs :: Complex(_, _)):
+  ~transparent
+  complex(
+    lhs.real_part - rhs.real_part,
+    lhs.imag_part - rhs.imag_part)
+
+method (rhs :: Complex(_, _)).$neg():
+  ~transparent
+  complex(-rhs.real_part, -rhs.imag_part)
+
+method (lhs :: Complex(_, _)).$mul(rhs :: Complex(_, _)):
+  ~transparent
+  complex(
+    lhs.real_part * rhs.real_part - lhs.imag_part * rhs.imag_part,
+    lhs.real_part * rhs.imag_part + lhs.imag_part * rhs.real_part)
