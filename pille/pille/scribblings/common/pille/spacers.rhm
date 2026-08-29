@@ -29,7 +29,7 @@ export spacer.bridge type_of(self, tail, ctx, esc):
       '$self $tail'
 
 export spacer.bridge .$(~left: left, self, tail, ctx, esc):
-  ~in: #'#{pille/expr}
+  ~in: #'#{pille/expr} #'#{pille/specl_expr}
   match tail
   | '$(id :: Identifier) $tl ...':
       let id_adj = spacer.adjust_term(id, #'#{pille/unique_member}, esc)
