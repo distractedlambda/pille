@@ -1,57 +1,68 @@
 #lang rhombus/static/and_meta
 
 import:
+  "syntax.rhm" open
   scribble/spacer
 
+//==============================================================================
 export spacer.bridge ::(~left: left, self, tail, ctx, esc):
-  ~in: #'#{pille/specl_bind} #'#{pille/specl_expr}
-  let tail_adj = spacer.adjust_sequence(tail, #'#{pille/specl_annot}, esc)
+  ~in: #'#{pille/specl_bind} #'#{pille/specl_expr} #'#{pille/expr}
+  let tail_ctx = match ctx
+  | #'#{pille/expr} || [#'#{pille/expr}, &_]:
+      #'#{pille/specl_expr}
+  | _:
+      #'#{pille/specl_annot}
+  let tail_adj = spacer.adjust_sequence(tail, tail_ctx, esc)
   '$left $self $tail_adj'
 
+//==============================================================================
 export spacer.bridge specl(self, tail, ctx, esc):
   ~in: #'#{pille/expr}
   match tail
-  | '($exp)':
-      let exp_adj = spacer.adjust_group(exp, #'#{pille/specl_expr}, esc)
-      let tail_adj = '($exp_adj)'.relocate(tail)
-      '$self $tail_adj'
+  | '$('($_)' && arg) $(tail :: Sequence)':
+      let arg_adj = spacer.adjust_term(arg, specl_expr_ctx, esc)
+      spacer.adjust_rest_sequence('$self $arg_adj', tail, ctx, esc)
   | _:
-      '$self $tail'
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
+//==============================================================================
 export spacer.bridge type_of(self, tail, ctx, esc):
-  ~in: #'#{pille/specl_expr}
+  ~in: #'#{pille/specl_expr} #'#{pille/expr}
   match tail
-  | '($exp)':
-      let exp_adj = spacer.adjust_group(exp, #'#{pille/expr}, esc)
-      let tail_adj = '($exp_adj)'.relocate(tail)
-      '$self $tail_adj'
+  | '$('($_)' && arg) $(tail :: Sequence)':
+      let arg_adj = spacer.adjust_term(arg, expr_ctx, esc)
+      spacer.adjust_rest_sequence('$self $arg_adj', tail, ctx, esc)
   | _:
-      '$self $tail'
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
-export spacer.bridge .$(~left: left, self, tail, ctx, esc):
-  ~in: #'#{pille/expr} #'#{pille/specl_expr}
-  match tail
-  | '$(id :: Identifier) $tl ...':
-      let id_adj = spacer.adjust_term(id, #'#{pille/unique_member}, esc)
-      '$left $self $id_adj $tl ...'
-  | _:
-      '$left $self $tail'
-
-export spacer.bridge $(self, tail, ctx, esc):
-  ~in: #'#{pille/expr} #'#{pille/specl_expr}
-  match tail
-  | '$(id :: Identifier) $tl ...':
-      let id_adj = spacer.adjust_term(id, #'#{pille/unique_member}, esc)
-      '$self $id_adj $tl ...'
-  | _:
-      '$self $tail'
-
+//==============================================================================
 export spacer.bridge equal_to(self, tail, ctx, esc):
   ~in: #'#{pille/specl_bind}
   match tail
-  | '($spexp)':
-      let spexp_adj = spacer.adjust_group(spexp, #'#{pille/specl_expr}, esc)
-      let spexp_adj = '($spexp_adj)'.relocate(tail)
-      '$self $spexp_adj'
+  | '$('($_)' && arg) $(tail :: Sequence)':
+      let arg_adj = spacer.adjust_term(arg, specl_expr_ctx, esc)
+      spacer.adjust_rest_sequence('$self $arg_adj', tail, ctx, esc)
   | _:
-      '$self $tail'
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
+
+//==============================================================================
+export spacer.bridge .$(~left: left, self, tail, ctx, esc):
+  ~in: #'#{pille/expr} #'#{pille/specl_expr}
+  match tail
+  | '$(id :: Identifier) $(tail :: Sequence)':
+      let id_adj = spacer.set(id, unique_member_ctx)
+      spacer.adjust_rest_sequence('$left $self $id_adj', tail, ctx, esc)
+  | _:
+      let tail_adj = spacer.adjust_sequence(tail, ctx, esc)
+      '$self $tail_adj'
+
+//==============================================================================
+export spacer.bridge $(self, tail, ctx, esc):
+  ~in: #'#{pille/expr} #'#{pille/specl_expr}
+  match tail
+  | '$(id :: Identifier) $(tail :: Sequence)':
+      let id_adj = spacer.set(id, unique_member_ctx)
+      spacer.adjust_rest_sequence('$self $id_adj', tail, ctx, esc)
+  | _:
+      let tail_adj = spacer.adjust_sequence(tail, ctx, esc)
+      '$self $tail_adj'

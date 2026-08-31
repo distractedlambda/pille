@@ -2,7 +2,9 @@
 
 import:
   "syntax.rhm" open
+  rhombus/scribble/manual
   scribble/doc_meta open
+  scribble/spacer
 
 export only_space namespace:
   expr
@@ -69,13 +71,6 @@ operator_macro_doc_forms:
 
 //==============================================================================
 export doc.bridge unique_member:
-  syntax_class DocForm:
-    kind: ~group
-    fields:
-      op
-      name
-  | '$(op :: IdentifierName) $(name :: Identifier)'
-
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
@@ -89,12 +84,7 @@ export doc.bridge unique_member:
       fun(_, _, vars):
         vars,
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let op_ts = typeset_global_defn(stx.op)
-        let name_ts = typeset_name(stx.name, space, subst)
-        doc_meta.typeset_rhombusblock(
-          '$op_ts $name_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
 
 //==============================================================================
 export doc.bridge priority:
@@ -118,12 +108,7 @@ export doc.bridge priority:
       fun(_, _, vars):
         vars,
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let op_ts = typeset_global_defn(stx.op)
-        let name_ts = typeset_name(stx.name, space, subst)
-        doc_meta.typeset_rhombusblock(
-          '$op_ts $name_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
 
 //==============================================================================
 export doc.bridge type:
@@ -140,7 +125,7 @@ export doc.bridge type:
         "type",
     ~extract_space:
       fun(_):
-        [#'#{pille/specl_expr}, #'#{pille/specl_bind}, #'#{pille/expr}],
+        [#'#{pille/specl_expr}, #'#{pille/specl_bind}],
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
@@ -149,41 +134,21 @@ export doc.bridge type:
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
         let name_ts = typeset_name(stx.name, space, subst)
-        let specl_args_ts = typeset_maybe_specl_args(stx.specl_args)
+        let specl_args_ts = match stx.specl_args
+        | '': ''
+        | args: '#,$('(manual.rhombus($args, ~at: pille/specl_bind; pille/specl_expr))'.relocate(args))'
         doc_meta.typeset_rhombusblock(
           '$name_ts $specl_args_ts',
           ~at: stx))
 
 //==============================================================================
 export doc.bridge struct:
-  syntax_class Field:
-    kind: ~group
-  | '$(name :: MemberName) $('::' && annot_op) $(type :: Group)'
-
-  syntax_class Body:
-    kind: ~term
-    fields: [field, ...]
-  | ': $(field :: Field); ...'
-
-  syntax_class MaybeBody:
-    kind: ~sequence
-    fields: body :~ maybe(Syntax.matched_of(Body))
-  | '$(body :: Body)'
-  | '': field body = #false
-
   syntax_class DocForm:
     kind: ~group
-  | '$(struct :: IdentifierName) \
+  | '$(op :: IdentifierName) \
      $(name :: IdentifierName) \
      $(specl_args :: MaybeSpeclArgs) \
-     $(_ :: MaybeBody: open)'
-
-  fun typeset_field('$(stx :: Field)'):
-    '$(typeset_member_name(stx.name)) $(typeset_expr(stx.annot_op)) $(typeset_specl_expr(stx.type))'
-      .relocate_group(stx)
-
-  fun typeset_body('$(stx :: Body)'):
-    ': $(typeset_field(stx.field)); ...'.relocate(stx)
+     $_ ...'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -191,30 +156,40 @@ export doc.bridge struct:
         "struct",
     ~extract_space:
       fun(_):
-        [#'#{pille/specl_expr}, #'#{pille/specl_bind}, #'#{pille/expr}],
+        [#'#{pille/specl_expr}, #'#{pille/specl_bind}],
     ~extract_name:
       doc_meta.head_extract_name,
     ~extract_metavariables:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         maybe_specl_args_metavars(stx.specl_args),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let struct_ts = typeset_global_defn(stx.struct)
-        let name_ts = typeset_name(stx.name, space, subst)
-        let specl_args_ts = typeset_maybe_specl_args(stx.specl_args)
-        let body_ts = (stx.body ?> typeset_body) || ''
-        doc_meta.typeset_rhombusblock(
-          '$struct_ts $name_ts $specl_args_ts $body_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
+
+export spacer.bridge struct(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(name :: NameOrEsc(esc)) \
+     $(specl_args :: MaybeSpeclArgs) \
+     $(block :: MaybeBlock)':
+      let specl_args_adj = adjust_maybe_specl_args(specl_args, esc)
+      let block_adj = adjust_optional_block(
+        ~adjust_body:
+          fun(stx, esc):
+            match stx
+            | '$(member :: MemberName) $('::' && ann_op) $(type :: Group)':
+                let member_adj = adjust_member_name(member, esc)
+                let ann_op_adj = spacer.adjust_term(ann_op, expr_ctx, esc)
+                let type_adj = spacer.adjust_group(type, specl_expr_ctx, esc)
+                '$member_adj $ann_op_adj $type_adj'.relocate_group(stx)
+            | _:
+                stx,
+        block, esc)
+      '$self $name $specl_args_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 doc.bridge specl.def:
-  syntax_class DocForm:
-    kind: ~group
-  | '$(specl_dot_def :: IdentifierName) \
-     $(name :: IdentifierName) \
-     $(res_annot :: MaybeResAnnot)'
-
   doc_meta.transformer(
     ~extract_desc:
       fun(_):
@@ -227,31 +202,25 @@ doc.bridge specl.def:
     ~extract_metavariables:
       doc_meta.head_extract_metavariables,
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let cdd_ts = typeset_global_defn(stx.specl_dot_def)
-        let name_ts = typeset_name(stx.name, space, subst)
-        let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        doc_meta.typeset_rhombusblock(
-          '$cdd_ts $name_ts $res_annot_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
+
+spacer.bridge specl.def(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(name :: NameOrEsc(esc)) \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let res_annot_adj = adjust_maybe_specl_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, block, esc)
+      '$self $name $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 doc.bridge specl.fun:
-  syntax_class Args:
-    kind: ~term
-    fields: [arg, ...]
-  | '($arg, ...)'
-
   syntax_class DocForm:
     kind: ~group
-    fields:
-      specl_dot_fun
-      name
-      args
-      [arg, ...]
-      res_annot
-      block
-  | '$(specl_dot_fun :: IdentifierName) \
+  | '$(op :: IdentifierName) \
      $(name :: IdentifierName) \
      $(args :: Args: open) \
      $(res_annot :: MaybeResAnnot) \
@@ -272,15 +241,21 @@ doc.bridge specl.fun:
           specl_bind_metavars(stx.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let specl_dot_fun_ts = typeset_global_defn(stx.specl_dot_fun)
-        let name_ts = typeset_name(stx.name, space, subst)
-        let args_ts = '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx.args)
-        let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$specl_dot_fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
+
+spacer.bridge specl.fun(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(name :: NameOrEsc(esc)) \
+     $args \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let args_adj = adjust_specl_args(args, esc)
+      let res_annot_adj = adjust_maybe_specl_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, block, esc)
+      '$self $name $args_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 doc.bridge specl.method:
@@ -310,16 +285,25 @@ doc.bridge specl.method:
           specl_bind_metavars(stx.args.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let op_ts = typeset_global_defn(stx.op)
-        let receiver_ts = typeset_specl_args(stx.receiver)
-        let dot_member_name_ts = typeset_specl_dot_member_name(stx.dot_member_name)
-        let args_ts = typeset_specl_args(stx.args)
-        let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$op_ts $receiver_ts $dot_member_name_ts $args_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+spacer.bridge specl.method(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$receiver \
+     $(dmn :: DotMemberName) \
+     $args \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let receiver_adj = adjust_specl_args(receiver, esc)
+      let dmn_adj = adjust_specl_dot_member_name(dmn, esc)
+      let args_adj = adjust_specl_args(args, esc)
+      let res_annot_adj = adjust_maybe_specl_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, block, esc)
+      '$self $receiver_adj $dmn_adj $args_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 doc.bridge specl.property:
@@ -347,15 +331,23 @@ doc.bridge specl.property:
           specl_bind_metavars(stx.receiver.arg),
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let op_ts = typeset_global_defn(stx.op)
-        let receiver_ts = typeset_specl_args(stx.receiver)
-        let dot_member_name_ts = typeset_specl_dot_member_name(stx.dot_member_name)
-        let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$op_ts $receiver_ts $dot_member_name_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+spacer.bridge specl.property(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$receiver \
+     $(dmn :: DotMemberName) \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let receiver_adj = adjust_specl_args(receiver, esc)
+      let dmn_adj = adjust_specl_dot_member_name(dmn, esc)
+      let res_annot_adj = adjust_maybe_specl_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, block, esc)
+      '$self $receiver_adj $dmn_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge method:
@@ -385,30 +377,28 @@ export doc.bridge method:
           arg_metavars(stx.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let method_ts = typeset_global_defn(stx.method)
-        let receiver_ts = typeset_receiver(stx.receiver)
-        let dot_member_name_ts = typeset_dot_member_name(stx.dot_member_name)
-        let args_ts = typeset_args(stx.args)
-        let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$method_ts $receiver_ts $dot_member_name_ts $args_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+export spacer.bridge method(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$receiver \
+     $(dmn :: DotMemberName) \
+     $args \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let receiver_adj = adjust_args(receiver, esc)
+      let dmn_adj = adjust_dot_member_name(dmn, esc)
+      let args_adj = adjust_args(args, esc)
+      let res_annot_adj = adjust_maybe_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_expr_body, block, esc)
+      '$self $receiver_adj $dmn_adj $args_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge property:
-  syntax_class AssignPat:
-    kind: ~sequence
-    fields: op args
-  | '$(':=' && op) $('($_)' && args)'
-
-  syntax_class MaybeAssignPat:
-    kind: ~sequence
-    fields: pat :~ maybe(Syntax.matched_of(AssignPat))
-  | '$(pat :: AssignPat)'
-  | '': field pat = #false
-
   syntax_class DocForm:
     kind: ~group
   | '$(property :: IdentifierName) \
@@ -417,14 +407,6 @@ export doc.bridge property:
      $(assign_pat :: MaybeAssignPat) \
      $(res_annot :: MaybeResAnnot) \
      $(block :: MaybeBlock)'
-
-  fun assign_pat_metavars('$(stx :: AssignPat)') :~ [Identifier, ...]:
-    args_metavars(stx.args)
-
-  fun typeset_assign_pat('$(stx :: AssignPat)'):
-    let op_ts = typeset_expr(stx.op)
-    let args_ts = typeset_args(stx.args)
-    '$op_ts $args_ts'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -440,25 +422,34 @@ export doc.bridge property:
       metavariable_list_extractor <| fun('$(stx :: DocForm)'):
         List.append(
           receiver_metavars(stx.receiver),
-          (stx.assign_pat.pat ?> assign_pat_metavars) || [],
+          maybe_assign_pat_metavars(stx.assign_pat),
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let property_ts = typeset_global_defn(stx.property)
-        let receiver_ts = typeset_receiver(stx.receiver)
-        let dot_member_name_ts = typeset_dot_member_name(stx.dot_member_name)
-        let assign_pat_ts = (stx.assign_pat.pat ?> typeset_assign_pat) || ''
-        let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$property_ts $receiver_ts $dot_member_name_ts $assign_pat_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+export spacer.bridge property(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$receiver \
+     $(dmn :: DotMemberName) \
+     $(assign_pat :: MaybeAssignPat) \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let receiver_adj = adjust_receiver(receiver, esc)
+      let dmn_adj = adjust_dot_member_name(dmn, esc)
+      let assign_pat_adj = adjust_maybe_assign_pat(assign_pat, esc)
+      let res_annot_adj = adjust_maybe_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_expr_body, block, esc)
+      '$self $receiver_adj $dmn_adj $assign_pat_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge fun:
   syntax_class DocForm:
     kind: ~group
-  | '$(fun :: IdentifierName) \
+  | '$(op :: IdentifierName) \
      $(name :: IdentifierName) \
      $(args :: Args: open) \
      $(res_annot :: MaybeResAnnot) \
@@ -479,21 +470,27 @@ export doc.bridge fun:
           arg_metavars(stx.arg), ...,
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let fun_ts = typeset_global_defn(stx.fun)
-        let name_ts = typeset_name(stx.name, space, subst)
-        let args_ts = typeset_args(stx.args)
-        let res_annot_ts = typeset_maybe_res_annot(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$fun_ts $name_ts $args_ts $res_annot_ts $block_ts',
-          ~at: stx))
+      doc_meta.head_extract_typeset)
+
+export spacer.bridge fun(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(name :: NameOrEsc(esc)) \
+     $args \
+     $(res_annot :: MaybeResAnnot) \
+     $(block :: MaybeBlock)':
+      let args_adj = adjust_args(args, esc)
+      let res_annot_adj = adjust_maybe_res_annot(res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_expr_body, block, esc)
+      '$self $name $args_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 doc.bridge specl.operator:
   syntax_class DocForm:
     kind: ~group
-  | '$(specl_dot_operator :: IdentifierName) $(_ :: OperatorCase: open)'
+  | '$(defn_op :: IdentifierName) $(_ :: OperatorCase: open)'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -512,26 +509,32 @@ doc.bridge specl.operator:
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let specl_dot_operator_ts = typeset_global_defn(stx.specl_dot_operator)
         let op_name_ts = typeset_name(stx.op_name, space, subst)
-        let lhs_ts = typeset_specl_bind(stx.lhs || '')
-        let rhs_ts = typeset_specl_bind(stx.rhs || '')
-        let pat_ts = '$lhs_ts $op_name_ts $rhs_ts'
+        let pat_ts = '$(stx.lhs || '') $op_name_ts $(stx.rhs || '')'
         let pat_ts:
           if stx.pat_in_parens
           | '($pat_ts)'.relocate(stx.pat)
           | pat_ts
-        let res_annot_ts = typeset_specl_expr(stx.res_annot)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_specl_expr, stx.block)
         doc_meta.typeset_rhombusblock(
-          '$specl_dot_operator_ts $pat_ts $res_annot_ts $block_ts',
+          '$stx.defn_op $pat_ts $stx.res_annot $stx.block',
           ~at: stx))
+
+spacer.bridge specl.operator(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(case :: OperatorCase(esc))':
+      let pat_adj = spacer.adjust_group(case.pat, specl_bind_ctx, esc)
+      let res_annot_adj = adjust_maybe_specl_res_annot(case.res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, case.block, esc)
+      '$self $pat_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge operator:
   syntax_class DocForm:
     kind: ~group
-  | '$(operator :: IdentifierName) $(case :: OperatorCase: open)'
+  | '$(defn_op :: IdentifierName) $(case :: OperatorCase: open)'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -551,35 +554,37 @@ export doc.bridge operator:
           optional_block_metavars(stx.block)),
     ~extract_typeset:
       fun('$(stx :: DocForm)', space, subst):
-        let operator_ts = typeset_global_defn(stx.operator)
         let op_name_ts = typeset_name(stx.op_name, space, subst)
-        let lhs_ts = (stx.lhs ?> typeset_operand) || ''
-        let rhs_ts = (stx.rhs ?> typeset_operand) || ''
-        let pat_ts = '$lhs_ts $op_name_ts $rhs_ts'
+        let pat_ts = '$(stx.lhs || '') $op_name_ts $(stx.rhs || '')'
         let pat_ts:
           if stx.pat_in_parens
           | '($pat_ts)'.relocate(stx.pat)
           | pat_ts
-        let res_annot_ts:
-          if stx.res_annot.present
-          | '$(typeset_expr(stx.res_annot.op)) $(typeset_specl_expr(stx.res_annot.annot))'
-          | ''
-        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
         doc_meta.typeset_rhombusblock(
-          '$operator_ts $pat_ts $res_annot_ts $block_ts',
+          '$stx.defn_op $pat_ts $stx.res_annot $stx.block',
           ~at: stx))
+
+export spacer.bridge operator(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$(case :: OperatorCase(esc))':
+      let lhs_adj = (case.lhs ?> adjust_operand(_, esc)) || ''
+      let rhs_adj = (case.rhs ?> adjust_operand(_, esc)) || ''
+      let pat_adj = '$lhs_adj $case.op_name $rhs_adj'
+      let pat_adj = if case.pat_in_parens
+      | '($pat_adj)'.relocate(case.pat)
+      | pat_adj
+      let res_annot_adj = adjust_maybe_res_annot(case.res_annot, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_expr_body, case.block, esc)
+      '$self $pat_adj $res_annot_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge coercion:
   syntax_class DocForm:
     kind: ~group
-    fields:
-      coercion
-      receiver
-      ann_op
-      to_bind
-      block
-  | '$(coercion :: IdentifierName) \
+  | '$(op :: IdentifierName) \
      $(receiver :: Receiver) \
      $('::' && ann_op) $(to_bind :: SimpleNonemptySequence) \
      $(block :: MaybeBlock)'
@@ -601,21 +606,29 @@ export doc.bridge coercion:
           specl_bind_metavars(stx.to_bind),
           optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let coercion_ts = typeset_global_defn(stx.coercion)
-        let receiver_ts = typeset_receiver(stx.receiver)
-        let ann_op_ts = typeset_expr(stx.ann_op)
-        let to_bind_ts = typeset_specl_bind(stx.to_bind)
-        let block_ts = typeset_optional_block(~typeset_body: typeset_local_defn_or_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$coercion_ts $receiver_ts $ann_op_ts $to_bind_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+export spacer.bridge coercion(self, tail, ctx, esc):
+  ~in: ~defn
+  match tail
+  | '$receiver \
+     $('::' && ann_op) \
+     $(to_bind :: SimpleNonemptySequence) \
+     $(block :: MaybeBlock)':
+      let receiver_adj = adjust_args(receiver, esc)
+      let ann_op_adj = spacer.adjust_term(ann_op, expr_ctx, esc)
+      let to_bind_adj = spacer.adjust_group(to_bind, specl_bind_ctx, esc)
+      let block_adj = adjust_optional_block(~adjust_body: adjust_expr_body, block, esc)
+      '$self $receiver_adj $ann_op_adj $to_bind_adj $block_adj'
+  | _:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
 
 //==============================================================================
 export doc.bridge unify:
   syntax_class DocForm:
     kind: ~group
-  | '$(unify :: IdentifierName) $('($fst_bind, $snd_bind)' && binds): $(block :: Block)'
+  | '$(unify :: IdentifierName) ($fst_bind, $snd_bind) $(block :: MaybeBlock)'
 
   doc_meta.transformer(
     ~extract_desc:
@@ -632,14 +645,21 @@ export doc.bridge unify:
         List.append(
           specl_bind_metavars(stx.fst_bind),
           specl_bind_metavars(stx.snd_bind),
-          block_metavars(stx.block)),
+          optional_block_metavars(stx.block)),
     ~extract_typeset:
-      fun('$(stx :: DocForm)', space, subst):
-        let unify_ts = typeset_global_defn(stx.unify)
-        let fst_bind_ts = typeset_specl_bind(stx.fst_bind)
-        let snd_bind_ts = typeset_specl_bind(stx.snd_bind)
-        let binds_ts = '($fst_bind_ts, $snd_bind_ts)'.relocate(stx.binds)
-        let block_ts = typeset_block(~typeset_body: typeset_specl_expr, stx.block)
-        doc_meta.typeset_rhombusblock(
-          '$unify_ts $binds_ts $block_ts',
-          ~at: stx))
+      fun(stx, space, subst):
+        doc_meta.typeset_rhombusblock(stx))
+
+export spacer.bridge unify(self, tail, ctx, esc):
+  ~in: ~defn #{pille/specl_expr}
+  match ctx
+  | #'#{pille/specl_expr}:
+      spacer.adjust_rest_sequence(self, tail, ctx, esc)
+  | _:
+      match tail
+      | '$binds $(block :: MaybeBlock)':
+          let binds_adj = adjust_specl_args(binds, esc)
+          let block_adj = adjust_optional_block(~adjust_body: adjust_specl_expr_body, block, esc)
+          '$self $binds_adj $block_adj'
+      | _:
+          spacer.adjust_rest_sequence(self, tail, ctx, esc)

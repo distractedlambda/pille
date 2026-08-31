@@ -3,11 +3,20 @@
 import:
   rhombus/scribble/manual
   scribble/doc_meta open
+  scribble/spacer
   meta:
     rhombus/rx open
     rhombus/static/meta open
 
 meta:
+  //============================================================================
+  export syntax_class NameOrEsc(esc):
+    kind: ~sequence
+    fields: «»
+  | '$(esc_name :: Name)($_)':
+      match_when syntax_meta.equal_binding(esc_name, esc)
+  | '$(_ :: Name)'
+
   //============================================================================
   export syntax_class NonemptySequence:
     kind: ~sequence
@@ -63,13 +72,21 @@ meta:
       field annot = #false
       field present = #false
 
-  export fun typeset_res_annot('$(stx :: ResAnnot)'):
-    '$(typeset_expr(stx.op)) $(typeset_specl_expr(stx.annot))'
+  export fun adjust_res_annot(stx, esc):
+    spacer.adjust_group(stx, expr_ctx, esc)
 
-  export fun typeset_maybe_res_annot(stx):
-    if stx matches ''
-    | ''
-    | typeset_res_annot(stx)
+  export fun adjust_specl_res_annot(stx, esc):
+    spacer.adjust_group(stx, specl_expr_ctx, esc)
+
+  export fun adjust_maybe_res_annot(stx, esc):
+    match stx
+    | '': stx
+    | _: adjust_res_annot(stx, esc)
+
+  export fun adjust_maybe_specl_res_annot(stx, esc):
+    match stx
+    | '' : stx
+    | _: adjust_specl_res_annot(stx, esc)
 
   //============================================================================
   export syntax_class MemberName:
@@ -82,33 +99,47 @@ meta:
   | '. $(_ :: MemberName)'
   | '.$ $(_ :: Identifier)'
 
-  export fun typeset_member_name(stx):
+  export fun adjust_member_name(stx, esc):
     match stx
-    | '$('$' && dollar_op) $(name :: Identifier)':
-        '$(typeset_expr(dollar_op)) $(typeset_unique_member(name))'
-    | '$(name :: Identifier)':
-        name
+    | '$('$' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, expr_ctx)
+        let id_adj = spacer.set(id, unique_member_ctx)
+        '$op_adj $id_adj'
+    | _:
+        stx
 
-  export fun typeset_specl_member_name(stx):
+  export fun adjust_specl_member_name(stx, esc):
     match stx
-    | '$('$' && dollar_op) $(name :: Identifier)':
-        '$(typeset_specl_expr(dollar_op)) $(typeset_unique_member(name))'
-    | '$(name :: Identifier)':
-        name
+    | '$('$' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, specl_expr_ctx)
+        let id_adj = spacer.set(id, unique_member_ctx)
+        '$op_adj $id_adj'
+    | _:
+        stx
 
-  export fun typeset_dot_member_name(stx):
+  export fun adjust_dot_member_name(stx, esc):
     match stx
-    | '$('.' && dot_op) $(mn :: MemberName)':
-        '$(typeset_expr(dot_op)) $(typeset_member_name(mn))'
-    | '$('.$' && dot_dollar_op) $(name :: Identifier)':
-        '$(typeset_expr(dot_dollar_op)) $(typeset_unique_member(name))'
+    | '$('.$' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, expr_ctx)
+        let id_adj = spacer.set(id, unique_member_ctx)
+        '$op_adj $id_adj'
+    | '$('.' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, expr_ctx)
+        '$op_adj $id'
+    | _:
+        stx
 
-  export fun typeset_specl_dot_member_name(stx):
+  export fun adjust_specl_dot_member_name(stx, esc):
     match stx
-    | '$('.' && dot_op) $(mn :: MemberName)':
-        '$(typeset_specl_expr(dot_op)) $(typeset_specl_member_name(mn))'
-    | '$('.$' && dot_dollar_op) $(name :: Identifier)':
-        '$(typeset_specl_expr(dot_dollar_op)) $(typeset_unique_member(name))'
+    | '$('.$' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, specl_expr_ctx)
+        let id_adj = spacer.set(id, unique_member_ctx)
+        '$op_adj $id_adj'
+    | '$('.' && op) $(id :: Identifier)':
+        let op_adj = spacer.set(op, specl_expr_ctx)
+        '$op_adj $id'
+    | _:
+        stx
 
   //============================================================================
   export syntax_class Args:
@@ -131,21 +162,21 @@ meta:
     | _:
         []
 
-  export fun typeset_arg(stx):
+  export fun adjust_arg(stx, esc):
     match stx
     | '$('inout' && inout) $(tl :: Sequence)':
-        '$(typeset_expr(inout)) $(typeset_arg_no_inout(tl))'
+        '$(spacer.adjust_term(inout, expr_ctx, esc)) $(adjust_arg_no_inout(tl, esc))'
           .relocate_group(stx)
     | _:
-        typeset_arg_no_inout(stx)
+        adjust_arg_no_inout(stx, esc)
 
-  fun typeset_arg_no_inout(stx):
+  fun adjust_arg_no_inout(stx, esc):
     match stx
     | '$('specl' && specl) $(cb :: Group)':
-        '$(typeset_expr(specl)) $(typeset_specl_bind(cb))'
+        '$(spacer.adjust_term(specl, expr_ctx, esc)) $(spacer.adjust_group(cb, specl_bind_ctx, esc))'
           .relocate_group(stx)
     | '$(name :: Identifier) $('::' && annot_op) $(type :: Group)':
-        '$name $(typeset_expr(annot_op)) $(typeset_specl_bind(type))'
+        '$name $(spacer.adjust_term(annot_op, expr_ctx, esc)) $(spacer.adjust_group(type, specl_bind_ctx, esc))'
           .relocate_group(stx)
     | _:
         stx
@@ -153,14 +184,14 @@ meta:
   export fun args_metavars('$(stx :: Args)') :~ [Identifier, ...]:
     List.append(arg_metavars(stx.arg), ...)
 
-  export fun typeset_args('$(stx :: Args)'):
-    '($(typeset_arg(stx.arg)), ...)'.relocate(stx)
+  export fun adjust_args('$(stx :: Args)', esc):
+    '($(adjust_arg(stx.arg, esc)), ...)'.relocate(stx)
 
   export fun receiver_metavars('$(stx :: Receiver)') :~ [Identifier, ...]:
     arg_metavars(stx.arg)
 
-  export fun typeset_receiver('$(stx :: Receiver)'):
-    '($(typeset_arg(stx.arg)))'.relocate(stx)
+  export fun adjust_receiver('$(stx :: Receiver)', esc):
+    '($(adjust_arg(stx.arg, esc)))'.relocate(stx)
 
   //============================================================================
   export syntax_class SpeclArgs:
@@ -170,8 +201,8 @@ meta:
   export fun specl_args_metavars('$(stx :: SpeclArgs)') :~ [Identifier, ...]:
     List.append(specl_bind_metavars(stx.arg), ...)
 
-  export fun typeset_specl_args('$(stx :: SpeclArgs)'):
-    '($(typeset_specl_bind(stx.arg)), ...)'.relocate(stx)
+  export fun adjust_specl_args(stx, esc):
+    spacer.adjust_term(stx, specl_bind_ctx, esc)
 
   //============================================================================
   export syntax_class MaybeSpeclArgs:
@@ -183,13 +214,43 @@ meta:
   export fun maybe_specl_args_metavars('$(stx :: MaybeSpeclArgs)') :~ [Identifier, ...]:
     (stx.args ?> specl_args_metavars) || []
 
-  export fun typeset_maybe_specl_args('$(stx :: MaybeSpeclArgs)'):
-    (stx.args ?> typeset_specl_args) || stx
+  export fun adjust_maybe_specl_args('$(stx :: MaybeSpeclArgs)', esc):
+    (stx.args ?> adjust_specl_args(_, esc)) || stx
 
   //============================================================================
-  export syntax_class NameNotAnnotOp:
+  export syntax_class AssignPat:
+    kind: ~sequence
+    fields: op args
+  | '$(':=' && op) $('($_)' && args)'
+
+  export syntax_class MaybeAssignPat:
+    kind: ~sequence
+    fields: pat :~ maybe(Syntax.matched_of(AssignPat))
+  | '$(pat :: AssignPat)'
+  | '': field pat = #false
+
+  export fun assign_pat_metavars('$(stx :: AssignPat)') :~ [Identifier, ...]:
+    args_metavars(stx.args)
+
+  export fun maybe_assign_pat_metavars('$(stx :: MaybeAssignPat)') :~ [Identifier, ...]:
+    (stx.pat ?> assign_pat_metavars) || []
+
+  export fun adjust_assign_pat('$(stx :: AssignPat)', esc):
+    let op_adj = spacer.adjust_term(stx.op, expr_ctx, esc)
+    let args_adj = adjust_args(stx.args, esc)
+    '$op_adj $args_adj'.relocate_group(stx)
+
+  export fun adjust_maybe_assign_pat(stx, esc):
+    match stx
+    | '': stx
+    | _: adjust_assign_pat(stx, esc)
+
+  //============================================================================
+  export syntax_class OperatorName(esc):
     kind: ~sequence
     fields: «»
+  | '$(esc_name :: Name)($_)':
+      match_when esc && syntax_meta.equal_binding(esc_name, esc)
   | '$(name :: Name)':
       match_when name !matches '::'
 
@@ -206,50 +267,50 @@ meta:
     | '($arg)':
         arg_metavars(arg)
 
-  export fun typeset_operand(stx):
+  export fun adjust_operand(stx, esc):
     match stx
     | '($arg)':
-        typeset_args(stx)
+        adjust_args(stx, esc)
     | _:
         stx
 
-  export syntax_class OperatorPat:
+  export syntax_class OperatorPat(esc):
     kind: ~sequence
     fields:
-      op_name :~ Name
+      op_name :~ Syntax
       kind :~ Symbol
       lhs :~ maybe(Term)
       rhs :~ maybe(Term)
       [operand :~ Term, ...]
-  | '$(op_name :: NameNotAnnotOp) $(rhs :: OperandTerm)':
+  | '$(op_name :: OperatorName(esc)) $(rhs :: OperandTerm)':
       field kind = #'prefix
       field lhs = #false
       field [operand, ...] = [rhs]
-  | '$(lhs :: OperandTerm) $(op_name :: NameNotAnnotOp) $(rhs :: OperandTerm)':
+  | '$(lhs :: OperandTerm) $(op_name :: OperatorName(esc)) $(rhs :: OperandTerm)':
       field kind = #'infix
       field [operand, ...] = [lhs, rhs]
-  | '$(lhs :: OperandTerm) $(op_name :: NameNotAnnotOp)':
+  | '$(lhs :: OperandTerm) $(op_name :: OperatorName(esc))':
       field kind = #'postfix
       field rhs = #false
       field [operand, ...] = [lhs]
 
-  export syntax_class OperatorPatMaybeParens:
+  export syntax_class OperatorPatMaybeParens(esc):
     kind: ~sequence
     fields:
-      op_name :~ Name
+      op_name :~ Syntax
       kind :~ Symbol
       lhs :~ maybe(Term)
       rhs :~ maybe(Term)
       [operand :~ Term, ...]
       pat_in_parens :~ Boolean
-  | '($(_ :: OperatorPat: open))':
+  | '($(_ :: OperatorPat(esc): open))':
       field pat_in_parens = #true
-  | '$(_ :: OperatorPat: open)':
+  | '$(_ :: OperatorPat(esc): open)':
       field pat_in_parens = #false
 
-  export syntax_class OperatorCase:
+  export syntax_class OperatorCase(esc = #false):
     kind: ~group
-  | '$(pat :: OperatorPatMaybeParens: open) $(res_annot :: MaybeResAnnot) $(block :: MaybeBlock)'
+  | '$(pat :: OperatorPatMaybeParens(esc): open) $(res_annot :: MaybeResAnnot) $(block :: MaybeBlock)'
 
   //============================================================================
   export fun metavariable_list_extractor(f :: Syntax -> [Identifier, ...]):
@@ -307,78 +368,68 @@ meta:
     name |> doc_meta.extract_name(_, space) |> subst
 
   //============================================================================
-  export fun typeset_in_space(stx :: Syntax, space :: Group) :~ Syntax:
-    match stx
-    | '': ''
-    | _: '#,$('(manual.rhombus($stx, $space))'.relocate_span([stx]))'
-
-  defn.macro 'in_space_typesetters:
-                $(name :: IdentifierName) $(space :: Group)
-                ...':
-    'fun $name(stx :~ Syntax) :~ Syntax:
-       typeset_in_space(stx, '$space')
-     ...'
-
-  export in_space_typesetters:
-    typeset_expr ~at: pille/expr; pille/specl_expr
-    typeset_global_defn ~defn
-    typeset_local_defn ~at pille/local_defn
-    typeset_local_defn_or_expr ~at: pille/local_defn; pille/expr
-    typeset_operator_order ~operator_order
-    typeset_priority ~at pille/priority
-    typeset_specl_annot ~at pille/specl_annot
-    typeset_specl_bind ~at: pille/specl_bind; pille/specl_expr
-    typeset_specl_expr ~at pille/specl_expr
-    typeset_unique_member ~at pille/unique_member
+  export def expr_ctx: [#'#{pille/expr}, #'#{pille/specl_expr}]
+  export def global_defn_ctx: #'~defn
+  export def local_defn_ctx: #'#{pille/local_defn}
+  export def local_defn_or_expr_ctx: [#'#{pille/local_defn}, #'#{pille/expr}, #'#{pille/specl_expr}]
+  export def operator_order_ctx: #'~operator_order
+  export def priority_ctx: #'#{pille/priority}
+  export def specl_annot_ctx: #'#{pille/specl_annot}
+  export def specl_bind_ctx: [#'#{pille/specl_bind}, #'#{pille/specl_expr}]
+  export def specl_expr_ctx: #'#{pille/specl_expr}
+  export def unique_member_ctx: #'#{pille/unique_member}
 
   //============================================================================
-  export fun typeset_where_bind(stx :: Group) :~ Group:
-    let ts :~ Syntax = match stx
+  export fun adjust_where_bind(stx :: Group, esc) :~ Group:
+    let adj :~ Syntax = match stx
     | '$(lhs :: SimpleNonemptySequence) $('=' && eq_op) $(rhs :: NonemptySequence)':
-        let lhs_ts = typeset_specl_bind(lhs)
-        let eq_op_ts = typeset_specl_expr(eq_op)
-        let rhs_ts = typeset_specl_expr(rhs)
-        '$lhs_ts $eq_op_ts $rhs_ts'
+        let lhs_adj = spacer.adjust_group(lhs, specl_bind_ctx, esc)
+        let eq_op_adj = spacer.adjust_term(eq_op, specl_expr_ctx, esc)
+        let rhs_adj = spacer.adjust_group(rhs, specl_expr_ctx, esc)
+        '$lhs_adj $eq_op_adj $rhs_adj'
     | '$(lhs :: Group): $(rhs :: Group)':
-        let lhs_ts = typeset_specl_bind(lhs)
-        let rhs_ts = typeset_specl_expr(rhs)
-        '$lhs: $rhs'
-    ts.relocate_group(stx)
+        let lhs_adj = spacer.adjust_group(lhs, specl_bind_ctx, esc)
+        let rhs_adj = spacer.adjust_group(rhs, specl_expr_ctx, esc)
+        '$lhs_adj: $rhs_adj'
+    adj.relocate_group(stx)
 
-  export fun typeset_option(stx :: Group) :~ Group:
+  export fun adjust_option(stx :: Group, esc) :~ Group:
     let '$(kw :: Keyword) $(tl :: Sequence)' = stx
-    try ~escape_as esc:
-      let tl_ts :~ Syntax = match kw.unwrap()
+    try ~escape_as ret:
+      let tl_adj :~ Syntax = match kw.unwrap()
       | #'~when:
-          match tl
-          | ': $test; ...':
-              ': $(typeset_specl_expr(test)); ...'.relocate(tl)
-          | _:
-              typeset_specl_expr(tl)
+          spacer.adjust_group(tl, specl_expr_ctx, esc)
       | #'~where:
           match tl
           | ': $wb; ...':
-              ': $(typeset_where_bind(wb)); ...'.relocate(tl)
+              ': $(adjust_where_bind(wb, esc)); ...'.relocate(tl)
           | _:
-              typeset_where_bind(tl)
+              adjust_where_bind(tl, esc)
       | #'~order:
-          typeset_operator_order(tl)
+          spacer.adjust_group(tl, operator_order_ctx, esc)
       | #'~priority:
-          typeset_priority(tl)
+          spacer.adjust_group(tl, priority_ctx, esc)
       | _:
-          esc(stx)
-      '$kw $tl_ts'.relocate_group(stx)
+          ret(stx)
+      '$kw $tl_adj'.relocate_group(stx)
 
-  export fun typeset_block(
-    ~typeset_body: typeset_body :: Group -> Group: fun(stx): stx,
+  export fun adjust_block(
+    ~adjust_body: adjust_body :: (Group, Name) -> Group: fun(stx, _): stx,
     stx :: Block,
+    esc,
   ):
     let ': $(option :: Option); ...; $body; ...' = stx
-    ': $(typeset_option(option)); ...; $(typeset_body(body).relocate_group(body)); ...'.relocate(stx)
+    ': $(adjust_option(option, esc)); ...; $(adjust_body(body, esc).relocate_group(body)); ...'.relocate(stx)
 
-  export fun typeset_optional_block(~typeset_body = fun(stx): stx, stx :: Syntax):
+  export fun adjust_optional_block(~adjust_body = fun(stx, _): stx, stx :: Syntax, esc):
     match stx
     | ': $(block :: Block)':
-        typeset_block(~typeset_body, block)
+        adjust_block(~adjust_body, block, esc)
     | '':
         ''
+
+  export fun adjust_specl_expr_body(stx, esc):
+    spacer.adjust_group(stx, specl_expr_ctx, esc)
+
+  export fun adjust_expr_body(stx, esc):
+    spacer.adjust_group(stx, local_defn_or_expr_ctx, esc)
