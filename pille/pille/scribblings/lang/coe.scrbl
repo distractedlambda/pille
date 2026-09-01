@@ -3,11 +3,9 @@
 @(import:
     "common.rhm" open)
 
-@title{Casts and Coercions}
+@title{Coercions}
 
 @//=============================================================================
-@section{Coercions}
-
 @doc(
   ~nonterminal:
     dst_specl_bind: specl_bind specl_bind ~space
@@ -55,23 +53,6 @@
 
 @doc(
   expr.macro '$expr :: $specl_expr'
-){}
-
-@//=============================================================================
-@section{Casts}
-
-@doc(
-  struct CastExact(α :: type):
-    src :: α
-
-  method (src :: α).cast_exact() :: CastExact(α)
-){}
-
-@doc(
-  struct CastWrap(α :: type):
-    src :: α
-
-  method (src :: α).cast_wrap() :: CastWrap(α)
 ){}
 
 @//=============================================================================

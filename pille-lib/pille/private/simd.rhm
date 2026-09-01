@@ -85,11 +85,11 @@ method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α:
 
 //==============================================================================
 method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
-  let offsets = offsets.cast_wrap() :: Simd(NativeInt, n)
+  let offsets = Simd(NativeInt, n).cast_wrap(offsets)
   prim.ptradd(ptrs, offsets)
 
 method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
-  let offsets = offsets.cast_wrap() :: Simd(NativeInt, n)
+  let offsets = Simd(NativeInt, n).cast_wrap(offsets)
   let offsets = offsets *% α.byte_stride
   prim.ptradd(ptrs, offsets)
 

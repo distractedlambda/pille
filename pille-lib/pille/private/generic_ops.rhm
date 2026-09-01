@@ -153,20 +153,6 @@ export specl.operator ¬rhs:
   rhs.$not()
 
 //==============================================================================
-export struct CastExact(α :: type):
-  src :: α
-
-method (src :: α).cast_exact():
-  CastExact(α){src}
-
-//==============================================================================
-export struct CastWrap(α :: type):
-  src :: α
-
-method (src :: α).cast_wrap():
-  CastWrap(α){src}
-
-//==============================================================================
 export operator (lhs :: α) === (rhs :: β):
   ~where γ = unify(α, β)
   prim.repr_equivalent(lhs :: γ, rhs :: γ)

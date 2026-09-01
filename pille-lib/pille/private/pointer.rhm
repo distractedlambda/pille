@@ -46,7 +46,7 @@ method (ptr :: RawPtr).store(value :: α, specl align :: alignment) :: Void:
 
 //==============================================================================
 method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
-  let offset = offset.cast_exact() :: NativeInt
+  let offset = NativeInt.cast_exact(offset)
   cond
   | ub.allowed:
       prim.ptradd ~inbounds (ptr, offset)
@@ -59,7 +59,7 @@ method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
       | new
 
 method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
-  let offset = offset.cast_exact() :: NativeUInt
+  let offset = NativeUInt.cast_exact(offset)
   cond
   | ub.allowed:
       prim.ptradd ~inbounds ~nuw (ptr, offset)
@@ -82,7 +82,7 @@ method (ptr :: RawPtr).$add(specl offset :: int) :: RawPtr:
 
 //==============================================================================
 method (ptr :: RawPtr).$sub(amount :: BinaryInteger) :: RawPtr:
-  ptr + (-(amount.cast_exact() :: NativeInt))
+  ptr + (- NativeInt.cast_exact(amount))
 
 method (ptr :: RawPtr).$sub(specl amount :: int) :: RawPtr:
   ptr + (-amount)
@@ -148,11 +148,11 @@ method (specl φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$add(offset :: UInt(_)) :: φ:
-  let offset = offset.cast_exact() :: NativeUInt
+  let offset = NativeUInt.cast_exact(offset)
   .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
-  let offset = offset.cast_exact() :: NativeInt
+  let offset = NativeInt.cast_exact(offset)
   .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
@@ -160,7 +160,7 @@ method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:
-  ptr + (-(amount.cast_exact() :: NativeInt))
+  ptr + (- NativeInt.cast_exact(amount))
 
 method (ptr :: φ && PtrTo(α)).$sub(specl amount :: int) :: φ:
   ptr + (-amount)

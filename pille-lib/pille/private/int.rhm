@@ -268,110 +268,111 @@ method (lhs :: UInt(n)).$ge(rhs :: UInt(n)) :: Boolean:
   prim.icmp_uge(lhs, rhs)
 
 //==============================================================================
-coercion (cast :: CastExact(σ && Specl(_ :: int))) :: CoercesFrom(σ) && BinaryInteger:
-  cast.src
+method (specl BinaryInteger as δ).cast_exact(src :: Specl(_ :: int) as σ) :: δ:
+  specl.assert(σ coerces_to δ)
+  src
 
-coercion (cast :: CastExact(Int(w1))) :: δ && Int(w2):
+method (specl Int(w2) as δ).cast_exact(src :: Int(w1)) :: δ:
   cond
   | w1 ≤ w2:
-      cast.src
+      src
   | ub.allowed:
-      prim.trunc_nsw(cast.src, ~to: δ)
+      prim.trunc_nsw(src, ~to: δ)
   | ub.suppressed:
-      prim.trunc(cast.src, ~to: δ)
+      prim.trunc(src, ~to: δ)
   | ub.checked:
-      if cast.src ≥ δ.min_value && cast.src ≤ δ.max_value
-      | prim.trunc_nsw(cast.src, ~to: δ)
+      if src ≥ δ.min_value && src ≤ δ.max_value
+      | prim.trunc_nsw(src, ~to: δ)
       | panic()
 
-coercion (cast :: CastExact(Int(w1))) :: δ && UInt(w2):
+method (specl UInt(w2) as δ).cast_exact(src :: Int(w1)) :: δ:
   cond
   | w1 == w2:
-      if ub.checked && cast.src < 0
+      if ub.checked && src < 0
       | panic()
-      | prim.retype(cast.src, ~to: δ)
+      | prim.retype(src, ~to: δ)
   | w1 < w2:
       cond
       | ub.allowed:
-          prim.zext_nneg(cast.src, ~to: δ)
+          prim.zext_nneg(src, ~to: δ)
       | ub.suppressed:
-          prim.zext(cast.src, ~to: δ)
+          prim.zext(src, ~to: δ)
       | ub.checked:
-          if cast.src < 0
+          if src < 0
           | panic()
-          | prim.zext_nneg(cast.src, ~to: δ)
+          | prim.zext_nneg(src, ~to: δ)
   | w1 > w2:
       cond
       | ub.allowed:
-          prim.trunc_nuw(cast.src, ~to: δ)
+          prim.trunc_nuw(src, ~to: δ)
       | ub.suppressed:
-          prim.trunc(cast.src, ~to: δ)
+          prim.trunc(src, ~to: δ)
       | ub.checked:
-          if cast.src ≥ δ.min_value && cast.src ≤ δ.max_value
-          | prim.trunc_nuw(cast.src, ~to: δ)
+          if src ≥ δ.min_value && src ≤ δ.max_value
+          | prim.trunc_nuw(src, ~to: δ)
           | panic()
 
-coercion (cast :: CastExact(UInt(w1))) :: δ && UInt(w2):
+method (specl UInt(w2) as δ).cast_exact(src :: UInt(w1)) :: δ:
   cond
   | w1 ≤ w2:
-      cast.src
+      src
   | ub.allowed:
-      prim.trunc_nuw(cast.src, ~to: δ)
+      prim.trunc_nuw(src, ~to: δ)
   | ub.suppressed:
-      prim.trunc(cast.src, ~to: δ)
+      prim.trunc(src, ~to: δ)
   | ub.checked:
-      if cast.src ≤ δ.max_value
-      | prim.trunc_nuw(cast.src, ~to: δ)
+      if src ≤ δ.max_value
+      | prim.trunc_nuw(src, ~to: δ)
       | panic()
 
-coercion (cast :: CastExact(UInt(w1))) :: δ && Int(w2):
+method (specl Int(w2) as δ).cast_exact(src :: UInt(w1)) :: δ:
   cond
   | w1 < w2:
-      cast.src
+      src
   | w1 == w2:
-      if ub.checked && cast.src > δ.max_value
+      if ub.checked && src > δ.max_value
       | panic()
-      | prim.retype(cast.src, ~to: δ)
+      | prim.retype(src, ~to: δ)
   | ub.allowed:
-      prim.trunc_nsw(cast.src, ~to: δ)
+      prim.trunc_nsw(src, ~to: δ)
   | ub.suppressed:
-      prim.trunc(cast.src, ~to: δ)
+      prim.trunc(src, ~to: δ)
   | ub.checked:
-      if cast.src ≤ δ.max_value
-      | prim.trunc_nsw(cast.src, ~to: δ)
+      if src ≤ δ.max_value
+      | prim.trunc_nsw(src, ~to: δ)
       | panic()
 
 //==============================================================================
-coercion (cast :: CastWrap(Specl(n :: int))) :: δ && BinaryInteger:
-  prim.constant_int(δ, n)
+method (specl BinaryInteger as δ).cast_wrap(specl src :: int) :: δ:
+  prim.constant_int(δ, src)
 
-coercion (cast :: CastWrap(Int(w1))) :: δ && Int(w2):
+method (specl Int(w2) as δ).cast_wrap(src :: Int(w1)) :: δ:
   if w1 ≤ w2
-  | cast.src
-  | prim.trunc(cast.src, ~to: δ)
+  | src
+  | prim.trunc(src, ~to: δ)
 
-coercion (cast :: CastWrap(Int(w1))) :: δ && UInt(w2):
+method (specl UInt(w2) as δ).cast_wrap(src :: Int(w1)) :: δ:
   cond
   | w1 < w2:
-      prim.sext(cast.src, ~to: δ)
+      prim.sext(src, ~to: δ)
   | w1 == w2:
-      prim.retype(cast.src, ~to: δ)
+      prim.retype(src, ~to: δ)
   | w1 > w2:
-      prim.trunc(cast.src, ~to: δ)
+      prim.trunc(src, ~to: δ)
 
-coercion (cast :: CastWrap(UInt(w1))) :: δ && UInt(w2):
+method (specl UInt(w2) as δ).cast_wrap(src :: UInt(w1)) :: δ:
   if w1 ≤ w2
-  | cast.src
-  | prim.trunc(cast.src, ~to: δ)
+  | src
+  | prim.trunc(src, ~to: δ)
 
-coercion (cast :: CastWrap(UInt(w1))) :: δ && Int(w2):
+method (specl Int(w2) as δ).cast_wrap(src :: UInt(w1)) :: δ:
   cond
   | w1 < w2:
-      cast.src
+      src
   | w1 == w2:
-      prim.retype(cast.src, ~to: δ)
+      prim.retype(src, ~to: δ)
   | w1 > w2:
-      prim.trunc(cast.src, ~to: δ)
+      prim.trunc(src, ~to: δ)
 
 //==============================================================================
 method (rhs :: α && BinaryInteger).$not() :: α:

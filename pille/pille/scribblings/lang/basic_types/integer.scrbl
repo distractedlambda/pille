@@ -294,45 +294,9 @@
 }
 
 @doc(
-  coercion (cast :: CastExact(σ && Specl(_ :: int)))
-    :: CoercesFrom(σ) && BinaryInteger
-){
-  Implements value-preserving casts from
-  @pille_specl_bind(Specl(_ :: int)) types to
-  @pille_specl_bind(BinaryInteger)s, which are the same as
-  coercions from the source type.
-}
+  method (specl BinaryInteger as δ).cast_exact(src :: Integral) :: δ
+){}
 
 @doc(
-  coercion (cast :: CastExact(Int(_))) :: Int(_)
-
-  coercion (cast :: CastExact(Int(_))) :: UInt(_)
-
-  coercion (cast :: CastExact(UInt(_))) :: UInt(_)
-
-  coercion (cast :: CastExact(UInt(_))) :: Int(_)
-){
-  Implements value-preserving casts between
-  @pille_specl_bind(BinaryInteger)s, where it is
-  @tech{managed undefined behavior} if the destination type
-  is unable to represent the source value.
-}
-
-@doc(
-  coercion (cast :: CastWrap(Specl(_ :: int))) :: BinaryInteger
-
-  coercion (cast :: CastWrap(Int(_))) :: Int(_)
-
-  coercion (cast :: CastWrap(Int(_))) :: UInt(_)
-
-  coercion (cast :: CastWrap(UInt(_))) :: UInt(_)
-
-  coercion (cast :: CastWrap(UInt(_))) :: Int(_)
-){
-  Implements wrapping casts between
-  @pille_specl_bind(BinaryInteger)s, and from
-  @pille_specl_bind(Specl(_ :: int)) types to
-  @pille_specl_bind(BinaryInteger)s, where an out-of-range
-  source value silently wraps to the range of the
-  destination type. This never has undefined behavior.
-}
+  method (specl BinaryInteger as δ).cast_wrap(src :: Integral) :: δ
+){}
