@@ -22,3 +22,8 @@ export specl.operator (σ :: type) coerces_to (δ :: type):
   ~order: equivalence
   ~associativity: ~none
   σ matches CoercesTo(δ)
+
+export operator (specl σ :: type) coerces_to (specl δ :: type):
+  ~order: equivalence
+  ~associativity: ~none
+  specl(σ coerces_to δ)

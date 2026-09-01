@@ -45,7 +45,12 @@
 }
 
 @doc(
-  specl.operator (σ :: type) coerces_to (δ :: type) :: boolean
+  specl.operator (σ :: type) coerces_to (δ :: type)
+    :: boolean
+
+  operator (specl σ :: type) coerces_to (specl δ :: type)
+    :: Specl(σ coerces_to δ)
+
   operator_order:
     ~order: equivalence
     ~associativity: ~none
