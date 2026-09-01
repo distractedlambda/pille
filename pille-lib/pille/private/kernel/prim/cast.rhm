@@ -37,17 +37,19 @@ fun concretize_cast_op(src :~ Expr, dst_type :~ Type, builder_fn):
         builder_fn(builder, src_val, dst_llvm_type))
 
 export cast_ops:
+  fpext create_fpext
+  fptosi create_fp2si
+  fptosi_sat create_fp2si_sat
+  fptoui create_fp2ui
+  fptoui_sat create_fp2ui_sat
+  fptrunc create_fptrunc
   inttoptr create_inttoptr
   ptrtoint create_ptrtoint
   sext create_sext
+  sitofp create_si2fp
   trunc create_trunc
   trunc_nsw create_trunc_nsw
   trunc_nuw create_trunc_nuw
+  uitofp create_ui2fp
   zext create_zext
   zext_nneg create_zext_nneg
-  fptoui create_fp2ui
-  fptosi create_fp2si
-  uitofp create_ui2fp
-  sitofp create_si2fp
-  fptrunc create_fptrunc
-  fpext create_fpext

@@ -1,6 +1,7 @@
 #lang pille/private/kernel
 
 import:
+  "cond.rhm" open
   "generic_ops.rhm" open
   "specl_ops.rhm" open
   "type_traits.rhm" open
@@ -137,3 +138,31 @@ predicates:
   $le: fcmp_ole
   $gt: fcmp_ogt
   $ge: fcmp_oge
+
+//==============================================================================
+method (specl FloatingPoint as δ).cast(src :: FloatingPoint as σ) :: δ:
+  cond
+  | σ coerces_to δ:
+      src
+  | ~else:
+      prim.fptrunc(src, ~to: δ)
+
+method (specl FloatingPoint as δ).cast(src :: Int(_)) :: δ:
+  prim.sitofp(src, ~to: δ)
+
+method (specl FloatingPoint as δ).cast(src :: UInt(_)) :: δ:
+  prim.uitofp(src, ~to: δ)
+
+method (specl FloatingPoint as δ).cast(specl src :: int) :: δ:
+  prim.constant_fp(
+    δ,
+    #%rhombus(src):
+      import rhombus/static open
+      math.inexact(src))
+
+//==============================================================================
+method (specl Int(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
+  prim.fptosi_sat(src, ~to: δ)
+
+method (specl UInt(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
+  prim.fptoui_sat(src, ~to: δ)

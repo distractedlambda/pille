@@ -111,7 +111,7 @@
   method (lhs :: FloatingPoint as α).$div(rhs :: α) :: α
   method (lhs :: FloatingPoint as α).$rem_trunc(rhs :: α) :: α
 ){
-  Method that implement basic math operators for
+  Overloads of the basic math operators for
   @pille_specl_bind(FloatingPoint) values. These never cause
   undefined behavior.
 }
@@ -124,9 +124,31 @@
   method (lhs :: FloatingPoint as α).$gt(rhs :: α) :: Boolean
   method (lhs :: FloatingPoint as α).$ge(rhs :: α) :: Boolean
 ){
-  Methods that implement the comparison operators for
+  Overloads of the comparison operators for
   @pille_specl_bind(FloatingPoint) values. These return
   @rhombus(#false) when either @rhombus(lhs) or
   @rhombus(rhs) is a @rhombus(#nan) value. They never cause
+  undefined behavior.
+}
+
+@doc(
+  method (specl FloatingPoint as δ)
+    .cast(src :: FloatingPoint || Integral) :: δ
+){
+  Performs a numeric cast from @rhombus(src) to any
+  @pille_specl_bind(FloatingPoint) type @rhombus(δ). This
+  can be lossy (if @rhombus(src) cannot be represented
+  exactly by @rhombus(δ)), but never has undefined behavior.
+}
+
+@doc(
+  method (specl BinaryInteger as δ)
+    .cast_sat(src :: FloatingPoint) :: δ
+){
+  Performs a numeric cast from @rhombus(src) to any
+  @pille_specl_bind(BinaryInteger) type @rhombus(δ),
+  saturating at the ends of @rhombus(δ)'s range. This can be
+  lossy (if @rhombus(src) has a fractional part, or if it
+  lies outside of @rhombus(δ)'s range), but never has
   undefined behavior.
 }

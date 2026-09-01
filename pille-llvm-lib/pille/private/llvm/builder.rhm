@@ -262,6 +262,20 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     | val:
         val
 
+  method create_fp2ui_sat(~name = "", src :~ Value, dst_type) :~ Value:
+    create_intrinsic_call(
+      ~name,
+      "llvm.fptoui.sat",
+      [dst_type, src.type],
+      [src])
+
+  method create_fp2si_sat(~name = "", src :~ Value, dst_type) :~ Value:
+    create_intrinsic_call(
+      ~name,
+      "llvm.fptosi.sat",
+      [dst_type, src.type],
+      [src])
+
   method create_phi(
     ~name: name :: ReadableString || Symbol = "",
     type :: Type,
