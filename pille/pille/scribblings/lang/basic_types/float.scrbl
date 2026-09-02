@@ -110,6 +110,7 @@
   method (lhs :: FloatingPoint as α).$mul(rhs :: α) :: α
   method (lhs :: FloatingPoint as α).$div(rhs :: α) :: α
   method (lhs :: FloatingPoint as α).$rem_trunc(rhs :: α) :: α
+  method (lhs :: FloatingPoint as α).$pow(rhs :: α) :: α
 ){
   Overloads of the basic math operators for
   @pille_specl_bind(FloatingPoint) values. These never cause

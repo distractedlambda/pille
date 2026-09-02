@@ -118,6 +118,7 @@ binops:
   $mul: fmul
   $div: fdiv
   $rem_trunc: frem
+  $pow: pow
 
 //==============================================================================
 global_defn.macro 'predicates:

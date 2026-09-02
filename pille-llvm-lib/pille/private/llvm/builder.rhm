@@ -326,6 +326,13 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
       [src.type],
       [src])
 
+  method create_pow(~name = "", base :~ Value, exp :~ Value) :~ Value:
+    create_intrinsic_call(
+      ~name,
+      "llvm.pow",
+      [base.type],
+      [base, exp])
+
   method create_phi(
     ~name: name :: ReadableString || Symbol = "",
     type :: Type,

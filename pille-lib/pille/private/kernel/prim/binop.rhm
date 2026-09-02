@@ -40,28 +40,29 @@ export binary_ops:
   add create_add
   add_nsw create_add_nsw
   add_nuw create_add_nuw
+  and create_and
+  ashr create_ashr
   fadd create_fadd
-  sub create_sub
-  sub_nsw create_sub_nsw
-  sub_nuw create_sub_nuw
+  fdiv create_fdiv
+  fmul create_fmul
+  frem create_frem
   fsub create_fsub
+  lshr create_lshr
   mul create_mul
   mul_nsw create_mul_nsw
   mul_nuw create_mul_nuw
-  fmul create_fmul
-  udiv create_udiv
-  udiv_exact create_udiv_exact
+  or create_or
+  pow create_pow
   sdiv create_sdiv
   sdiv_exact create_sdiv_exact
-  fdiv create_fdiv
-  urem create_urem
-  srem create_srem
-  frem create_frem
   shl create_shl
   shl_nsw create_shl_nsw
   shl_nuw create_shl_nuw
-  lshr create_lshr
-  ashr create_ashr
-  and create_and
-  or create_or
+  srem create_srem
+  sub create_sub
+  sub_nsw create_sub_nsw
+  sub_nuw create_sub_nuw
+  udiv create_udiv
+  udiv_exact create_udiv_exact
+  urem create_urem
   xor create_xor
