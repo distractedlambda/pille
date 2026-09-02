@@ -403,6 +403,26 @@
 }
 
 @doc(
+  unique_member shl
+
+  operator lhs << rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(+), but for a bitwise left shift.
+}
+
+@doc(
+  unique_member shr
+
+  operator lhs >> rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(+), but for a bitwise right shift.
+}
+
+@doc(
   unique_member eq
   operator lhs == rhs:
     ~transparent

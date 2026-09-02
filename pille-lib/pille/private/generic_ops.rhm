@@ -77,6 +77,8 @@ export generic_binops:
   ∧ bitwise_conjunction and
   ∨ bitwise_disjunction or
   ⊻ bitwise_disjunction xor
+  << bitwise_shift shl
+  >> bitwise_shift shr
   == equivalence eq ~no_specl
   != equivalence ne ~no_specl
   < order_comparison lt

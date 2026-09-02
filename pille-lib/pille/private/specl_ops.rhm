@@ -217,6 +217,18 @@ specl.method (lhs :: int).$xor(rhs :: int):
     lhs bits.xor rhs
 
 //==============================================================================
+specl.method (lhs :: int).$shl(rhs :: nat):
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs bits.(<<) rhs
+
+//==============================================================================
+specl.method (lhs :: int).$shr(rhs :: nat):
+  #%rhombus(lhs, rhs):
+    import rhombus/static open
+    lhs bits.(>>) rhs
+
+//==============================================================================
 specl.property (n :: int).bit_length:
   #%rhombus(n):
     import rhombus/static open

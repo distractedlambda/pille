@@ -263,6 +263,18 @@
 }
 
 @doc(
+  method (lhs :: BinaryInteger as α).$shl(rhs :: Integral) :: α
+  method (lhs :: BinaryInteger as α).$shr(rhs :: Integral) :: α
+){
+  Implements the @pille_expr(<<) and @pille_expr(>>)
+  operators for @pille_specl_bind(BinaryInteger)s. The
+  @rhombus(rhs) can have any @pille_specl_bind(Integral)
+  type, but its value must be between @rhombus(0)
+  (inclusive) and the bit-width of @rhombus(α) (exclusive),
+  else the operation has @tech{managed undefined behavior}.
+}
+
+@doc(
   method (lhs :: Int(n)).$eq(rhs :: Int(n)) :: Boolean
 
   method (lhs :: UInt(n)).$eq(rhs :: UInt(n)) :: Boolean

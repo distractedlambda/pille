@@ -588,6 +588,20 @@
 ){}
 
 @doc(
+  specl.operator lhs << rhs:
+    ~order: bitwise_shift
+
+  specl.method (lhs :: int).$shl(rhs :: nat) :: int
+){}
+
+@doc(
+  specl.operator lhs >> rhs:
+    ~order: bitwise_shift
+
+  specl.method (lhs :: int).$shr(rhs :: nat) :: int
+){}
+
+@doc(
   specl.property (n :: int).bit_length :: nat
 ){}
 

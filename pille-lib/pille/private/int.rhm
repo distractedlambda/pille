@@ -2,9 +2,10 @@
 
 import:
   "cond.rhm" open
-  "specl_ops.rhm" open
   "generic_ops.rhm" open
   "panic.rhm" open
+  "range.rhm" open
+  "specl_ops.rhm" open
   "type_traits.rhm" open
 
 //==============================================================================
@@ -386,3 +387,35 @@ method (lhs :: α && BinaryInteger).$or(rhs :: α) :: α:
 
 method (lhs :: α && BinaryInteger).$xor(rhs :: α) :: α:
   prim.xor(lhs, rhs)
+
+//==============================================================================
+method (lhs :: (Int(w) || UInt(w)) as α).$shl(rhs :: BinaryInteger) :: α:
+  cond
+  | ub.allowed || rhs in 0..w:
+      prim.shl(lhs, α.cast_exact(rhs))
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shl(specl rhs :: int) :: α:
+  specl.assert(rhs ≥ 0 && rhs < w)
+  prim.shl(lhs, rhs :: α)
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shr(rhs :: BinaryInteger) :: α:
+  cond
+  | ub.allowed || rhs in 0..w:
+      let rhs = α.cast_exact(rhs)
+      specl.match α
+      | Int(_): prim.ashr(lhs, rhs)
+      | UInt(_): prim.lshr(lhs, rhs)
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shr(specl rhs :: int) :: α:
+  specl.assert(rhs ≥ 0 && rhs < w)
+  specl.match α
+  | Int(_): prim.ashr(lhs, rhs :: α)
+  | UInt(_): prim.lshr(lhs, rhs :: α)
