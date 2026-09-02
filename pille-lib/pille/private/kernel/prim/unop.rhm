@@ -1,0 +1,65 @@
+#lang rhombus/static/and_meta
+
+import:
+  "../expr.rhm" open
+  pille/concretize open
+  pille/llvm
+  pille/lowering
+
+defn.macro 'unary_ops:
+              $op_name $builder_method_name
+              ...':
+  let [concretize_fn_name, ...] = [Syntax.make_temp_id(op_name), ...]
+  '«pille_expr.macro '$op_name($('$')(operand :: pille_expr_meta.Parsed))':
+      pille_expr_meta.pack_concretize(
+        '$concretize_fn_name(
+           $('$')(pille_expr_meta.unpack_concretize(operand)))')
+    ...
+
+    fun $concretize_fn_name(operand):
+      concretize_unop(operand, llvm.Builder. $builder_method_name)
+    ...»'
+
+fun concretize_unop(operand :~ Expr, builder_fn):
+  Expr.Rvalue(
+    ~type:
+      operand.type,
+    ~lower:
+      let operand_low = operand.lower_rvalue
+      fun(env):
+        let operand_val = operand_low(env)
+        builder_fn(lowering.builder(), operand_val))
+
+export unary_ops:
+  acos create_acos
+  asin create_asin
+  atan create_atan
+  bitreverse create_bitreverse
+  bswap create_bswap
+  ceil create_ceil
+  cos create_cos
+  cosh create_cosh
+  ctpop create_ctpop
+  exp create_exp
+  exp10 create_exp10
+  exp2 create_exp2
+  fabs create_fabs
+  floor create_floor
+  fneg create_fneg
+  ftrunc create_ftrunc
+  log create_log
+  log10 create_log10
+  log2 create_log2
+  modf create_modf
+  nearbyint create_nearbyint
+  not create_not
+  rint create_rint
+  round create_round
+  roundeven create_roundeven
+  sin create_sin
+  sincos create_sincos
+  sincospi create_sincospi
+  sinh create_sinh
+  sqrt create_sqrt
+  tan create_tan
+  tanh create_tanh

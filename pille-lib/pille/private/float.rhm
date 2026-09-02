@@ -105,10 +105,6 @@ unify(Float, Double):
   Double
 
 //==============================================================================
-method (rhs :: FloatingPoint as α).$neg() :: α:
-  prim.fneg(rhs)
-
-//==============================================================================
 global_defn.macro 'binops:
                      $(op_name :: Group): $prim_id
                      ...':
@@ -166,3 +162,26 @@ method (specl Int(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
 
 method (specl UInt(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
   prim.fptoui_sat(src, ~to: δ)
+
+//==============================================================================
+global_defn.macro 'unary_ops:
+                     $(member_name :: Group): $prim_name
+                     ...':
+  'method (operand :: FloatingPoint as α). $member_name() :: α:
+     prim. $prim_name(operand)
+   ...'
+
+unary_ops:
+  $abs: fabs
+  $acos: acos
+  $asin: asin
+  $ceil: ceil
+  $cos: cos
+  $exp: exp
+  $floor: floor
+  $neg: fneg
+  $round: roundeven
+  $sin: sin
+  $sqrt: sqrt
+  $tan: tan
+  $trunc: ftrunc

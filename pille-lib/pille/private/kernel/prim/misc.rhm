@@ -238,36 +238,6 @@ fun concretize_select(test :~ Expr, then :~ Expr, else :~ Expr):
         lowering.builder().create_select(test_val, then_val, else_val))
 
 //==============================================================================
-export pille_expr.macro 'not($(exp :: pille_expr_meta.Parsed))':
-  pille_expr_meta.pack_concretize(
-    'concretize_not($(pille_expr_meta.unpack_concretize(exp)))')
-
-fun concretize_not(operand :~ Expr):
-  let (operand_type, operand_low) = operand.unpack_rvalue()
-  Expr.Rvalue(
-    ~type:
-      operand_type,
-    ~lower:
-      fun(env):
-        let operand_val = operand_low(env)
-        lowering.builder().create_not(operand_val))
-
-//==============================================================================
-export pille_expr.macro 'fneg($(exp :: pille_expr_meta.Parsed))':
-  pille_expr_meta.pack_concretize(
-    'concretize_fneg($(pille_expr_meta.unpack_concretize(exp)))')
-
-fun concretize_fneg(operand :~ Expr):
-  let operand_low = operand.lower_rvalue
-  Expr.Rvalue(
-    ~type:
-      operand.type,
-    ~lower:
-      fun(env):
-        let operand_val = operand_low(env)
-        lowering.builder().create_fneg(operand_val))
-
-//==============================================================================
 export pille_expr.macro 'is_optimization_constant($(exp :: pille_expr_meta.Parsed))':
   pille_expr_meta.pack_concretize(
     'concretize_is_optimization_constant(

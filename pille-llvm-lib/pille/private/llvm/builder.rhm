@@ -276,6 +276,56 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
       [dst_type, src.type],
       [src])
 
+  veneer_clause.macro 'intrinsic_unop_creators:
+                         $id; ...':
+    let [id_str, ...] = [to_string(id.unwrap()), ...]
+    let [create_id, ...] = [Syntax.make(Symbol.from_string("create_" ++ id_str), id), ...]
+    'method $create_id(~name = "", src :~ Value) :~ Value:
+       create_intrinsic_call(
+         ~name,
+         $("llvm." ++ id_str),
+         [src.type],
+         [src])
+     ...'
+
+  intrinsic_unop_creators:
+    acos
+    asin
+    atan
+    bitreverse
+    bswap
+    ceil
+    cos
+    cosh
+    ctpop
+    exp
+    exp10
+    exp2
+    fabs
+    floor
+    log
+    log10
+    log2
+    modf
+    nearbyint
+    rint
+    round
+    roundeven
+    sin
+    sincos
+    sincospi
+    sinh
+    sqrt
+    tan
+    tanh
+
+  method create_ftrunc(~name = "", src :~ Value) :~ Value:
+    create_intrinsic_call(
+      ~name,
+      "llvm.trunc",
+      [src.type],
+      [src])
+
   method create_phi(
     ~name: name :: ReadableString || Symbol = "",
     type :: Type,

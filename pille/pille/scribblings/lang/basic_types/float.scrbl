@@ -117,6 +117,25 @@
 }
 
 @doc(
+  method (x :: FloatingPoint as α).$abs() :: α
+  method (x :: FloatingPoint as α).$floor() :: α
+  method (x :: FloatingPoint as α).$ceil() :: α
+  method (x :: FloatingPoint as α).$trunc() :: α
+  method (x :: FloatingPoint as α).$round() :: α
+  method (x :: FloatingPoint as α).$sqrt() :: α
+  method (x :: FloatingPoint as α).$exp() :: α
+  method (x :: FloatingPoint as α).$sin() :: α
+  method (x :: FloatingPoint as α).$cos() :: α
+  method (x :: FloatingPoint as α).$tan() :: α
+  method (x :: FloatingPoint as α).$asin() :: α
+  method (x :: FloatingPoint as α).$acos() :: α
+){
+  Overloads of basic math functions for
+  @pille_specl_bind(FloatingPoint) values. These never have
+  undefined behavior.
+}
+
+@doc(
   method (lhs :: FloatingPoint as α).$eq(rhs :: α) :: Boolean
   method (lhs :: FloatingPoint as α).$ne(rhs :: α) :: Boolean
   method (lhs :: FloatingPoint as α).$lt(rhs :: α) :: Boolean

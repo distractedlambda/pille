@@ -20,3 +20,4 @@ reexport:
   "prim/overflow.rhm"
   "prim/simd.rhm"
   "prim/tuple.rhm"
+  "prim/unop.rhm"
