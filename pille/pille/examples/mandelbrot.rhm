@@ -5,6 +5,7 @@ import:
   ffi open
   gui open
   pille/hosted open
+  rhombus/thread open
 
 fun render_mandelbrot(
   width :: PosInt,
@@ -14,6 +15,7 @@ fun render_mandelbrot(
   corner :: Number,
   scale :: Real,
   dst :: ptr_t,
+  dst_row_stride :: Nat,
 ) :: Void:
   pille(
     width :: NativeUInt,
@@ -24,6 +26,7 @@ fun render_mandelbrot(
     corner_imag :: Float = math.imag_part(corner),
     scale :: Float,
     dst :: PtrMut(UInt(32)),
+    dst_row_stride :: NativeUInt,
   ):
     let corner = complex(corner_real, corner_imag)
     for (px_y ∈ 0..height):
@@ -39,20 +42,68 @@ fun render_mandelbrot(
         let iter_fact = Float.cast(iter) / Float.cast(max_iter)
         let gray :: UInt(32) = UInt(8).cast_sat(iter_fact**exponent * 255)
         let argb = 255 ∨ (gray << 8) ∨ (gray << 16) ∨ (gray << 24)
-        dst[px_y*width + px_x] := argb
+        dst[px_y*dst_row_stride + px_x] := argb
 
-fun draw(dc :~ draw.DC, [max_iter, gamma]):
-  let draw.Size(width, height) = dc.size
-  let width = width * 2
-  let height = height * 2
-  let bmp = draw.Bitmap([width/2, height/2], ~backing_scale: 2)
-  let pixel_bytes = Bytes.make(width*height*4)
-  let pixel_ptr = cast ~from(bytes_ptr_t) ~to(uint32_t*) pixel_bytes
-  let scale = 4 / math.min(width, height)
-  let corner = math.complex(1 - width, 1 - height) * (scale / 2)
-  render_mandelbrot(width, height, max_iter, gamma, corner, scale, pixel_ptr)
-  bmp.set_argb_pixels(pixel_bytes, ~width, ~height, ~unscaled: #true)
-  dc.bitmap(bmp)
+let draw_mandelbrot:
+  let mutable bitmap_and_pixels = #false
+  let thread_pool = Thread.Pool()
+  let thread_tile_dim = 256
+  let tile_semaphore = Semaphore()
+
+  fun(dc :~ draw.DC, [max_iter, gamma]):
+    ~name: draw_mandelbrot
+
+    let draw.Size(width, height) = dc.size
+
+    let phys_scale = 2
+    let phys_width = width * phys_scale
+    let phys_height = height * phys_scale
+
+    let [bitmap :~ draw.Bitmap, pixels] = match bitmap_and_pixels
+    | [bitmap :~ draw.Bitmap, _] as existing when bitmap.size == dc.size:
+        existing
+    | _:
+        let new:
+          [draw.Bitmap([width, height], ~backing_scale: phys_scale),
+           Bytes.make(phys_width * phys_height * 4)]
+        bitmap_and_pixels := new
+        new
+
+    let pixel_ptr = cast ~from(bytes_ptr_t) ~to(uint32_t*) pixels
+    let scale = 4 / math.min(phys_width, phys_height)
+    let corner = math.complex(1 - phys_width, 1 - phys_height) * (scale / 2)
+
+    let x_tiles = math.ceiling(phys_width / thread_tile_dim)
+    let y_tiles = math.ceiling(phys_height / thread_tile_dim)
+
+    for:
+      each tile_y in 0..y_tiles
+      each tile_x in 0..x_tiles
+      thread:
+        ~pool: thread_pool
+        let corner_px_x = tile_x * thread_tile_dim
+        let corner_px_y = tile_y * thread_tile_dim
+        render_mandelbrot(
+          math.min(thread_tile_dim, phys_width - corner_px_x),
+          math.min(thread_tile_dim, phys_height - corner_px_y),
+          max_iter,
+          gamma,
+          corner + math.complex(corner_px_x, corner_px_y) * scale,
+          scale,
+          mem &pixel_ptr[corner_px_y * phys_width + corner_px_x],
+          phys_width)
+        tile_semaphore.post()
+
+    for (_ in 0..(x_tiles * y_tiles)):
+      tile_semaphore.wait()
+
+    bitmap.set_argb_pixels(
+      pixels,
+      ~width: phys_width,
+      ~height: phys_height,
+      ~unscaled: #true)
+
+    dc.bitmap(bitmap)
 
 let [max_iter_view, max_iter]:
   let slider = Slider(
@@ -103,7 +154,7 @@ let window = Window(
         List,
         Obs.debounce(max_iter),
         Obs.debounce(gamma)),
-      draw,
+      draw_mandelbrot,
       ~min_size: [640, 480])))
 
 window.run()
