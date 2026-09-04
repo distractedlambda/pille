@@ -98,6 +98,12 @@ export class Compiler(
   private immutable attrs :~ MutableMap.by(===):
     MutableMap.by(===){}
 
+  method get_attr(key :~ Any, default :~ Any) :~ Any:
+    attrs.get(key, default)
+
+  method set_attr(key :~ Any, value :~ Any) :~ Void:
+    attrs.set(key, value)
+
   method get_or_init_attr(key :~ Any, thunk :~ Function.of_arity(0)) :~ Any.like_result(thunk):
     attrs.get(key, _) <| fun():
       let val = thunk()

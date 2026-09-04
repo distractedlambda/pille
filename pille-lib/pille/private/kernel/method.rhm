@@ -1,6 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
+  "../runtime/compiler.rhm" open
   "../util/assert.rhm" open
   "../util/syntax.rhm" open
   "coerce.rhm" open
@@ -340,11 +341,12 @@ fun define_overload(
     | ImplicitKey.with_empty_env
 
   let cached:
-    let mutable cache = caches.keyed.init()
+    let mutable attr_key = Symbol.gen()
     fun(key, f):
+      let compiler = Compiler.require_current()
       caches.keyed.get_or_compute(
-        ~get_cache: fun(): cache,
-        ~set_cache: (cache := _),
+        ~get_cache: fun(): compiler.get_or_init_attr(attr_key, caches.keyed.init),
+        ~set_cache: compiler.set_attr(attr_key, _),
         key,
         f)
 
