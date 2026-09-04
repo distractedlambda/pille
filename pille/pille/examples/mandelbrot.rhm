@@ -1,0 +1,109 @@
+#lang rhombus/static
+
+import:
+  draw
+  ffi open
+  gui open
+  pille/hosted open
+
+fun render_mandelbrot(
+  width :: PosInt,
+  height :: PosInt,
+  max_iter :: PosInt,
+  gamma :: Real.above(0),
+  corner :: Number,
+  scale :: Real,
+  dst :: ptr_t,
+) :: Void:
+  pille(
+    width :: NativeUInt,
+    height :: NativeUInt,
+    max_iter :: NativeUInt,
+    exponent :: Float = 1 / gamma,
+    corner_real :: Float = math.real_part(corner),
+    corner_imag :: Float = math.imag_part(corner),
+    scale :: Float,
+    dst :: PtrMut(UInt(32)),
+  ):
+    let corner = complex(corner_real, corner_imag)
+    for (px_y ∈ 0..height):
+      for (px_x ∈ 0..width):
+        let c = corner + complex(Float.cast(px_x), Float.cast(px_y)) * scale
+
+        var iter :: NativeUInt = 0
+        var z = c
+        while iter < max_iter && z.magnitude_squared < 4:
+          z := z*z + c
+          iter := iter + 1
+
+        let iter_fact = Float.cast(iter) / Float.cast(max_iter)
+        let gray :: UInt(32) = UInt(8).cast_sat(iter_fact**exponent * 255)
+        let argb = 255 ∨ (gray << 8) ∨ (gray << 16) ∨ (gray << 24)
+        dst[px_y*width + px_x] := argb
+
+fun draw(dc :~ draw.DC, [max_iter, gamma]):
+  let draw.Size(width, height) = dc.size
+  let width = width * 2
+  let height = height * 2
+  let bmp = draw.Bitmap([width/2, height/2], ~backing_scale: 2)
+  let pixel_bytes = Bytes.make(width*height*4)
+  let pixel_ptr = cast ~from(bytes_ptr_t) ~to(uint32_t*) pixel_bytes
+  let scale = 4 / math.min(width, height)
+  let corner = math.complex(1 - width, 1 - height) * (scale / 2)
+  render_mandelbrot(width, height, max_iter, gamma, corner, scale, pixel_ptr)
+  bmp.set_argb_pixels(pixel_bytes, ~width, ~height, ~unscaled: #true)
+  dc.bitmap(bmp)
+
+let [max_iter_view, max_iter]:
+  let slider = Slider(
+    ~style: [#'horizontal, #'plain],
+    ~value: 8,
+    ~min_value: 1,
+    ~max_value: 12)
+
+  let max_iter = slider.at_value ~> (2 ** _)
+
+  let view = VPanel(
+    Label(max_iter ~> fun(i): @str{Max Iterations: @i}),
+    slider)
+
+  [view, max_iter]
+
+let [gamma_view, gamma]:
+  let min = 1/2
+  let max = 4
+  let step_size = 1/10
+
+  let slider = Slider(
+    ~style: [#'horizontal, #'plain],
+    ~value: (#{#e2.4} - min) / step_size,
+    ~min_value: 0,
+    ~max_value: (max - min) / step_size)
+
+  let gamma = slider.at_value ~> fun(v):
+    min + v * step_size
+
+  let view = VPanel(
+    Label(gamma ~> fun(v): @str{Gamma: @str.f(v, ~precision: 1)}),
+    slider)
+
+  [view, gamma]
+
+let window = Window(
+  ~title: "Mandelbrot",
+  VPanel(
+    HPanel(
+      ~stretch: [#true, #false],
+      ~margin: [10, 5],
+      ~spacing: 20,
+      max_iter_view,
+      gamma_view),
+    Canvas(
+      Obs.combine(
+        List,
+        Obs.debounce(max_iter),
+        Obs.debounce(gamma)),
+      draw,
+      ~min_size: [640, 480])))
+
+window.run()
