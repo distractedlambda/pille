@@ -16,9 +16,10 @@
 @(nonterminal:
     expr: block
     id: block
+    maybe_specl_annot: pille.specl.def maybe_annot ~defn
     pille_body: pille.expr body ~space
-    pille_specl_bind: pille.specl_bind specl_bind ~space
-    pille_specl_expr: pille.specl_expr specl_expr ~space)
+    specl_bind: pille.specl_bind ~space
+    specl_expr: pille.specl_expr ~space)
 
 @title{Hosted Execution}
 
@@ -39,47 +40,59 @@ itself (for qualified access to everything else).
   expr.macro 'pille:
                 $pille_body'
 
-  expr.macro 'pille($arg, ...):
+  expr.macro 'pille($capture, ...):
                 $pille_body'
 
-  grammar arg
-  | #,(pille_expr(specl)) $specl_arg
-  | $dyn_arg
+  grammar capture
+  | $dyn_capture
+  | $specl_capture
+  | $specl_let
 
-  grammar specl_arg
-  | $pille_specl_bind #,(rhm_expr(=)) $expr
-  | $id
+  grammar specl_capture
+  | #,(pille_expr(specl)) $specl_bind #,(rhm_expr(=)) $expr
+  | #,(pille_expr(specl)) $id
 
-  grammar dyn_arg
-  | $id #,(pille_expr(::)) $pille_specl_expr #,(rhm_expr(=)) $expr
-  | $id #,(pille_expr(::)) $pille_specl_expr
+  grammar dyn_capture
+  | $id #,(pille_expr(::)) $specl_expr #,(rhm_expr(=)) $expr
+  | $id #,(pille_expr(::)) $specl_expr
+
+  grammar specl_let
+  | #,(pille_local_defn(specl.let)) $specl_bind $maybe_specl_annot #,(pille_specl_expr(=)) $specl_expr
+  | #,(pille_local_defn(specl.let)) $specl_bind $maybe_specl_annot:
+      $specl_expr
 ){
   Executes the @rhombus(pille_body) as a Rhombus expression,
-  possibly with @rhombus(arg)s that pass values from Rhombus
-  into Pille. A @rhombus(specl_arg) passes a Rhombus value
-  into Pille as a specialization value, while a
-  @rhombus(dyn_arg) passes a Rhombus value into Pille as an
-  ordinary runtime value; in the latter case, a Pille type
-  must be specified, and that type must be
+  possibly with @rhombus(capture)s that pass values from
+  Rhombus into Pille. A @rhombus(specl_capture) passes a
+  Rhombus value into Pille as a specialization value, while
+  a @rhombus(dyn_capture) passes a Rhombus value into Pille
+  as an ordinary runtime value; in the latter case, a Pille
+  type must be specified, and that type must be
   @tech{interoperable}. In any case, the result of the
   @rhombus(pille_body) must be of an interoperable type, and
   it becomes the result of the @rhombus(pille) expression.
 
+  A @rhombus(specl_let) does not actually capture additional
+  values from Rhombus, but can establish additional
+  specialization-language bindings that are used by
+  subsequent @rhombus(capture)s (and by the
+  @rhombus(pille_body)).
+
   The compilation of the @rhombus(pille_body) (including
   concretization) is deferred until the first time the
   @rhombus(pille) expression is executed; moreover, each
-  unique combination of @rhombus(specl_arg) values results
-  in a unique compilation. All such compilations are cached
-  at module scope, regardless of where the @rhombus(pille)
-  expression occurs.
+  unique combination of @rhombus(specl_capture) values
+  results in a unique compilation. All such compilations are
+  cached at module scope, regardless of where the
+  @rhombus(pille) expression occurs.
 
   From the perspective of Rhombus, execution of the
   @rhombus(pille_body) occurs within a @rhm_ffi_tech{foreign
   callout} that is @italic{not} @rhombus(~collect_safe);
-  moreover, all @rhombus(dyn_arg) values are kept reachable
-  to the garbage collector during that time. It is therefore
-  safe to pass a pointer to GC-managed memory as a
-  @rhombus(dyn_arg), insofar as that it will not be
+  moreover, all @rhombus(dyn_capture) values are kept
+  reachable to the garbage collector during that time. It is
+  therefore safe to pass a pointer to GC-managed memory as a
+  @rhombus(dyn_capture), insofar as that it will not be
   collected or moved during the execution of the
   @rhombus(pille_body).
 }
