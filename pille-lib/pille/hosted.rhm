@@ -22,7 +22,6 @@ import:
 
 export:
   all_from(self!only_pille_spaces)
-  pille
 
 //==============================================================================
 module global_jit ~lang rhombus/static:
@@ -80,110 +79,132 @@ module pille_ext ~lang rhombus/static:
 
 import self!pille_ext as pille
 
+export:
+  pille
+  only_space namespace:
+    pille.specl
+
 //==============================================================================
-meta syntax_class SpeclArg:
-  kind: ~group
-  fields: binding init
-| '$(binding_ :: NonemptySequence) $('$(bound_as expr_meta.space: '=')' && eo) $(init_ :: expr_meta.Parsed)':
-    match_def '$(binding :: pille.specl_bind_meta.Parsed)' = binding_
-    field init = syntax_meta.track_origin(init_, ~add: syntax_meta.flip_introduce(eo))
+meta:
+  syntax_class SpeclLetArg:
+    kind: ~group
+    fields: binding init
+  | '$(_ :: pille.local_defn_meta.SpeclLetOp) \
+     $(_ :: pille.local_defn_meta.SpeclBindingSpec: open)'
 
-| '$(id :: Identifier)':
-    match_def '$(binding :: pille.specl_bind_meta.Parsed)' = id
-    match_def '$(init :: expr_meta.Parsed)' = id
+  syntax_class SpeclArg:
+    kind: ~group
+    fields: binding init
+  | '$(_ :: pille.expr_meta.SpeclOp) \
+     $(binding :: NonemptySequence) \
+     $(bound_as expr_meta.space: '=') \
+     $(init :: expr_meta.Parsed)'
 
-meta def type_specl_annot:
-  pille.specl_annot_meta.parse('type')
+  | '$(_ :: pille.expr_meta.SpeclOp) \
+     $(binding :: Identifier)':
+      match_def '$(init :: expr_meta.Parsed)' = binding
 
-meta syntax_class DynArg:
-  kind: ~group
-  fields: name type init
-| '$(name :: Identifier) \
-   $(ao :: pille.expr_meta.AnnotOp) \
-   $(type_ :: NonemptySequence) \
-   $('$(bound_as expr_meta.space: '=')' && eo) \
-   $(init_ :: expr_meta.Parsed)':
-    field type = type_
-      |> pille.specl_expr_meta.pack_specl_expr
-      |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
-    field init = init_
-      |> syntax_meta.track_origin(
-           _,
-           ~add: syntax_meta.flip_introduce(ao),
-           ~space: pille.expr_meta.space)
-      |> syntax_meta.track_origin(
-           _,
-           ~add: syntax_meta.flip_introduce(eo))
+  def type_specl_annot:
+    pille.specl_annot_meta.parse('type')
 
-| '$(name :: Identifier) \
-   $(ao :: pille.expr_meta.AnnotOp) \
-   $(type_ :: Group)':
-    field type = type_
-      |> pille.specl_expr_meta.pack_specl_expr
-      |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
-    match_def '$(init_ :: expr_meta.Parsed)' = name
-    field init:
-      syntax_meta.track_origin(
-        init_,
-        ~add: syntax_meta.flip_introduce(ao),
-        ~space: pille.expr_meta.space)
+  syntax_class DynArg:
+    kind: ~group
+    fields: name type init
+  | '$(name :: Identifier) \
+     $(ao :: pille.expr_meta.AnnotOp) \
+     $(type_ :: NonemptySequence) \
+     $('$(bound_as expr_meta.space: '=')' && eo) \
+     $(init_ :: expr_meta.Parsed)':
+      field type = type_
+        |> pille.specl_expr_meta.pack_specl_expr
+        |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
+      field init = init_
+        |> syntax_meta.track_origin(
+             _,
+             ~add: syntax_meta.flip_introduce(ao),
+             ~space: pille.expr_meta.space)
+        |> syntax_meta.track_origin(
+             _,
+             ~add: syntax_meta.flip_introduce(eo))
 
-meta syntax_class MaybeArgs:
-  kind: ~sequence
-  fields:
-    [specl_arg :~ Syntax.matched_of(SpeclArg), ...]
-    [dyn_arg :~ Syntax.matched_of(DynArg), ...]
-| '($arg, ...)':
-    match_def '($(specl_arg :: SpeclArg), ...) ($(dyn_arg :: DynArg), ...)':
-      recur split_args(args = '$arg; ...'):
-        match args
-        | '$hd; $tl; ...':
-            let '($specl_tl, ...) ($dyn_tl, ...)' = split_args('$tl; ...')
-            match hd
-            | '$(_ :: pille.expr_meta.SpeclOp) $hd_tl ...':
-                '($hd_tl ..., $specl_tl, ...) ($dyn_tl, ...)'
-            | _:
-                '($specl_tl, ...) ($hd, $dyn_tl, ...)'
-        | '':
-            '() ()'
-| '':
-    field [specl_arg, ...] = []
-    field [dyn_arg, ...] = []
+  | '$(name :: Identifier) \
+     $(ao :: pille.expr_meta.AnnotOp) \
+     $(type_ :: Group)':
+      field type = type_
+        |> pille.specl_expr_meta.pack_specl_expr
+        |> pille.specl_expr_meta.pack_implicitly_annotated(_, type_specl_annot)
+      match_def '$(init_ :: expr_meta.Parsed)' = name
+      field init:
+        syntax_meta.track_origin(
+          init_,
+          ~add: syntax_meta.flip_introduce(ao),
+          ~space: pille.expr_meta.space)
+
+  syntax_class MaybeArgs:
+    kind: ~sequence
+  | '($arg, ...)'
+  | '': field [arg, ...] = []
 
 export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
-  let stub:
-    let [dyn_arg_sym, ...] = [name_to_uninterned_symbol(dyn_arg.name), ...]
-    let [dyn_arg_type_id, ...] = [Syntax.make_temp_id(dyn_arg.name), ...]
-    let [dyn_arg_ref_id, ...] = [Syntax.make_temp_id(dyn_arg.name), ...]
-    syntax_meta.lift_expr_to_before(
-      'make_stub(
-         [#'$dyn_arg_sym, ...],
-         fun(specl_arg_vals):
-           $(pille.specl_bind_meta.compile(
-               pille.specl_bind_meta.pack_parallel_bindings(
-                 [specl_arg.binding, ...]),
-               'specl_arg_vals',
-               '«block:
-                   let $dyn_arg_type_id:
-                     $(pille.specl_expr_meta.unpack_rhombus_expr(
-                         dyn_arg.type))
-                   ...
-                   let $dyn_arg_ref_id:
-                     concretize_let_ref(
-                       #'$dyn_arg_sym,
-                       $dyn_arg_type_id)
-                   ...
-                   pille.expr.macro '($dyn_arg.name)':
-                     '$(pille.expr_meta.pack_concretize(dyn_arg_ref_id))'
-                   ...
-                   values(
-                     [$dyn_arg_type_id, ...],
-                     pille.expr.concretize_body: $body)»')))')
-  '$stub([$specl_arg.init, ...], [$dyn_arg.init, ...])'
+  let [dyn_arg_syms, specl_arg_inits, dyn_arg_inits, stub_body]:
+    recur process_args(
+      args = [arg, ...],
+      dyn_arg_type_ids = [],
+      specl_arg_idx = 0,
+    ):
+      match args
+      | ['$(arg :: SpeclLetArg)', &args]:
+          let [dyn_arg_syms, specl_arg_inits, dyn_arg_inits, stub_body]:
+            process_args(args, dyn_arg_type_ids, specl_arg_idx)
+          [dyn_arg_syms,
+           specl_arg_inits,
+           dyn_arg_inits,
+           'pille.specl_bind.compile(
+              $arg.binding,
+              pille.specl_expr.eval($arg.init),
+              $stub_body)']
+
+      | ['$(arg :: SpeclArg)', &args]:
+          let [dyn_arg_syms, specl_arg_inits, dyn_arg_inits, stub_body]:
+            process_args(args, dyn_arg_type_ids, specl_arg_idx + 1)
+          [dyn_arg_syms,
+           [arg.init, &specl_arg_inits],
+           dyn_arg_inits,
+           'pille.specl_bind.compile(
+              $arg.binding,
+              specl_arg_vals[$specl_arg_idx],
+              $stub_body)']
+
+      | ['$(arg :: DynArg)', &args]:
+          let sym = name_to_uninterned_symbol(arg.name)
+          let type_id = Syntax.make_temp_id(arg.name)
+          let ref_id = Syntax.make_temp_id(arg.name)
+          let [dyn_arg_syms, specl_arg_inits, dyn_arg_inits, stub_body]:
+            process_args(args, [&dyn_arg_type_ids, type_id], specl_arg_idx)
+          [[sym, &dyn_arg_syms],
+           specl_arg_inits,
+           [arg.init, &dyn_arg_inits],
+           '«block:
+               let $type_id = $(pille.specl_expr_meta.unpack_rhombus_expr(arg.type))
+               let $ref_id = concretize_let_ref(#'$sym, $type_id)
+               pille.expr.macro '($arg.name)': '$(pille.expr_meta.pack_concretize(ref_id))'
+               $stub_body»']
+
+      | []:
+          [[], [], [],
+           '[[$(each dyn_arg_type_ids), ...],
+             pille.expr.concretize_body: $body]']
+
+  let stub = syntax_meta.lift_expr_to_before(
+    'make_stub(
+       [#'$(each dyn_arg_syms), ...],
+       fun(specl_arg_vals :~ List): $stub_body)')
+
+  '$stub([$(each specl_arg_inits), ...], [$(each dyn_arg_inits), ...])'
 
 fun make_stub(
   dyn_arg_syms :: [Symbol, ...],
-  concretize :: ([Any, ...]) -> values([Type, ...], Expr),
+  concretize :: ([Any, ...]) -> [[Type, ...], Expr],
 ):
   let cache_attr_key = Symbol.gen("hosted_cache")
 
@@ -192,7 +213,7 @@ fun make_stub(
       let cache = linker.compiler.get_or_init_attr(cache_attr_key, MutableMap)
       cache.get(specl_args, _) <| fun():
         let callout = parameterize { Compiler.current: linker.compiler }:
-          let (dyn_arg_types, body) = concretize(specl_args)
+          let [dyn_arg_types, body] = concretize(specl_args)
 
           let RhombusToPilleAdapter(make_callout, read_args, write_result):
             RhombusToPilleAdapter(
