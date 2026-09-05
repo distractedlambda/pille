@@ -7,31 +7,36 @@ import:
   pille/hosted open
   rhombus/thread open
 
-fun render_mandelbrot(
-  width :: PosInt,
-  height :: PosInt,
-  max_iter :: PosInt,
-  gamma :: Real.above(0),
-  corner :: Number,
-  scale :: Real,
-  dst :: ptr_t,
-  dst_row_stride :: Nat,
+fun render_mandelbrot_pille(
+  ~width: width :: PosInt,
+  ~height: height :: PosInt,
+  ~max_iter: max_iter :: PosInt,
+  ~gamma: gamma :: Real.above(0),
+  ~corner: corner :: Number,
+  ~scale: scale :: Real,
+  ~dst: dst :: ptr_t,
+  ~dst_row_stride: dst_row_stride :: Nat,
+  ~precision: precision :: matching("Float" || "Double"),
 ) :: Void:
   pille(
+    specl precision,
+    specl.let α = match precision
+    | "Float": Float
+    | "Double": Double,
     width :: NativeUInt,
     height :: NativeUInt,
     max_iter :: NativeUInt,
-    exponent :: Float = 1 / gamma,
-    corner_real :: Float = math.real_part(corner),
-    corner_imag :: Float = math.imag_part(corner),
-    scale :: Float,
+    exponent :: α = 1 / gamma,
+    corner_real :: α = math.real_part(corner),
+    corner_imag :: α = math.imag_part(corner),
+    scale :: α,
     dst :: PtrMut(UInt(32)),
     dst_row_stride :: NativeUInt,
   ):
     let corner = complex(corner_real, corner_imag)
     for (px_y ∈ 0..height):
       for (px_x ∈ 0..width):
-        let c = corner + complex(Float.cast(px_x), -Float.cast(px_y)) * scale
+        let c = corner + complex(α.cast(px_x), -α.cast(px_y)) * scale
 
         var iter :: NativeUInt = 0
         var z = c
@@ -39,12 +44,12 @@ fun render_mandelbrot(
           z := z*z + c
           iter := iter + 1
 
-        let iter_fact = Float.cast(iter) / Float.cast(max_iter)
+        let iter_fact = α.cast(iter) / α.cast(max_iter)
         let gray :: UInt(32) = UInt(8).cast_sat(iter_fact**exponent * 255)
         let argb = 255 ∨ (gray << 8) ∨ (gray << 16) ∨ (gray << 24)
         dst[px_y*dst_row_stride + px_x] := argb
 
-let [max_iter_view, max_iter]:
+let [max_iter_view, max_iter_obs]:
   let slider = Slider(
     ~style: [#'horizontal, #'plain],
     ~value: 8,
@@ -59,7 +64,13 @@ let [max_iter_view, max_iter]:
 
   [view, max_iter]
 
-let [gamma_view, gamma]:
+let [precision_view, precision_obs]:
+  let view = Choice(
+    ~label: "Precision",
+    ["Float", "Double"])
+  [view, view.at_selection]
+
+let [gamma_view, gamma_obs]:
   let min = 1/2
   let max = 4
   let step_size = 1/10
@@ -79,7 +90,7 @@ let [gamma_view, gamma]:
 
   [view, gamma]
 
-let [center_zoom_view, center, zoom]:
+let [center_zoom_view, center_obs, zoom_obs]:
   fun make_flonum_input(init :: Flonum, label):
     let raw = Obs(repr(init))
     let parsed = Obs(init)
@@ -102,7 +113,12 @@ let [center_zoom_view, center, zoom]:
   let [center_y, center_y_ip] = make_flonum_input(0.0, "Y")
   let [zoom, zoom_ip] = make_flonum_input(1.0, "Zoom")
 
-  [GroupPanel("Viewport", center_x_ip, center_y_ip, zoom_ip),
+  [GroupPanel(
+     "Viewport",
+     ~margin: [10, 5],
+     center_x_ip,
+     center_y_ip,
+     zoom_ip),
    Obs.combine(math.complex, center_x, center_y),
    zoom]
 
@@ -112,7 +128,7 @@ let draw_mandelbrot:
   let thread_tile_dim = 256
   let tile_semaphore = Semaphore()
 
-  fun(dc :~ draw.DC, [max_iter, gamma, center, zoom]):
+  fun(dc :~ draw.DC, [max_iter, gamma, precision, center, zoom]):
     ~name: draw_mandelbrot
 
     let draw.Size(width, height) = dc.size
@@ -145,15 +161,16 @@ let draw_mandelbrot:
         ~pool: thread_pool
         let corner_px_x = tile_x * thread_tile_dim
         let corner_px_y = tile_y * thread_tile_dim
-        render_mandelbrot(
-          math.min(thread_tile_dim, phys_width - corner_px_x),
-          math.min(thread_tile_dim, phys_height - corner_px_y),
-          max_iter,
-          gamma,
-          corner + math.complex(corner_px_x, -corner_px_y) * scale,
-          scale,
-          mem &pixel_ptr[corner_px_y * phys_width + corner_px_x],
-          phys_width)
+        render_mandelbrot_pille(
+          ~width: math.min(thread_tile_dim, phys_width - corner_px_x),
+          ~height: math.min(thread_tile_dim, phys_height - corner_px_y),
+          ~max_iter,
+          ~gamma,
+          ~corner: corner + math.complex(corner_px_x, -corner_px_y) * scale,
+          ~scale,
+          ~dst: mem &pixel_ptr[corner_px_y * phys_width + corner_px_x],
+          ~dst_row_stride: phys_width,
+          ~precision)
         tile_semaphore.post()
 
     for (_ in 0..(x_tiles * y_tiles)):
@@ -172,18 +189,22 @@ let window = Window(
   VPanel(
     HPanel(
       ~stretch: [#true, #false],
-      ~margin: [10, 5],
-      ~spacing: 20,
-      max_iter_view,
-      gamma_view,
+      GroupPanel(
+        "Rendering",
+        ~margin: [10, 5],
+        ~spacing: 5,
+        max_iter_view,
+        gamma_view,
+        precision_view),
       center_zoom_view),
     Canvas(
       Obs.combine(
         List,
-        Obs.debounce(max_iter),
-        Obs.debounce(gamma),
-        center,
-        zoom),
+        Obs.debounce(max_iter_obs),
+        Obs.debounce(gamma_obs),
+        precision_obs,
+        center_obs,
+        zoom_obs),
       draw_mandelbrot,
       ~min_size: [640, 480])))
 
