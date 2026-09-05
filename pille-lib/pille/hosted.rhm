@@ -86,7 +86,7 @@ meta syntax_class SpeclArg:
   fields: binding init
 | '$(binding_ :: NonemptySequence) $('$(bound_as expr_meta.space: '=')' && eo) $(init_ :: expr_meta.Parsed)':
     match_def '$(binding :: pille.specl_bind_meta.Parsed)' = binding_
-    field init = syntax_meta.track_origin(init, ~add: syntax_meta.flip_introduce(eo))
+    field init = syntax_meta.track_origin(init_, ~add: syntax_meta.flip_introduce(eo))
 
 | '$(id :: Identifier)':
     match_def '$(binding :: pille.specl_bind_meta.Parsed)' = id
