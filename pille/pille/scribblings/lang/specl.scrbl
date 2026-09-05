@@ -38,6 +38,16 @@
 
 @doc(
   ~nonterminal:
+    maybe_annot: specl.def ~defn
+
+  local_defn.macro 'specl.let $specl_bind $maybe_annot #,(pille_specl_expr(=)) $specl_expr'
+
+  local_defn.macro 'specl.let $specl_bind $maybe_annot:
+                      $specl_expr'
+){}
+
+@doc(
+  ~nonterminal:
     name_option: fun ~defn
 
   global_defn.macro 'specl.fun $id_name($specl_bind, ...) $maybe_res_annot:

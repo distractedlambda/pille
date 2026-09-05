@@ -5,12 +5,16 @@ import:
   "expr.rhm" open
   "expr_forms.rhm" open
   "local_defn.rhm" open
+  "specl_expr.rhm" open
+  "specl_expr_forms.rhm" open
+  "specl_ns.rhm" open
   pille/concretize open
   pille/llvm
   pille/lowering
 
 export only_space namespace:
   pille_expr
+  specl
   meta: local_defn_meta
 
 //==============================================================================
@@ -156,3 +160,34 @@ export fun concretize_var_ref(name, type :~ Type):
               ~alignment: alloca_inst.alignment,
               new_val,
               alloca_inst))
+
+//==============================================================================
+meta:
+  syntax_class local_defn_meta.SpeclBindingInit:
+    kind: ~group
+    fields: transformed
+    root_swap: transformed group
+  | '$(_ :: specl_expr_meta.EqualsOp) $(transformed :: Group)'
+  | ': $(transformed :: Group)'
+  | '$(ao :: specl_expr_meta.AnnotOp) $ann ... \
+     $(_ :: specl_expr_meta.EqualsOp) $(unann_init :: Group)':
+      field transformed = '$(specl_expr_meta.pack_specl_expr(unann_init)) $ao $ann ...'
+  | '$(ao :: specl_expr_meta.AnnotOp) $ann ...: $unann_init':
+      field transformed = '$(specl_expr_meta.pack_specl_expr(unann_init)) $ao $ann ...'
+
+  syntax_class local_defn_meta.SpeclBindingSpec:
+    kind: ~group
+    fields: binding init
+  | '$(binding :: SimpleNonemptySequence) $(init :: local_defn_meta.SpeclBindingInit)'
+
+  syntax_class local_defn_meta.SpeclLetOp:
+    kind: ~sequence
+  | '$(bound_as local_defn_meta.space: 'specl.let')'
+
+local_defn.block_macro 'specl.let $(_ :: local_defn_meta.SpeclBindingSpec: open)
+                        $(tail :: Multi)':
+  pille_expr_meta.pack_concretize(
+    'specl_bind.compile(
+       $binding,
+       specl_expr.eval($init),
+       pille_expr.concretize_body: $tail)')
