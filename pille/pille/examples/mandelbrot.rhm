@@ -7,6 +7,7 @@ import:
   pille/hosted open
   rhombus/fixnum
   rhombus/flonum
+  rhombus/measure
   rhombus/thread open
 
 //==============================================================================
@@ -126,6 +127,8 @@ fun render_tile(
             dst[px_y*dst_row_stride + px_x] := argb
 
 //==============================================================================
+let last_render_ms = Obs(#inf)
+
 let draw_mandelbrot:
   let mutable bitmap_and_pixels = #false
   let thread_pool = Thread.Pool()
@@ -163,6 +166,8 @@ let draw_mandelbrot:
     let x_tiles = math.ceiling(phys_width / thread_tile_dim)
     let y_tiles = math.ceiling(phys_height / thread_tile_dim)
 
+    let render_start = measure.real_milliseconds()
+
     for:
       each tile_y in 0..y_tiles
       each tile_x in 0..x_tiles
@@ -185,6 +190,9 @@ let draw_mandelbrot:
 
     for (_ in 0..(x_tiles * y_tiles)):
       tile_semaphore.wait()
+
+    let render_end = measure.real_milliseconds()
+    last_render_ms.value := render_end - render_start
 
     bitmap.set_argb_pixels(
       pixels,
@@ -285,11 +293,15 @@ let [viewport_opts_view, viewport_opts]:
 let window = Window(
   ~title: "Mandelbrot",
   VPanel(
+    ~spacing: 10,
     HPanel(
       ~stretch: [#true, #false],
       backend_opts_view,
       rendering_opts_view,
       viewport_opts_view),
+    Label(
+      last_render_ms ~> fun(t):
+        @str{Render Time: @str.f(t, ~precision: 0)ms}),
     Canvas(
       Obs.combine(
         List,
