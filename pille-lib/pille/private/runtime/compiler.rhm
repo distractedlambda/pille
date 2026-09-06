@@ -11,7 +11,9 @@ import:
   pille/concretize open
   pille/llvm
   rhombus/delay open
+  rhombus/envvar open
   rhombus/rx open
+  rhombus/subprocess
 
 //==============================================================================
 export class Compiler(
@@ -157,13 +159,41 @@ export class Compiler(
     let defn_line = lines.find_index(String.starts_with(_, "define ")) || 0
     let defn_end_line = lines.find_index(String.starts_with(_, "}")) || lines.length() - 1
     let lines = lines.sublist(defn_line..=defn_end_line)
-
-    let lines = lines.map(String.append("|  ", _))
+    let lines = lines.map(String.append("  ", _))
     let ir = String.join(lines, "\n")
 
     rx'"@" ($_: "pille." digit+)'.replace_all(ir, _) <| fun(orig, native_sym):
       guard.let name!! = native_symbols_to_names.maybe[Symbol.from_string(native_sym)] | orig
       @str{@"@""@name"}
+
+  private method format_obj(obj :: Bytes, sym :: ReadableStringOrSymbol.to_string) :: String:
+    let llvm_prefix = getenv("PILLE_LLVM_PREFIX")
+    let objdump_exec = llvm_prefix +/ "bin" +/ "llvm-objdump"
+    let mangle_prefix = if system.type() == #'macosx | "_" | ""
+
+    let output = Port.Output.open_bytes()
+    let ec = subprocess
+      .run(
+        objdump_exec,
+        @str{--disassemble-symbols=@(mangle_prefix)@(sym)},
+        "--reloc", "--symbolize-operands", "--no-show-raw-insn", "--no-addresses",
+        "-",
+        ~in: Port.Input.open_bytes(obj),
+        ~out: output)
+      .wait()
+    guard ec == 0 | "<failed to disassemble compiled object>"
+
+    let lines = output.get_string().replace("\t", " ", ~all: #true).split(rx'newline+')
+    let defn_line = lines.find_index((_ matches rx_in'bof "<" "_"? "pille."')) || 0
+    let lines = lines.sublist(defn_line..)
+    let lines = lines.map(_) <| fun(l :~ String):
+      let l = l.trim()
+      let indent = if l.starts_with("<") | "  " | "    "
+      indent ++ l
+    let dis = String.join(lines, "\n")
+
+    rx'"_"? ($_: "pille." digit+)'.replace_all(dis, _) <| fun(orig, native_sym):
+      native_symbols_to_names.maybe[Symbol.from_string(native_sym)] || orig
 
   //============================================================================
   private immutable unlinked_fn_bitcodes :: MutableMap.by(===):
@@ -199,7 +229,9 @@ export class Compiler(
 
       codegen_log.debug(
         @str{lowered "@demangle_native_symbol(sym)":
-             @format_llvm_ir(llvm_module.to_ir())})
+             == LLVM IR ==
+             @format_llvm_ir(llvm_module.to_ir())
+             ---})
 
       // TODO: early simplification
 
@@ -247,7 +279,12 @@ export class Compiler(
 
       codegen_log.debug(
         @str{incrementally compiled "@demangle_native_symbol(sym)":
-             @format_llvm_ir(llvm_module.to_ir())})
+             == LLVM IR ==
+             @format_llvm_ir(llvm_module.to_ir())
+             ---
+             == Machine Code ==
+             @format_obj(obj, sym)
+             ---})
 
       let deps = for List (fn in llvm_module.functions):
         keep_when fn.is_declaration || fn.linkage == llvm.Linkage.available_externally
