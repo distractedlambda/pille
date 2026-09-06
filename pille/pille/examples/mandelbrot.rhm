@@ -5,9 +5,71 @@ import:
   ffi open
   gui open
   pille/hosted open
+  rhombus/fixnum
+  rhombus/flonum
   rhombus/thread open
 
-fun render_mandelbrot_pille(
+//==============================================================================
+module unsafe_impls ~lang rhombus/static:
+  import:
+    rhombus/ffi open
+    rhombus/fixnum
+    rhombus/flonum
+    rhombus/unsafe open
+
+  use_unsafe
+
+  export fun render_tile(
+    ~width: width :: PosInt && Fixnum,
+    ~height: height :: PosInt && Fixnum,
+    ~max_iter: max_iter :: PosInt && Fixnum,
+    ~gamma: gamma :: Real.above(0),
+    ~corner: corner :: Number,
+    ~scale: scale :: Real,
+    ~dst: dst :: ptr_t,
+    ~dst_row_stride: dst_row_stride :: Nat && Fixnum,
+  ):
+    let gamma :: Flonum = math.inexact(gamma)
+    let corner_r :: Flonum = math.inexact(math.real_part(corner))
+    let corner_i :: Flonum = math.inexact(math.imag_part(corner))
+    let scale :: Flonum = math.inexact(scale)
+    let dst = cast (uint32_t*) dst
+
+    let exponent = 1.0 flonum.(/) gamma
+    let recip_max_iter = 1.0 flonum.(/) fixnum.to_flonum(max_iter)
+
+    for:
+      each px_y in 0..height
+      each px_x in 0..width
+      let c_r = corner_r flonum.(+) fixnum.to_flonum(px_x) flonum.(*) scale
+      let c_i = corner_i flonum.(-) fixnum.to_flonum(px_y) flonum.(*) scale
+
+      let iter = recur iterate(iter = 0, z_r = c_r, z_i = c_i):
+        let z_r_2 = z_r flonum.(*) z_r
+        let z_i_2 = z_i flonum.(*) z_i
+        if z_r_2 flonum.(+) z_i_2 flonum.(<) 4.0
+        | let iter = iter fixnum.wraparound.(+) 1
+          if iter fixnum.(<) max_iter
+          | let z_i = (z_r flonum.(*) z_i flonum.(*) 2.0) flonum.(+) c_i
+            let z_r = z_r_2 flonum.(-) z_i_2 flonum.(+) c_r
+            iterate(iter, z_r, z_i)
+          | iter
+        | iter
+
+      let iter_fact = fixnum.to_flonum(iter) * recip_max_iter
+      let gray_fl = iter_fact flonum.(**) exponent flonum.(*) 255.0
+      let gray = fixnum.min(fixnum.max(fixnum.from_flonum(gray_fl), 0), 255)
+      let ar = 255 fixnum.bits.or (gray fixnum.wraparound.bits.(<<) 8)
+      let arg = ar fixnum.bits.or (gray fixnum.wraparound.bits.(<<) 16)
+      let argb = arg fixnum.bits.or (gray fixnum.wraparound.bits.(<<) 24)
+
+      let dst_idx = px_y fixnum.wraparound.(*) dst_row_stride fixnum.wraparound.(+) px_x
+      mem dst[dst_idx] := argb
+
+import self!unsafe_impls
+
+//==============================================================================
+fun render_tile(
   ~width: width :: PosInt,
   ~height: height :: PosInt,
   ~max_iter: max_iter :: PosInt,
@@ -17,118 +79,65 @@ fun render_mandelbrot_pille(
   ~dst: dst :: ptr_t,
   ~dst_row_stride: dst_row_stride :: Nat,
   ~precision: precision :: matching("Float" || "Double"),
+  ~implementation: implementation :: matching("Rhombus" || "Pille"),
 ) :: Void:
-  pille(
-    specl precision,
-    specl.let α = match precision
-    | "Float": Float
-    | "Double": Double,
-    width :: NativeUInt,
-    height :: NativeUInt,
-    max_iter :: NativeUInt,
-    exponent :: α = 1 / gamma,
-    corner_real :: α = math.real_part(corner),
-    corner_imag :: α = math.imag_part(corner),
-    scale :: α,
-    dst :: PtrMut(UInt(32)),
-    dst_row_stride :: NativeUInt,
-  ):
-    let corner = complex(corner_real, corner_imag)
-    for (px_y ∈ 0..height):
-      for (px_x ∈ 0..width):
-        let c = corner + complex(α.cast(px_x), -α.cast(px_y)) * scale
+  match implementation
+  | "Rhombus":
+      unsafe_impls.render_tile(
+        ~width,
+        ~height,
+        ~max_iter,
+        ~gamma,
+        ~corner,
+        ~scale,
+        ~dst,
+        ~dst_row_stride)
 
-        var iter :: NativeUInt = 0
-        var z = c
-        while iter < max_iter && z.magnitude_squared < 4:
-          z := z*z + c
-          iter := iter + 1
+  | "Pille":
+      pille(
+        specl precision,
+        specl.let α = match precision
+        | "Float": Float
+        | "Double": Double,
+        width :: NativeUInt,
+        height :: NativeUInt,
+        max_iter :: NativeUInt,
+        exponent :: α = 1 / gamma,
+        corner_real :: α = math.real_part(corner),
+        corner_imag :: α = math.imag_part(corner),
+        scale :: α,
+        dst :: PtrMut(UInt(32)),
+        dst_row_stride :: NativeUInt,
+      ):
+        let corner = complex(corner_real, corner_imag)
+        for (px_y ∈ 0..height):
+          for (px_x ∈ 0..width):
+            let c = corner + complex(α.cast(px_x), -α.cast(px_y)) * scale
 
-        let iter_fact = α.cast(iter) / α.cast(max_iter)
-        let gray :: UInt(32) = UInt(8).cast_sat(iter_fact**exponent * 255)
-        let argb = 255 ∨ (gray << 8) ∨ (gray << 16) ∨ (gray << 24)
-        dst[px_y*dst_row_stride + px_x] := argb
+            var iter :: NativeUInt = 0
+            var z = c
+            while iter < max_iter && z.magnitude_squared < 4:
+              z := z*z + c
+              iter := iter + 1
 
-let [max_iter_view, max_iter_obs]:
-  let slider = Slider(
-    ~style: [#'horizontal, #'plain],
-    ~value: 8,
-    ~min_value: 1,
-    ~max_value: 12)
+            let iter_fact = α.cast(iter) / α.cast(max_iter)
+            let gray :: UInt(32) = UInt(8).cast_sat(iter_fact**exponent * 255)
+            let argb = 255 ∨ (gray << 8) ∨ (gray << 16) ∨ (gray << 24)
+            dst[px_y*dst_row_stride + px_x] := argb
 
-  let max_iter = slider.at_value ~> (2 ** _)
-
-  let view = VPanel(
-    Label(max_iter ~> fun(i): @str{Max Iterations: @i}),
-    slider)
-
-  [view, max_iter]
-
-let [precision_view, precision_obs]:
-  let view = Choice(
-    ~label: "Precision",
-    ["Float", "Double"])
-  [view, view.at_selection]
-
-let [gamma_view, gamma_obs]:
-  let min = 1/2
-  let max = 4
-  let step_size = 1/10
-
-  let slider = Slider(
-    ~style: [#'horizontal, #'plain],
-    ~value: (#{#e2.4} - min) / step_size,
-    ~min_value: 0,
-    ~max_value: (max - min) / step_size)
-
-  let gamma = slider.at_value ~> fun(v):
-    min + v * step_size
-
-  let view = VPanel(
-    Label(gamma ~> fun(v): @str{Gamma: @str.f(v, ~precision: 1)}),
-    slider)
-
-  [view, gamma]
-
-let [center_zoom_view, center_obs, zoom_obs]:
-  fun make_flonum_input(init :: Flonum, label):
-    let raw = Obs(repr(init))
-    let parsed = Obs(init)
-    [parsed,
-     Input(
-       raw,
-       ~label,
-       ~action:
-         fun(evt, s):
-           guard evt matches (#'return || #'focus_out) | #void
-           match String.maybe_to_number(s)
-           | n :: Real:
-               let n = math.inexact(n)
-               parsed.value := n
-               raw.value := repr(n)
-           | _:
-               raw.value := repr(parsed.value))]
-
-  let [center_x, center_x_ip] = make_flonum_input(0.0, "X")
-  let [center_y, center_y_ip] = make_flonum_input(0.0, "Y")
-  let [zoom, zoom_ip] = make_flonum_input(1.0, "Zoom")
-
-  [GroupPanel(
-     "Viewport",
-     ~margin: [10, 5],
-     center_x_ip,
-     center_y_ip,
-     zoom_ip),
-   Obs.combine(math.complex, center_x, center_y),
-   zoom]
-
+//==============================================================================
 let draw_mandelbrot:
   let mutable bitmap_and_pixels = #false
   let thread_pool = Thread.Pool()
   let thread_tile_dim = 256
   let tile_semaphore = Semaphore()
 
-  fun(dc :~ draw.DC, [max_iter, gamma, precision, center, zoom]):
+  fun(
+    dc :~ draw.DC,
+    [[implementation, precision],
+     [max_iter, gamma],
+     [center, zoom]],
+  ):
     ~name: draw_mandelbrot
 
     let draw.Size(width, height) = dc.size
@@ -161,7 +170,7 @@ let draw_mandelbrot:
         ~pool: thread_pool
         let corner_px_x = tile_x * thread_tile_dim
         let corner_px_y = tile_y * thread_tile_dim
-        render_mandelbrot_pille(
+        render_tile(
           ~width: math.min(thread_tile_dim, phys_width - corner_px_x),
           ~height: math.min(thread_tile_dim, phys_height - corner_px_y),
           ~max_iter,
@@ -170,7 +179,8 @@ let draw_mandelbrot:
           ~scale,
           ~dst: mem &pixel_ptr[corner_px_y * phys_width + corner_px_x],
           ~dst_row_stride: phys_width,
-          ~precision)
+          ~precision,
+          ~implementation)
         tile_semaphore.post()
 
     for (_ in 0..(x_tiles * y_tiles)):
@@ -184,27 +194,108 @@ let draw_mandelbrot:
 
     dc.bitmap(bitmap)
 
+//==============================================================================
+let [backend_opts_view, backend_opts]:
+  let impl_choice = Choice(
+    ~label: "Implementation",
+    ["Rhombus", "Pille"])
+
+  let precision_choice = Choice(
+    ~label: "Precision",
+    ~enable: impl_choice.at_selection ~> (_ != "Rhombus"),
+    ["Float", "Double"])
+
+  [GroupPanel(
+     "Backend",
+     ~margin: [10, 5],
+     ~spacing: 5,
+     impl_choice,
+     precision_choice),
+   Obs.combine(
+     List,
+     impl_choice.at_selection,
+     precision_choice.at_selection)]
+
+let [rendering_opts_view, rendering_opts]:
+  let max_iter_slider = Slider(
+    ~style: [#'horizontal, #'plain],
+    ~value: 8,
+    ~min_value: 1,
+    ~max_value: 12)
+
+  let gamma_min = 1/2
+  let gamma_max = 4
+  let gamma_step_size = 1/10
+  let gamma_slider = Slider(
+    ~style: [#'horizontal, #'plain],
+    ~value: (#{#e2.4} - gamma_min) / gamma_step_size,
+    ~min_value: 0,
+    ~max_value: (gamma_max - gamma_min) / gamma_step_size)
+
+  let max_iter = max_iter_slider.at_value ~> (2 ** _)
+  let gamma = gamma_slider.at_value ~> (gamma_min + _ * gamma_step_size)
+
+  [GroupPanel(
+     "Rendering",
+     ~margin: [10, 5],
+     ~spacing: 5,
+     HPanel(
+       Label(max_iter ~> fun(i): @str{Max Iterations: @i}),
+       max_iter_slider),
+     HPanel(
+       Label(gamma ~> fun(v): @str{Gamma: @str.f(v, ~precision: 1)}),
+       gamma_slider)),
+   Obs.combine(List, max_iter, gamma).debounce()]
+
+let [viewport_opts_view, viewport_opts]:
+  fun make_flonum_input(init :: Flonum, label):
+    let raw = Obs(repr(init))
+    let parsed = Obs(init)
+    [parsed,
+     Input(
+       raw,
+       ~label,
+       ~action:
+         fun(evt, s):
+           guard evt matches (#'return || #'focus_out) | #void
+           match String.maybe_to_number(s)
+           | n :: Real:
+               let n = math.inexact(n)
+               parsed.value := n
+               raw.value := repr(n)
+           | _:
+               raw.value := repr(parsed.value))]
+
+  let [center_x, center_x_ip] = make_flonum_input(0.0, "X")
+  let [center_y, center_y_ip] = make_flonum_input(0.0, "Y")
+  let [zoom, zoom_ip] = make_flonum_input(1.0, "Zoom")
+
+  [GroupPanel(
+     "Viewport",
+     ~margin: [10, 5],
+     ~spacing: 5,
+     center_x_ip,
+     center_y_ip,
+     zoom_ip),
+   Obs.combine(
+     List,
+     Obs.combine(math.complex, center_x, center_y),
+     zoom)]
+
 let window = Window(
   ~title: "Mandelbrot",
   VPanel(
     HPanel(
       ~stretch: [#true, #false],
-      GroupPanel(
-        "Rendering",
-        ~margin: [10, 5],
-        ~spacing: 5,
-        max_iter_view,
-        gamma_view,
-        precision_view),
-      center_zoom_view),
+      backend_opts_view,
+      rendering_opts_view,
+      viewport_opts_view),
     Canvas(
       Obs.combine(
         List,
-        Obs.debounce(max_iter_obs),
-        Obs.debounce(gamma_obs),
-        precision_obs,
-        center_obs,
-        zoom_obs),
+        backend_opts,
+        rendering_opts,
+        viewport_opts),
       draw_mandelbrot,
       ~min_size: [640, 480])))
 
