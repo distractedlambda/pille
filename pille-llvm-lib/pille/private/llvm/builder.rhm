@@ -333,6 +333,13 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
       [base.type],
       [base, exp])
 
+  method create_fma(~name = "", a :~ Value, b :~ Value, c :~ Value) :~ Value:
+    create_intrinsic_call(
+      ~name,
+      "llvm.fma",
+      [a.type],
+      [a, b, c])
+
   method create_phi(
     ~name: name :: ReadableString || Symbol = "",
     type :: Type,
