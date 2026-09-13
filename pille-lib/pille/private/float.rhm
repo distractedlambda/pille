@@ -186,3 +186,7 @@ unary_ops:
   $sqrt: sqrt
   $tan: tan
   $trunc: ftrunc
+
+//==============================================================================
+method (a :: FloatingPoint as α).$mul_add(b :: α, c :: α) :: α:
+  prim.fma(a, b, c)

@@ -256,3 +256,28 @@ fun concretize_is_optimization_constant(operand :~ Expr):
           "llvm.is.constant",
           [operand_val.type],
           [operand_val]))
+
+//==============================================================================
+export pille_expr.macro 'fma($(a :: pille_expr_meta.Parsed),
+                             $(b :: pille_expr_meta.Parsed),
+                             $(c :: pille_expr_meta.Parsed))':
+  pille_expr_meta.pack_concretize(
+    'concretize_fma(
+       $(pille_expr_meta.unpack_concretize(a)),
+       $(pille_expr_meta.unpack_concretize(b)),
+       $(pille_expr_meta.unpack_concretize(c)))')
+
+fun concretize_fma(a :~ Expr, b :~ Expr, c :~ Expr):
+  assert(a.type === b.type)
+  assert(a.type === c.type)
+  Expr.Rvalue(
+    ~type: a.type,
+    ~lower:
+      let a_low = a.lower_rvalue
+      let b_low = b.lower_rvalue
+      let c_low = c.lower_rvalue
+      fun(env):
+        let a_val = a_low(env)
+        let b_val = b_low(env)
+        let c_val = c_low(env)
+        lowering.builder().create_fma(a_val, b_val, c_val))

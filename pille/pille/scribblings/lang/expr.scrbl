@@ -593,6 +593,29 @@
     x.$acos()
 ){}
 
+@doc(
+  unique_member mul_add
+
+  fun mul_add(a, b, c):
+    ~transparent
+    a.$mul_add(b, c)
+
+  fun mul_add(a :: α, b :: β, c :: κ) :: γ:
+    ~where γ = unify(unify(α, β), κ)
+    ~transparent
+    (a :: γ).$mul_add(b :: γ, c :: γ)
+
+  method (a :: _).$mul_add(b :: _, c :: _):
+    ~priority: fallback
+    a.$mul(b).$add(c)
+){
+  @pille_expr(mul_add(a, b, c)) is similar to
+  @pille_expr(a*b + c), except that the computation is
+  allowed to use @italic{greater} intermediate precision
+  than the separate use of @pille_expr(+) and @pille_expr(*)
+  ordinarily would.
+}
+
 @//=============================================================================
 @section{Conditionals}
 

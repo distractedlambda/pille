@@ -129,6 +129,29 @@ export generic_binpreops:
   -% multiplication addition neg_wrap sub_wrap ~no_specl
 
 //==============================================================================
+export unique_member mul_add
+
+export fun mul_add
+| (a, b, c):
+    ~transparent
+    a.$mul_add(b, c)
+| (a :: α, b :: β, c :: κ) :: γ:
+    ~where γ = unify(unify(α, β), κ)
+    ~transparent
+    (a :: γ).$mul_add(b :: γ, c :: γ)
+
+method (a :: _).$mul_add(b :: _, c :: _):
+  ~priority: fallback
+  a.$mul(b).$add(c)
+
+export specl.fun mul_add(a, b, c):
+  a.$mul_add(b, c)
+
+specl.method (a).$mul_add(b, c):
+  ~priority: fallback
+  a.$mul(b).$add(c)
+
+//==============================================================================
 export operator
 | ! (specl b :: boolean) :: Specl(!b):
     ~order: logical_negation

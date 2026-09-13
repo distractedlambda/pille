@@ -558,6 +558,15 @@
   specl.method (x :: number).$acos() :: number
 ){}
 
+@doc(
+  specl.fun mul_add(a, b, c):
+    a.$mul_add(b, c)
+
+  specl.method (a).$mul_add(b, c):
+    ~priority: fallback
+    a.$mul(b).$add(c)
+){}
+
 @section(~tag: "Specl_Bitwise"){Bit-Level Operations}
 
 @doc(
