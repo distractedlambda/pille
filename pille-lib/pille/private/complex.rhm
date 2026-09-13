@@ -85,7 +85,7 @@ specl.property (z :: number).magnitude_squared:
     import rhombus/static open
     let rl = math.real_part(z)
     let im = math.imag_part(z)
-    rl*rl + im+im
+    rl*rl + im*im
 
 specl.property (z :: number).magnitude:
   #%rhombus(z):
