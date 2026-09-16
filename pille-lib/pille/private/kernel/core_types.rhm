@@ -3,7 +3,9 @@
 import:
   "../runtime/compiler.rhm" open
   "../runtime/per_compiler.rhm" open
+  "../runtime/rhombus_interop.rhm" open
   "../util/assert.rhm" open
+  "../util/ptr-internals.rkt" open
   "specl_expr.rhm" open
   "unique_member.rhm" open
   ffi open
@@ -437,8 +439,24 @@ export class RawPtrType():
     Type.RhombusInteropSpec(
       ~byte_size: sizeof(ptr_t),
       ~write_from_rhombus:
-        fun(frame :~ ptr_t, offset :~ Nat, value :~ ptr_t):
-          mem *(cast (ptr_t*) ~offset(offset) frame) := value,
+        fun(frame :~ ptr_t, offset :~ Nat, value):
+          let ptr = match value
+          | value :: ptr_t:
+              value
+          | value :: MutableBytes:
+              cast ~from(bytes_ptr_t) ~to(ptr_t) value
+          | _:
+              error(
+                "value cannot be passed to Pille as a pointer",
+                error.val(value))
+
+          when ptr is_a GCable_ptr_t
+          | let obj = #{ptr_t/gcable-object}(ptr)
+            #{lock-object}(obj)
+            RhombusToPilleAdapter.register_cleanup(_) <| fun():
+              #{unlock-object}(obj)
+
+          mem *(cast (ptr_t*) ~offset(offset) frame) := ptr,
       ~read_from_pille:
         fun(slot_ptr):
           let builder = lowering.builder()

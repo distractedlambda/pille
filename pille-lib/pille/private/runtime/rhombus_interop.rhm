@@ -32,19 +32,20 @@ export class RhombusToPilleAdapter(
     let frame_size = math.max(args_size, result_spec.byte_size)
 
     fun make_callout(fptr :: ptr_t):
-      let prim_callout = cast (ptr_t/gcable -> void_t: ~allow_callback_exn) fptr
+      let prim_callout:
+        cast (ptr_t/gcable -> void_t:
+                ~allow_callback_exn
+                ~collect_safe) fptr
       fun(&args):
-        try:
-          let frame = malloc(frame_size)
-          for (arg in args, writer in arg_writers, offset in arg_offsets):
-            writer(frame, offset, arg)
-          prim_callout(frame)
-          result_reader(frame, 0)
-          ~finally:
-            // Keep `args` reachable, in case it includes GCable pointers that
-            // would be obscured by being written into the frame (which is not
-            // traceable)
-            Function.black_box(args)
+        let frame = malloc ~immobile (frame_size)
+        parameterize { current_cleanup: fun(): #void }:
+          try:
+            for (arg in args, writer in arg_writers, offset in arg_offsets):
+              writer(frame, offset, arg)
+            prim_callout(frame)
+            result_reader(frame, 0)
+            ~finally:
+              current_cleanup()()
 
     fun read_args(frame_ptr):
       let builder = lowering.builder()
@@ -63,6 +64,19 @@ export class RhombusToPilleAdapter(
       result_writer(frame_ptr, val)
 
     super(make_callout, read_args, write_result)
+
+  Parameter.def current_cleanup :~ maybe(Function.of_arity(0)):
+    #false
+
+  export fun register_cleanup(thunk :: Function.of_arity(0)) :~ Void:
+    guard.let existing!! = current_cleanup()
+    | error("not on a Pille/Rhombus boundary")
+    current_cleanup(_) <| fun():
+      try:
+        thunk()
+        ~finally:
+          existing()
+    #void
 
 export class PilleToRhombusAdapter(
   make_callback :: Function -> ptr_t,
@@ -96,7 +110,7 @@ export class PilleToRhombusAdapter(
         let res = f(&args)
         result_writer(frame, 0, res)
       let wrapper = wrapper.rename(f.name(), ~realm: f.realm())
-      cast ~from(ptr_t -> void_t) ~to(ptr_t) wrapper
+      cast ~from(ptr_t -> void_t: ~collect_safe) ~to(ptr_t) wrapper
 
     fun lower_call(callee, args :~ List):
       let builder = lowering.builder()

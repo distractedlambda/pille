@@ -99,6 +99,7 @@ export rhombus_shorthands:
   pille_specl_bind ~at: pille/specl_bind; pille/specl_expr
   pille_specl_expr ~at pille/specl_expr
   pille_unique_member ~at pille/unique_member
+  rhm_annot ~annot
   rhm_decl ~decl
   rhm_defn ~defn
   rhm_expr ~expr

@@ -112,10 +112,14 @@ The interoperable basic types are as follow:
   Rhombus as a @rhombus(List, ~annot).},
 
   @item{@pille_specl_expr(RawPtr), @pille_specl_expr(Ptr),
-  and @pille_specl_expr(PtrMut): represented in Rhombus as
-  @rhombus(ptr_t, ~annot) values. Pointee type information
-  is ignored when passing from Rhombus to Pille, and lost
-  when passing from Pille to Rhombus.},
+  and @pille_specl_expr(PtrMut): these accept both
+  @rhm_annot(ptr_t) and @rhm_annot(MutableBytes) when
+  passing from Rhombus to Pille, and are passed from Pille
+  to Rhombus as @rhm_annot(ptr_t) values. In the former
+  case, @rhm_annot(MutableBytes) and
+  @rhm_annot(GCable_ptr_t) values have their backing storage
+  kept reachable @italic{and immobile} during the execution
+  of the corresponding Pille code.},
 
   @item{@pille_specl_expr(Specl): represented in Rhombus as
   the particular specialization value. When passing from

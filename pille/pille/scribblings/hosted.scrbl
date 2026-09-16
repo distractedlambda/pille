@@ -87,14 +87,16 @@ itself (for qualified access to everything else).
   @rhombus(pille) expression occurs.
 
   From the perspective of Rhombus, execution of the
-  @rhombus(pille_body) occurs within a @rhm_ffi_tech{foreign
-  callout} that is @italic{not} @rhombus(~collect_safe);
-  moreover, all @rhombus(dyn_capture) values are kept
-  reachable to the garbage collector during that time. It is
-  therefore safe to pass a pointer to GC-managed memory as a
-  @rhombus(dyn_capture), insofar as that it will not be
-  collected or moved during the execution of the
-  @rhombus(pille_body).
+  @rhombus(pille_body) occurs within a
+  @rhombus(~collect_safe) @rhm_ffi_tech{foreign callout};
+  this means that Pille execution does not prevent garbage
+  collection, but still completely occupies the underlying
+  operating-system thread. GC-managed memory that is
+  communicated directly through a @rhombus(dyn_capture) is
+  automatically kept reachable @italic{and immobile} during
+  the execution of the @rhombus(pille_body), so in most
+  cases the possibility of parallel garbage collection is
+  not a correctness concern.
 }
 
 @section{Configuring the JIT}
