@@ -5,6 +5,7 @@ import:
   "expr.rhm" open
   "expr_forms.rhm" open
   "prim.rhm"
+  "specl_annot.rhm" open
   "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
   "specl_bind_forms.rhm" open
@@ -129,7 +130,22 @@ fun any_tuple_extractor(target):
   values()
 
 //==============================================================================
-export specl.fun Simd(element :: type, length :: pos_int):
+export namespace Simd
+
+fun is_scalar(target):
+  match target
+  | target :: Type:
+      target.repr is_a Repr.Scalar
+  | _:
+      #false
+
+specl_annot Simd.Scalar:
+  #%rhombus(satisfying(is_scalar))
+
+specl_bind.macro 'Simd.Scalar':
+  '_ :: Simd.Scalar'
+
+export specl.fun Simd(element :: Simd.Scalar, length :: pos_int):
   #%rhombus(element, length):
     SimdType(element, length)
 

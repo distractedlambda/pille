@@ -82,6 +82,7 @@ import self!pille_ext as pille
 export:
   pille
   only_space namespace:
+    pille.Simd
     pille.specl
 
 //==============================================================================

@@ -372,52 +372,73 @@ export class SimdType(element :: Type, length :: PosInt):
   extends Type
 
   //============================================================================
-  fun lower_get(vec :: maybe(llvm.Value), idx :: Nat) :: maybe(llvm.Value):
-    guard.let vec!! = vec
-    | #false // erased repr, so erased element
-
-    if vec.type is_a llvm.VectorType
-    | lowering.builder().create_extract_element(vec, idx)
-    | assert(idx == 0)
-      vec
-
-  fun lower_set(vec :: maybe(llvm.Value), idx :: Nat, elem :: maybe(llvm.Value)) :: maybe(llvm.Value):
-    guard.let vec!! = vec
-    | assert(!elem)
-      #false // erased repr
-
-    if vec.type is_a llvm.VectorType
-    | lowering.builder().create_insert_element(vec, elem, idx)
-    | assert(idx == 0)
-      assert(vec.type == elem?.type)
-      elem
-
-  fun lower_new :: maybe(llvm.Value)
-  | lower_new([#false, ...]):
-      #false
-  | lower_new([elem :: llvm.Value]):
-      elem
-  | lower_new(elems :: [llvm.Value, llvm.Value, ...]):
-      lowering.builder().create_vector(elems)
-
-  //============================================================================
   nonsingleton_ctor(element, length)
 
   //============================================================================
   override compute_repr():
-    match element.repr
-    | er :: Repr.Erased:
-        er
-    | er :: Repr.Scalar:
-        match length
-        | 1: er
-        | _: Repr.Simd(er, length)
-    | er:
-        error(
-          ~exn: Exn.Fail.Concretize.Recoverable,
-          "Simd element type must have erased or scalar repr",
-          error.val(~label: "element type", element),
-          error.val(~label: "element repr", er))
+    let elem_repr = element.repr
+    assert(elem_repr is_a Repr.Scalar)
+    Repr.Simd(elem_repr, length)
+
+  //============================================================================
+  override compute_rhombus_interop():
+    let length = this.length
+    let Type.RhombusInteropSpec(
+      ~byte_size: elem_byte_size,
+      ~write_from_rhombus: elem_write_from_rhombus,
+      ~read_from_pille: elem_read_from_pille,
+      ~write_from_pille: elem_write_from_pille,
+      ~read_from_rhombus: elem_read_from_rhombus) = element.rhombus_interop
+    Type.RhombusInteropSpec(
+      ~byte_size:
+        elem_byte_size * length,
+      ~write_from_rhombus:
+        fun(frame, offset :~ Nat, elem_vals :: Listable.to_list):
+          guard elem_vals.length() == length
+          | error(
+              "wrong number of Simd elements",
+              error.val(~label: "expected count", length),
+              error.vals(~label: "received", elem_vals))
+          for (i in 0..length, ev in elem_vals):
+            elem_write_from_rhombus(frame, offset + i * elem_byte_size, ev),
+      ~read_from_pille:
+        fun(ptr):
+          let builder = lowering.builder()
+          let int8_type = builder.int_type(8)
+          let intptr_type = builder.intptr_type()
+          builder.create_vector(
+            for List (i in 0..length):
+              elem_read_from_pille(
+                builder.create_gep(
+                  ~inbounds: #true,
+                  ~nuw: #true,
+                  int8_type,
+                  ptr,
+                  llvm.ConstantInt(
+                    intptr_type,
+                    i * elem_byte_size)))),
+      ~write_from_pille:
+        fun(ptr, vec_val):
+          let builder = lowering.builder()
+          let int8_type = builder.int_type(8)
+          let intptr_type = builder.intptr_type()
+          for (i in 0..length):
+            elem_write_from_pille(
+              builder.create_gep(
+                ~inbounds: #true,
+                ~nuw: #true,
+                int8_type,
+                ptr,
+                llvm.ConstantInt(
+                  intptr_type,
+                  i * elem_byte_size)),
+              builder.create_extract_element(
+                vec_val,
+                llvm.ConstantInt(intptr_type, i))),
+      ~read_from_rhombus:
+        fun(ptr, offset :~ Nat):
+          for List (i in 0..length):
+            elem_read_from_rhombus(ptr, offset + i * elem_byte_size))
 
   //============================================================================
   private implements Printable

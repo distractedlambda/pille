@@ -106,6 +106,7 @@ export:
     all_from(rhombus/static)
 
   only_space namespace:
+    Simd
     specl
     ub
 

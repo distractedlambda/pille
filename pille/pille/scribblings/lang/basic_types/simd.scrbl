@@ -8,7 +8,7 @@
 @section{Dense Vectors}
 
 @doc(
-  type Simd(element :: type, length :: pos_int)
+  type Simd(element :: Simd.Scalar, length :: pos_int)
 ){
   A fixed-length array specialized for operations that
   process elements in parallel.
@@ -24,59 +24,107 @@
 }
 
 @doc(
-  coercion (elem :: σ) :: Simd(CoercesFrom(σ), _)
+  specl_annot.macro 'Simd.Scalar'
+  specl_bind.macro 'Simd.Scalar'
 ){
-  The ``broadcasting'' coercion: the result is a
-  @pille_specl_expr(Simd) value which holds a copy of
-  @rhombus(elem) in each lane.
+  Matches types that are valid as @pille_specl_expr(Simd)
+  element types, including:
+  @itemlist(
+    @item{@pille_specl_expr(Boolean).},
+    @item{All @pille_specl_bind(BinaryInteger) types.},
+    @item{All @pille_specl_bind(FloatingPoint) types.},
+    @item{@pille_specl_expr(RawPtr), and all
+          @pille_specl_expr(Ptr) and
+          @pille_specl_expr(PtrMut) types.},
+    @item{All @pille_specl_expr(Tuple) types where exactly
+          one element type is non-erased, and that
+          non-erased type is also
+          @pille_specl_annot(Simd.Scalar).},
+    @item{All @pille_global_defn(struct)-defined types where
+          exactly one field type is non-erased, and that
+          non-erased type is also
+          @pille_specl_annot(Simd.Scalar).})
 }
 
 @doc(
-  coercion (src :: Simd(UInt(ws), n))
-    :: Simd(UInt(wd), n):
-      ~when ws < wd
+  coercion (elem :: Simd.Scalar as α) :: Simd(β, n):
+    ~when α coerces_to β
 
-  coercion (src :: Simd(UInt(ws), n))
-    :: Simd(Int(wd), n):
-      ~when ws < wd
+  unify(α :: Simd.Scalar, Simd(β, n)):
+    Simd(unify(α, β), n)
+){
+  Scalars can coerce to @pille_specl_expr(Simd) vectors; the
+  resulting vector holds a (possibly-coerced) copy of that
+  scalar value in each lane.
+}
 
-  coercion (src :: Simd(Int(ws), n))
-    :: Simd(Int(wd), n):
-      ~when ws < wd
+@doc(
+  coercion (src :: Simd(UInt(ws), n)) :: Simd(UInt(wd), n):
+    ~when ws < wd
+
+  unify(Simd(UInt(w1), n), Simd(UInt(w2), n)):
+    Simd(UInt(max(w1, w2)), n)
+
+  coercion (src :: Simd(UInt(ws), n)) :: Simd(Int(wd), n):
+    ~when ws < wd
+
+  unify(Simd(UInt(w1), n), Simd(Int(w2), n)):
+    Simd(Int(max(w1 + 1, w2)), n)
+
+  coercion (src :: Simd(Int(ws), n)) :: Simd(Int(wd), n):
+    ~when ws < wd
+
+  unify(Simd(Int(w1), n), Simd(Int(w2), n)):
+    Simd(Int(max(w1, w2)), n)
+
+  coercion (src :: Simd(Float, n)) :: Simd(Double, n)
+
+  unify(Simd(Float, n), Simd(Double, n)):
+    Simd(Double, n)
+
+  coercion (src :: Simd(Int(w) || UInt(w), n)) :: Simd(Float, n):
+    ~when w ≤ 24
+
+  unify(Simd(Int(w) || UInt(w), n), Simd(Float, n)):
+    ~when w ≤ 24
+    Simd(Float, n)
+
+  coercion (src :: Simd(Int(w) || UInt(w), n)) :: Simd(Double, n):
+    ~when w ≤ 53
+
+  unify(Simd(Int(w) || UInt(w), n), Simd(Double, n)):
+    ~when w ≤ 53
+    Simd(Double, n)
 ){
   Standard arithmetic coercions, but lifted to apply
   lanewise to @pille_specl_expr(Simd) values.
 }
 
 @doc(
-  unify(Simd(α, n), β):
-    Simd(unify(α, β), n)
-
-  unify(Simd(α, n), Simd(β, n)):
-    Simd(unify(α, β), n)
+  property (specl Simd(BinaryInteger as ι, n) as σ).iota :: σ:
+    ~when n - 1 ≤ ι.max_value
 ){
-  @tech{Type unification} rules to use when at least one of
-  the types is a @pille_specl_expr(Simd) type. The first
-  rule is meant to match the broadcasting coercion, and has
-  lower priority than the second.
+  Produces a @pille_specl_expr(Simd) vector whose lanes
+  contain the successive natural numbers up to (but
+  excluding) @rhombus(n).
 }
 
 @doc(
-  method (rhs :: α && Simd(Bitwise, _)).$not() :: α
+  method (rhs :: Simd(Bitwise, _) as σ).$not() :: σ
 
-  method (lhs :: α && Simd(Bitwise, _)).$and(rhs :: α) :: α
+  method (lhs :: Simd(Bitwise, _) as σ).$and(rhs :: σ) :: σ
 
-  method (lhs :: α && Simd(Bitwise, _)).$or(rhs :: α) :: α
+  method (lhs :: Simd(Bitwise, _) as σ).$or(rhs :: σ) :: σ
 
-  method (lhs :: α && Simd(Bitwise, _)).$xor(rhs :: α) :: α
+  method (lhs :: Simd(Bitwise, _) as σ).$xor(rhs :: σ) :: σ
 ){}
 
 @doc(
-  method (smd :: Simd(α && Bitwise, n)).reduce_and() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_and() :: α
 
-  method (smd :: Simd(α && Bitwise, n)).reduce_or() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_or() :: α
 
-  method (smd :: Simd(α && Bitwise, n)).reduce_xor() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_xor() :: α
 ){
   Parallel reduction operations: these are equivalent to a
   serial reduction that folds over one lane at a time, but
@@ -97,9 +145,46 @@
 }
 
 @doc(
-  method (lhs :: Simd(BinaryInteger, _) as α).$add_wrap(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as σ).$add(rhs :: σ) :: σ
+  method (lhs :: Simd(BinaryInteger, _) as σ).$add_wrap(rhs :: σ) :: σ
+  method (lhs :: Simd(BinaryInteger, _) as σ).$sub(rhs :: σ) :: σ
+  method (lhs :: Simd(BinaryInteger, _) as σ).$sub_wrap(rhs :: σ) :: σ
+  method (lhs :: Simd(BinaryInteger, _) as σ).$mul(rhs :: σ) :: σ
+  method (lhs :: Simd(BinaryInteger, _) as σ).$mul_wrap(rhs :: σ) :: σ
+){}
 
-  method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α
+@doc(
+  method (rhs :: Simd(BinaryInteger, _) as σ).$neg() :: σ
+  method (rhs :: Simd(BinaryInteger, _) as σ).$neg_wrap() :: σ
+){}
+
+@doc(
+  method (lhs :: Simd(FloatingPoint, _) as σ).$add(rhs :: σ) :: σ
+  method (lhs :: Simd(FloatingPoint, _) as σ).$sub(rhs :: σ) :: σ
+  method (lhs :: Simd(FloatingPoint, _) as σ).$mul(rhs :: σ) :: σ
+  method (lhs :: Simd(FloatingPoint, _) as σ).$div(rhs :: σ) :: σ
+  method (lhs :: Simd(FloatingPoint, _) as σ).$rem_trunc(rhs :: σ) :: σ
+  method (lhs :: Simd(FloatingPoint, _) as σ).$pow(rhs :: σ) :: σ
+){}
+
+@doc(
+  method (x :: Simd(FloatingPoint, _) as σ).$neg() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$abs() :: σ
+
+  method (x :: Simd(FloatingPoint, _) as σ).$floor() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$ceil() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$round() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$trunc() :: σ
+
+  method (x :: Simd(FloatingPoint, _) as σ).$sqrt() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$exp() :: σ
+
+  method (x :: Simd(FloatingPoint, _) as σ).$sin() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$cos() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$tan() :: σ
+
+  method (x :: Simd(FloatingPoint, _) as σ).$acos() :: σ
+  method (x :: Simd(FloatingPoint, _) as σ).$asin() :: σ
 ){}
 
 @doc(
@@ -110,6 +195,32 @@
   method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(
     offsets :: Simd(BinaryInteger, n),
   ) :: φ
+){}
+
+@doc(
+  method (lhs :: Simd(α, n) as σ).$eq(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
+
+  method (lhs :: Simd(α, n) as σ).$ne(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
+
+  method (lhs :: Simd(α, n) as σ).$lt(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
+
+  method (lhs :: Simd(α, n) as σ).$le(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
+
+  method (lhs :: Simd(α, n) as σ).$gt(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
+
+  method (lhs :: Simd(α, n) as σ).$ge(rhs :: Simd(α, n))
+    :: Simd(Boolean, n):
+      ~where BinaryInteger || FloatingPoint || RawPtr || PtrTo(_) = α
 ){}
 
 @section{Sparse Vectors}

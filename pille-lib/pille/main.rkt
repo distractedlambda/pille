@@ -29,6 +29,7 @@ reexport:
   "private/pointer.rhm"
   "private/range.rhm"
   "private/simd.rhm"
+  "private/sparse_simd.rhm"
   "private/specl_ops.rhm"
   "private/tuple.rhm"
   "private/type_traits.rhm"
