@@ -335,12 +335,12 @@ method (specl Int(w2) as δ).cast_exact(src :: UInt(w1)) :: δ:
       | panic()
       | prim.retype(src, ~to: δ)
   | ub.allowed:
-      prim.trunc_nsw(src, ~to: δ)
+      prim.trunc_nuw(src, ~to: δ)
   | ub.suppressed:
       prim.trunc(src, ~to: δ)
   | ub.checked:
       if src ≤ δ.max_value
-      | prim.trunc_nsw(src, ~to: δ)
+      | prim.trunc_nuw(src, ~to: δ)
       | panic()
 
 //==============================================================================
