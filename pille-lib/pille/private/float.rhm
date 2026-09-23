@@ -157,6 +157,10 @@ method (specl FloatingPoint as δ).cast(specl src :: int) :: δ:
       import rhombus/static open
       math.inexact(src))
 
+// Workarounds for namespace punning
+fun Float.cast(src): (Float).cast(src)
+fun Double.cast(src): (Double).cast(src)
+
 //==============================================================================
 method (specl Int(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
   prim.fptosi_sat(src, ~to: δ)

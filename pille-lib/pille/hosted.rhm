@@ -82,6 +82,8 @@ import self!pille_ext as pille
 export:
   pille
   only_space namespace:
+    pille.Double
+    pille.Float
     pille.specl
 
 //==============================================================================
