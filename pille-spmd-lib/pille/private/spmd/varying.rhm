@@ -133,11 +133,11 @@ method (lhs :: α).$le(rhs :: α, using program_mask) :: Varying(Boolean):
 
 method (lhs :: α).$gt(rhs :: α, using program_mask) :: Varying(Boolean):
   ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
-  Varying(Boolean){simd_program_mask.sparse_lt(lhs.$program_values, rhs.$program_values)}
+  Varying(Boolean){simd_program_mask.sparse_gt(lhs.$program_values, rhs.$program_values)}
 
 method (lhs :: α).$ge(rhs :: α, using program_mask) :: Varying(Boolean):
   ~where Varying(BinaryInteger || RawPtr || PtrTo(_)) = α
-  Varying(Boolean){simd_program_mask.sparse_le(lhs.$program_values, rhs.$program_values)}
+  Varying(Boolean){simd_program_mask.sparse_ge(lhs.$program_values, rhs.$program_values)}
 
 //==============================================================================
 method (lhs :: φ).$add(using program_mask, rhs :: Varying(BinaryInteger)) :: φ:
