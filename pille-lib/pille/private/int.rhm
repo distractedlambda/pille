@@ -235,6 +235,9 @@ method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n):
 method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n):
   lhs div_trunc rhs
 
+method (lhs :: UInt(n)).$div(rhs :: UInt(n)) :: UInt(n):
+  lhs div_trunc rhs
+
 method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n):
   cond
   | ub.allowed || rhs != 0:

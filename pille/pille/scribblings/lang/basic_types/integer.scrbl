@@ -222,11 +222,13 @@
 }
 
 @doc(
+  method (lhs :: UInt(n)).$div(rhs :: UInt(n)) :: UInt(n)
+
   method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n)
 
   method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n)
 ){
-  Implements the @pille_expr(div_trunc) and
+  Implements the @pille_expr(/), @pille_expr(div_trunc), and
   @pille_expr(div_floor) operations on
   @pille_specl_expr(UInt)s, with identical behavior. It is
   @tech{managed undefined behavior} for the @rhombus(rhs) to
