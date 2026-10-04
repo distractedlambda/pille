@@ -6,6 +6,19 @@ Pille is a work-in-progress research prototype, with documentation that is very 
 
 In the future, we hope to provide a stable(ish) API surface along with some all-important "getting started" documentation.
 
+## Installation
+1. Install the Racket packages in this repository (they are not yet on the package index):
+   ```sh
+   raco pkg install pille-llvm-lib/ pille-lib/ pille-spmd-lib/ pille/
+   ```
+2. Set the `PILLE_LLVM_PREFIX` environment variable to the root of an LLVM 23.1 installation:
+   - LLVM is _not_ currently provided by any of Pille's Racket packages.
+   - On macOS with Homebrew, `brew install llvm@23`, then set `PILLE_LLVM_PREFIX=$(brew --prefix llvm@23)`.
+   - On Linux, the official LLVM builds will not work (because they do not include the LLVM shared library). If your package manager does not supply a compatible version, you may need to build LLVM from source.
+
+### Platform Support
+Most development and testing of Pille occurs on aarch64 macOS and x86_64 Linux systems; your mileage may vary on other host platforms.
+
 ## Repository Structure
 The code is organized into subdirectories that are each Racket packages:
 
@@ -13,9 +26,9 @@ The code is organized into subdirectories that are each Racket packages:
 
 - `pille-lib`: The actual implementation of Pille.
 
-- `pille-llvm-lib`: Bespoke Rhombus bindings to the LLVM C API, used by `pille-lib`.
+- `pille-spmd-lib`: The (WIP) implementation of `#lang pille/spmd`.
 
-None of these packages are currently on the Racket package index.
+- `pille-llvm-lib`: Bespoke Rhombus bindings to the LLVM C API, used by `pille-lib`.
 
 [1]: https://rhombus-lang.org
 [2]: https://llvm.org
