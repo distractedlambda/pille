@@ -572,7 +572,7 @@
 @doc(
   specl.operator not rhs
   specl.operator ¬rhs
-  operator_order: ~order: bitwise_negation
+  operator_order: ~order: logical_negation
 
   specl.method (rhs :: boolean).$not() :: boolean
   specl.method (rhs :: int).$not() :: int
@@ -581,7 +581,7 @@
 @doc(
   specl.operator lhs and rhs
   specl.operator lhs ∧ rhs
-  operator_order: ~order: bitwise_conjunction
+  operator_order: ~order: logical_conjunction
 
   specl.method (lhs :: boolean).$and(rhs :: boolean) :: boolean
   specl.method (lhs :: int).$and(rhs :: int) :: int
@@ -590,7 +590,7 @@
 @doc(
   specl.operator lhs or rhs
   specl.operator lhs ∨ rhs
-  operator_order: ~order: bitwise_disjunction
+  operator_order: ~order: logical_disjunction
 
   specl.method (lhs :: boolean).$or(rhs :: boolean) :: boolean
   specl.method (lhs :: int).$or(rhs :: int) :: int
@@ -599,7 +599,7 @@
 @doc(
   specl.operator lhs xor rhs
   specl.operator lhs ⊻ rhs
-  operator_order: ~order: bitwise_disjunction
+  operator_order: ~order: logical_disjunction
 
   specl.method (lhs :: boolean).$xor(rhs :: boolean) :: boolean
   specl.method (lhs :: int).$xor(rhs :: int) :: int

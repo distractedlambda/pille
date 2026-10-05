@@ -346,11 +346,11 @@
 
   operator not rhs:
     ~transparent
-    ~order: bitwise_negation
+    ~order: logical_negation
 
   operator ¬ rhs:
     ~transparent
-    ~order: bitwise_negation
+    ~order: logical_negation
 ){
   The logical negation operator (the two forms are
   equivalent), which delegates directly to the
@@ -362,11 +362,11 @@
 
   operator lhs and rhs:
     ~transparent
-    ~order: bitwise_conjunction
+    ~order: logical_conjunction
 
   operator lhs ∧ rhs:
     ~transparent
-    ~order: bitwise_conjunction
+    ~order: logical_conjunction
 ){
   Like @pille_expr(+), but for logical or bitwise
   ``and''. The two forms are equivalent.
@@ -377,11 +377,11 @@
 
   operator lhs or rhs:
     ~transparent
-    ~order: bitwise_disjunction
+    ~order: logical_disjunction
 
   operator lhs ∨ rhs:
     ~transparent
-    ~order: bitwise_disjunction
+    ~order: logical_disjunction
 ){
   Like @pille_expr(+), but for logical or bitwise
   ``or''. The two forms are equivalent.
@@ -392,11 +392,11 @@
 
   operator lhs xor rhs:
     ~transparent
-    ~order: bitwise_disjunction
+    ~order: logical_disjunction
 
   operator lhs ⊻ rhs:
     ~transparent
-    ~order: bitwise_disjunction
+    ~order: logical_disjunction
 ){
   Like @pille_expr(+), but for logical or bitwise
   ``exclusive-or''. The two forms are equivalent.

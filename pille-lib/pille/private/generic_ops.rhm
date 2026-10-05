@@ -85,9 +85,9 @@ export generic_binops:
   (%↑, multiplication, rem_ceil)
   (%↑!, multiplication, rem_ceil_unchecked) ~no_specl
   (**, exponentiation, pow)
-  (∧, bitwise_conjunction, and)
-  (∨, bitwise_disjunction, or)
-  (⊻, bitwise_disjunction, xor)
+  (∧, logical_conjunction, and)
+  (∨, logical_disjunction, or)
+  (⊻, logical_disjunction, xor)
   (<<, bitwise_shift, shl)
   (<<!, bitwise_shift, shl_unchecked) ~no_specl
   (>>, bitwise_shift, shr)
@@ -183,12 +183,12 @@ export specl.operator !rhs:
 export unique_member not
 
 export operator ¬rhs:
-  ~order: bitwise_negation
+  ~order: logical_negation
   ~transparent
   rhs.$not()
 
 export specl.operator ¬rhs:
-  ~order: bitwise_negation
+  ~order: logical_negation
   rhs.$not()
 
 //==============================================================================
