@@ -233,10 +233,10 @@ method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n):
       panic()
 
 method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n):
-  lhs div_trunc rhs
+  lhs /← rhs
 
 method (lhs :: UInt(n)).$div(rhs :: UInt(n)) :: UInt(n):
-  lhs div_trunc rhs
+  lhs /← rhs
 
 method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n):
   cond
@@ -248,10 +248,10 @@ method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n):
       panic()
 
 method (lhs :: UInt(n)).$rem_floor(rhs :: UInt(n)) :: UInt(n):
-  lhs rem_trunc rhs
+  lhs %← rhs
 
 method (lhs :: UInt(n)).$rem(rhs :: UInt(n)) :: UInt(n):
-  lhs rem_trunc rhs
+  lhs %← rhs
 
 method (lhs :: UInt(n)).$eq(rhs :: UInt(n)) :: Boolean:
   prim.icmp_eq(lhs, rhs)

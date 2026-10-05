@@ -257,7 +257,7 @@
 
 @doc(
   unique_member div_trunc
-  operator lhs div_trunc rhs:
+  operator lhs /← rhs:
     ~transparent
     ~order: multiplication
 ){
@@ -266,7 +266,7 @@
 
 @doc(
   unique_member div_floor
-  operator lhs div_floor rhs:
+  operator lhs /↓ rhs:
     ~transparent
     ~order: multiplication
 ){
@@ -275,7 +275,7 @@
 
 @doc(
   unique_member div_ceil
-  operator lhs div_ceil rhs:
+  operator lhs /↑ rhs:
     ~transparent
     ~order: multiplication
 ){
@@ -296,39 +296,39 @@
   in defining this operation, especially for negative
   operands. The @pille_expr(%) operator is therefore
   reserved for operand types where there is only one obvious
-  interpretation, whereas the @pille_expr(rem_trunc),
-  @pille_expr(rem_floor), and @pille_expr(rem_ceil)
-  operators have unambiguous meanings in all cases.
+  interpretation, whereas the @pille_expr(%←),
+  @pille_expr(%↓), and @pille_expr(%↑) operators have
+  unambiguous meanings in all cases.
 }
 
 @doc(
   unique_member rem_trunc
-  operator lhs rem_trunc rhs:
+  operator lhs %← rhs:
     ~transparent
     ~order: multiplication
 ){
   Like @pille_expr(%), but specifically the remainder of
-  truncating division (as in @pille_expr(div_trunc)).
+  truncating division (as in @pille_expr(/←)).
 }
 
 @doc(
   unique_member rem_floor
-  operator lhs rem_floor rhs:
+  operator lhs %↓ rhs:
     ~transparent
     ~order: multiplication
 ){
   Like @pille_expr(%), but specifically the remainder of
-  floored division (as in @pille_expr(div_floor)).
+  floored division (as in @pille_expr(/↓)).
 }
 
 @doc(
   unique_member rem_ceil
-  operator lhs rem_ceil rhs:
+  operator lhs %↑ rhs:
     ~transparent
     ~order: multiplication
 ){
   Like @pille_expr(%), but specifically the remainder of
-  ceiling division (as in @pille_expr(div_ceil)).
+  ceiling division (as in @pille_expr(/↑)).
 }
 
 @doc(

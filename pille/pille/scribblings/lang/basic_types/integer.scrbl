@@ -213,12 +213,12 @@
 
   method (lhs :: Int(n)).$rem_trunc(rhs :: Int(n)) :: Int(n)
 ){
-  Implements the @pille_expr(div_trunc) and
-  @pille_expr(rem_trunc) operations on
-  @pille_specl_expr(Int)s. It is @tech{managed undefined
-  behavior} for the @rhombus(rhs) to be @rhombus(0), or for
-  the @rhombus(rhs) to be @rhombus(-1) at the same time that
-  the @rhombus(lhs) is @pille_expr(Int(n).min_value).
+  Implements the @pille_expr(/←) and @pille_expr(%←)
+  operations on @pille_specl_expr(Int)s. It is @tech{managed
+  undefined behavior} for the @rhombus(rhs) to be
+  @rhombus(0), or for the @rhombus(rhs) to be @rhombus(-1)
+  at the same time that the @rhombus(lhs) is
+  @pille_expr(Int(n).min_value).
 }
 
 @doc(
@@ -228,11 +228,10 @@
 
   method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n)
 ){
-  Implements the @pille_expr(/), @pille_expr(div_trunc), and
-  @pille_expr(div_floor) operations on
-  @pille_specl_expr(UInt)s, with identical behavior. It is
-  @tech{managed undefined behavior} for the @rhombus(rhs) to
-  be @rhombus(0).
+  Implements the @pille_expr(/), @pille_expr(/←), and
+  @pille_expr(/↓) operations on @pille_specl_expr(UInt)s,
+  with identical behavior. It is @tech{managed undefined
+  behavior} for the @rhombus(rhs) to be @rhombus(0).
 }
 
 @doc(
@@ -242,11 +241,10 @@
 
   method (lhs :: UInt(n)).$rem_floor(rhs :: UInt(n)) :: UInt(n)
 ){
-  Implements the @pille_expr(%), @pille_expr(rem_trunc), and
-  @pille_expr(rem_floor) operations on
-  @pille_specl_expr(UInt)s, with identical behavior.  It is
-  @tech{managed undefined behavior} for the @rhombus(rhs) to
-  be @rhombus(0).
+  Implements the @pille_expr(%), @pille_expr(%←), and
+  @pille_expr(%↓) operations on @pille_specl_expr(UInt)s,
+  with identical behavior.  It is @tech{managed undefined
+  behavior} for the @rhombus(rhs) to be @rhombus(0).
 }
 
 @doc(

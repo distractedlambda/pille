@@ -114,16 +114,16 @@ specl.method (lhs :: real).$div_ceil(rhs :: real):
 
 //==============================================================================
 specl.method (lhs :: nonneg_real).$rem(rhs :: nonneg_real):
-  lhs rem_trunc rhs
+  lhs %← rhs
 
 specl.method (lhs :: real).$rem_trunc(rhs :: real):
-  lhs - rhs * (lhs div_trunc rhs)
+  lhs - rhs * (lhs /← rhs)
 
 specl.method (lhs :: real).$rem_floor(rhs :: real):
-  lhs - rhs * (lhs div_floor rhs)
+  lhs - rhs * (lhs /↓ rhs)
 
 specl.method (lhs :: real).$rem_ceil(rhs :: real):
-  lhs - rhs * (lhs div_ceil rhs)
+  lhs - rhs * (lhs /↑ rhs)
 
 //==============================================================================
 specl.method (lhs :: number).$pow(rhs :: number):

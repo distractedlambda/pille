@@ -36,8 +36,9 @@ export generic_funops:
 
 //==============================================================================
 global_defn.macro 'generic_binops:
-                     $op $order $name $(term_option_sequence
-                                        | '~no_specl': field no_specl = #true)
+                     ($op, $order, $name) \
+                       $(term_option_sequence
+                         | '~no_specl': field no_specl = #true)
                      ...':
   'unique_member $name
    ...
@@ -61,34 +62,46 @@ global_defn.macro 'generic_binops:
    ...'
 
 export generic_binops:
-  + addition add
-  +% addition add_wrap ~no_specl
-  * multiplication mul
-  *% multiplication mul_wrap ~no_specl
-  / multiplication div
-  div_trunc multiplication div_trunc
-  div_floor multiplication div_floor
-  div_ceil multiplication div_ceil
-  % multiplication rem
-  rem_trunc multiplication rem_trunc
-  rem_floor multiplication rem_floor
-  rem_ceil multiplication rem_ceil
-  ** exponentiation pow
-  ∧ bitwise_conjunction and
-  ∨ bitwise_disjunction or
-  ⊻ bitwise_disjunction xor
-  << bitwise_shift shl
-  >> bitwise_shift shr
-  == equivalence eq ~no_specl
-  != equivalence ne ~no_specl
-  < order_comparison lt
-  > order_comparison gt
-  <= order_comparison le
-  >= order_comparison ge
+  (+, addition, add)
+  (+!, addition, add_unchecked) ~no_specl
+  (+%, addition, add_wrap) ~no_specl
+  (*, multiplication, mul)
+  (*!, multiplication, mul_unchecked) ~no_specl
+  (*%, multiplication, mul_wrap) ~no_specl
+  (/, multiplication, div)
+  (/!, multiplication, div_unchecked) ~no_specl
+  (/←, multiplication, div_trunc)
+  (/←!, multiplication, div_trunc_unchecked) ~no_specl
+  (/↓, multiplication, div_floor)
+  (/↓!, multiplication, div_floor_unchecked) ~no_specl
+  (/↑, multiplication, div_ceil)
+  (/↑!, multiplication, div_ceil_unchecked) ~no_specl
+  (%, multiplication, rem)
+  (%!, multiplication, rem_unchecked) ~no_specl
+  (%←, multiplication, rem_trunc)
+  (%←!, multiplication, rem_trunc_unchecked) ~no_specl
+  (%↓, multiplication, rem_floor)
+  (%↓!, multiplication, rem_floor_unchecked) ~no_specl
+  (%↑, multiplication, rem_ceil)
+  (%↑!, multiplication, rem_ceil_unchecked) ~no_specl
+  (**, exponentiation, pow)
+  (∧, bitwise_conjunction, and)
+  (∨, bitwise_disjunction, or)
+  (⊻, bitwise_disjunction, xor)
+  (<<, bitwise_shift, shl)
+  (<<!, bitwise_shift, shl_unchecked) ~no_specl
+  (>>, bitwise_shift, shr)
+  (>>!, bitwise_shift, shr_unchecked) ~no_specl
+  (==, equivalence, eq) ~no_specl
+  (!=, equivalence, ne) ~no_specl
+  (<, order_comparison, lt)
+  (>, order_comparison, gt)
+  (<=, order_comparison, le)
+  (>=, order_comparison, ge)
 
 //==============================================================================
 global_defn.macro 'generic_binpreops:
-                     $op $prefix_order $infix_order $prefix_name $infix_name \
+                     ($op, $prefix_order, $infix_order, $prefix_name, $infix_name) \
                        $(term_option_sequence
                          | '~no_specl': field no_specl = #true)
                      ...':
@@ -125,8 +138,9 @@ global_defn.macro 'generic_binpreops:
    ...'
 
 export generic_binpreops:
-  - multiplication addition neg sub
-  -% multiplication addition neg_wrap sub_wrap ~no_specl
+  (-, multiplication, addition, neg, sub)
+  (-!, multiplication, addition, neg_unchecked, sub_unchecked) ~no_specl
+  (-%, multiplication, addition, neg_wrap, sub_wrap) ~no_specl
 
 //==============================================================================
 export unique_member mul_add

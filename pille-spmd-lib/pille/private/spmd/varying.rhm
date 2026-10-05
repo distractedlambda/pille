@@ -116,11 +116,11 @@ method (lhs :: α).$rem_trunc(rhs :: α, using program_mask) :: α:
 
 method (lhs :: α).$div(rhs :: α, using program_mask) :: α:
   ~where Varying(UInt(_)) = α
-  lhs div_trunc rhs
+  lhs /← rhs
 
 method (lhs :: α).$rem(rhs :: α, using program_mask) :: α:
   ~where Varying(UInt(_)) = α
-  lhs rem_trunc rhs
+  lhs %← rhs
 
 //==============================================================================
 method (lhs :: α).$eq(rhs :: α, using program_mask) :: Varying(Boolean):

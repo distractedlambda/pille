@@ -11,9 +11,9 @@ pille.fun collatz_ssa(n :: BinaryInteger) :: type_of(n):
     | n == 1:
         iter
     | n % 2 == 0:
-        continue loop(n div_floor 2, iter + 1)
+        continue loop(n /↓ 2, iter + 1)
     | ~else:
-        continue loop((3*n + 1) div_floor 2, iter + 2)
+        continue loop((3*n + 1) /↓ 2, iter + 2)
 
 //==============================================================================
 pille.fun collatz_rec_impl(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
@@ -21,9 +21,9 @@ pille.fun collatz_rec_impl(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
   | n == 1:
       iter
   | n % 2 == 0:
-      collatz_rec_impl(n div_floor 2, iter + 1)
+      collatz_rec_impl(n /↓ 2, iter + 1)
   | ~else:
-      collatz_rec_impl((3*n + 1) div_floor 2, iter + 2)
+      collatz_rec_impl((3*n + 1) /↓ 2, iter + 2)
 
 //==============================================================================
 pille.fun collatz_mut_rec_cond(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
@@ -36,10 +36,10 @@ pille.fun collatz_mut_rec_cond(n :: UInt(_), iter :: UInt(_)) :: type_of(iter):
       collatz_mut_rec_odd(n, iter)
 
 pille.fun collatz_mut_rec_even(n :: UInt(_), iter :: UInt(_)):
-  collatz_mut_rec_cond(n div_floor 2, iter + 1)
+  collatz_mut_rec_cond(n /↓ 2, iter + 1)
 
 pille.fun collatz_mut_rec_odd(n :: UInt(_), iter :: UInt(_)):
-  collatz_mut_rec_cond((3*n + 1) div_floor 2, iter + 2)
+  collatz_mut_rec_cond((3*n + 1) /↓ 2, iter + 2)
 
 //==============================================================================
 fun collatz_oracle(n :: PosInt) :~ Nat:
@@ -75,9 +75,9 @@ fun collatz_var(n :: PosInt):
     var iter :: type_of(n) = 0
     while n != 1:
       if n % 2 == 0
-      | n := n div_floor 2
+      | n := n /↓ 2
         iter := iter + 1
-      | n := (3*n + 1) div_floor 2
+      | n := (3*n + 1) /↓ 2
         iter := iter + 2
     iter
 

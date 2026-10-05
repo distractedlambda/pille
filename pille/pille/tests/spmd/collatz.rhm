@@ -26,10 +26,10 @@ check:
         var n :: Varying(UInt(32)) = i + 1
         var iter :: Varying(UInt(32)) = 0
         while n != 1:
-          if n rem_trunc 2 == 0
-          | n := n div_trunc 2
+          if n %← 2 == 0
+          | n := n /← 2
             iter := iter + 1
-          | n := (3*n + 1) div_trunc 2
+          | n := (3*n + 1) /← 2
             iter := iter + 2
         results[i] := iter
   for List(i in 0..max_n):

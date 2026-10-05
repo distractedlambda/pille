@@ -434,9 +434,9 @@
 ){}
 
 @doc(
-  specl.operator lhs div_trunc rhs
-  specl.operator lhs div_floor rhs
-  specl.operator lhs div_ceil rhs
+  specl.operator lhs /← rhs
+  specl.operator lhs /↓ rhs
+  specl.operator lhs /↑ rhs
   operator_order: ~order: multiplication
 
   specl.method (lhs :: real).$div_trunc(rhs :: real) :: real
@@ -445,9 +445,9 @@
 ){}
 
 @doc(
-  specl.operator lhs rem_trunc rhs
-  specl.operator lhs rem_floor rhs
-  specl.operator lhs rem_ceil rhs
+  specl.operator lhs %← rhs
+  specl.operator lhs %↓ rhs
+  specl.operator lhs %↑ rhs
   operator_order: ~order: multiplication
 
   specl.method (lhs :: real).$rem_trunc(rhs :: real) :: real
