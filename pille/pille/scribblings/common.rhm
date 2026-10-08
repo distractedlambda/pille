@@ -70,6 +70,12 @@ export fun coercion_tech(pre_content = ["coercion"]):
 export fun unification_tech(pre_content = ["unification"]):
   manual.tech(~key: "type unification", pre_content)
 
+export fun managed_ub_tech(pre_content = ["managed undefined behavior"]):
+  manual.tech(~key: "managed undefined behavior", pre_content)
+
+export fun suppressible_ub_tech(pre_content = ["suppressible undefined behavior"]):
+  manual.tech(~key: "suppressible undefined behavior", pre_content)
+
 export def llvm_project:
   @manual.hyperlink("https://llvm.org"){LLVM}
 

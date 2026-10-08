@@ -163,101 +163,118 @@
 }
 
 @doc(
-  method (lhs :: Int(n)).$add(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$add(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: Int(n)).$sub(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$sub(rhs :: UInt(n)) :: UInt(n)
-
-  method (rhs :: Int(n)).$neg() :: Int(n)
-
-  method (lhs :: Int(n)).$mul(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$mul(rhs :: UInt(n)) :: UInt(n)
+  method (lhs :: BinaryInteger as α).$add(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$sub(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$mul(rhs :: α) :: α
+  method (rhs :: Int(_) as α).$neg() :: α
 ){
-  Implements the @pille_expr(+), @pille_expr(-), and
-  @pille_expr(*) operations on
+  Overloads the @pille_expr(+), @pille_expr(-), and
+  @pille_expr(*) operators for
   @pille_specl_bind(BinaryInteger)s. Overflow/underflow
   arising from any of these operations is @tech{managed
   undefined behavior}.
 }
 
 @doc(
-  method (lhs :: Int(n)).$add_wrap(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$add_wrap(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: Int(n)).$sub_wrap(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$sub_wrap(rhs :: UInt(n)) :: UInt(n)
-
-  method (rhs :: Int(n)).$neg_wrap() :: Int(n)
-
-  method (rhs :: UInt(n)).$neg_wrap() :: UInt(n)
-
-  method (lhs :: Int(n)).$mul_wrap(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: UInt(n)).$mul_wrap(rhs :: UInt(n)) :: UInt(n)
+  method (lhs :: BinaryInteger as α).$add_wrap(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$sub_wrap(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$mul_wrap(rhs :: α) :: α
+  method (rhs :: BinaryInteger as α).$neg_wrap() :: α
 ){
-  Implements the @pille_expr(+%), @pille_expr(-%), and
-  @pille_expr(*%) operations on
+  Overloads the @pille_expr(+%), @pille_expr(-%), and
+  @pille_expr(*%) operators for
   @pille_specl_bind(BinaryInteger)s. Overflow/underflow is
-  guaranteed to be wrapping, so these methods never have
-  undefined behavior.
+  guaranteed to be wrapping.
 }
 
 @doc(
-  method (lhs :: Int(n)).$div_trunc(rhs :: Int(n)) :: Int(n)
-
-  method (lhs :: Int(n)).$rem_trunc(rhs :: Int(n)) :: Int(n)
+  method (lhs :: BinaryInteger as α).$add_unchecked(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$sub_unchecked(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$mul_unchecked(rhs :: α) :: α
+  method (rhs :: Int(_) as α).$neg_unchecked() :: α
 ){
-  Implements the @pille_expr(/←) and @pille_expr(%←)
-  operations on @pille_specl_expr(Int)s. It is @tech{managed
-  undefined behavior} for the @rhombus(rhs) to be
+  Overloads the @pille_expr(+!), @pille_expr(-!), and
+  @pille_expr(*!) operators for
+  @pille_specl_bind(BinaryInteger)s. Overflow/underflow is
+  always undefined behavior.
+}
+
+@doc(
+  method (lhs :: Int(_) as α).$div_trunc(rhs :: α) :: α
+  method (lhs :: Int(_) as α).$rem_trunc(rhs :: α) :: α
+){
+  Overloads the @pille_expr(/←) and @pille_expr(%←)
+  operators for @pille_specl_expr(Int)s. It is
+  @tech{managed undefined behavior} for the @rhombus(rhs) to
+  be @rhombus(0), or for the @rhombus(rhs) to be
+  @rhombus(-1) at the same time that the @rhombus(lhs) is
+  @pille_expr(α.min_value).
+}
+
+@doc(
+  method (lhs :: Int(_) as α).$div_trunc_unchecked(rhs :: α) :: α
+  method (lhs :: Int(_) as α).$rem_trunc_unchecked(rhs :: α) :: α
+){
+  Overloads the @pille_expr(/←!) and @pille_expr(%←!)
+  operators for @pille_specl_expr(Int)s. It is always
+  undefined behavior for the @rhombus(rhs) to be
   @rhombus(0), or for the @rhombus(rhs) to be @rhombus(-1)
   at the same time that the @rhombus(lhs) is
-  @pille_expr(Int(n).min_value).
+  @pille_expr(α.min_value).
 }
 
 @doc(
-  method (lhs :: UInt(n)).$div(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n)
+  method (lhs :: UInt(_) as α).$div(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$div_trunc(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$div_floor(rhs :: α) :: α
 ){
-  Implements the @pille_expr(/), @pille_expr(/←), and
-  @pille_expr(/↓) operations on @pille_specl_expr(UInt)s,
+  Overloads the @pille_expr(/), @pille_expr(/←), and
+  @pille_expr(/↓) operators for @pille_specl_expr(UInt)s,
   with identical behavior. It is @tech{managed undefined
   behavior} for the @rhombus(rhs) to be @rhombus(0).
 }
 
 @doc(
-  method (lhs :: UInt(n)).$rem(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n)
-
-  method (lhs :: UInt(n)).$rem_floor(rhs :: UInt(n)) :: UInt(n)
+  method (lhs :: UInt(_) as α).$div_unchecked(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$div_trunc_unchecked(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$div_floor_unchecked(rhs :: α) :: α
 ){
-  Implements the @pille_expr(%), @pille_expr(%←), and
-  @pille_expr(%↓) operations on @pille_specl_expr(UInt)s,
-  with identical behavior.  It is @tech{managed undefined
+  Overloads the @pille_expr(/!), @pille_expr(/←!), and
+  @pille_expr(/↓!) operators for @pille_specl_expr(UInt)s,
+  with identical behavior. It is always undefined behavior
+  for the @rhombus(rhs) to be @rhombus(0).
+}
+
+@doc(
+  method (lhs :: UInt(_) as α).$rem(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$rem_trunc(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$rem_floor(rhs :: α) :: α
+){
+  Overloads the @pille_expr(%), @pille_expr(%←), and
+  @pille_expr(%↓) operators for @pille_specl_expr(UInt)s,
+  with identical behavior. It is @tech{managed undefined
   behavior} for the @rhombus(rhs) to be @rhombus(0).
 }
 
 @doc(
-  method (rhs :: α && BinaryInteger).$not() :: α
-
-  method (lhs :: α && BinaryInteger).$and(rhs :: α) :: α
-
-  method (lhs :: α && BinaryInteger).$or(rhs :: α) :: α
-
-  method (lhs :: α && BinaryInteger).$xor(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$rem_unchecked(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$rem_trunc_unchecked(rhs :: α) :: α
+  method (lhs :: UInt(_) as α).$rem_floor_unchecked(rhs :: α) :: α
 ){
-  Implements the @pille_expr(¬), @pille_expr(∧),
-  @pille_expr(∨), and @pille_expr(⊻) operations on
+  Overloads the @pille_expr(%!), @pille_expr(%←!), and
+  @pille_expr(%↓!) operators for @pille_specl_expr(UInt)s,
+  with identical behavior. It is always undefined behavior
+  for the @rhombus(rhs) to be @rhombus(0).
+}
+
+@doc(
+  method (rhs :: BinaryInteger as α).$not() :: α
+  method (lhs :: BinaryInteger as α).$and(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$or(rhs :: α) :: α
+  method (lhs :: BinaryInteger as α).$xor(rhs :: α) :: α
+){
+  Overloads the @pille_expr(¬), @pille_expr(∧),
+  @pille_expr(∨), and @pille_expr(⊻) operators for
   @pille_specl_bind(BinaryInteger)s. These never have
   undefined behavior.
 }
@@ -266,7 +283,7 @@
   method (lhs :: BinaryInteger as α).$shl(rhs :: Integral) :: α
   method (lhs :: BinaryInteger as α).$shr(rhs :: Integral) :: α
 ){
-  Implements the @pille_expr(<<) and @pille_expr(>>)
+  Overloads the @pille_expr(<<) and @pille_expr(>>)
   operators for @pille_specl_bind(BinaryInteger)s. The
   @rhombus(rhs) can have any @pille_specl_bind(Integral)
   type, but its value must be between @rhombus(0)
@@ -275,40 +292,59 @@
 }
 
 @doc(
-  method (lhs :: Int(n)).$eq(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$eq(rhs :: UInt(n)) :: Boolean
-
-  method (lhs :: Int(n)).$ne(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$ne(rhs :: UInt(n)) :: Boolean
-
-  method (lhs :: Int(n)).$lt(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$lt(rhs :: UInt(n)) :: Boolean
-
-  method (lhs :: Int(n)).$le(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$le(rhs :: UInt(n)) :: Boolean
-
-  method (lhs :: Int(n)).$gt(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$gt(rhs :: UInt(n)) :: Boolean
-
-  method (lhs :: Int(n)).$ge(rhs :: Int(n)) :: Boolean
-
-  method (lhs :: UInt(n)).$ge(rhs :: UInt(n)) :: Boolean
+  method (lhs :: BinaryInteger as α).$shl_wrap(rhs :: BinaryInteger) :: α
+  method (lhs :: BinaryInteger as α).$shr_wrap(rhs :: BinaryInteger) :: α
 ){
-  Implements the @pille_expr(==), @pille_expr(!=),
+  Overloads the @pille_expr(<<%) and @pille_expr(>>%)
+  operators for @pille_specl_bind(BinaryInteger)s, with
+  guaranteed wrapping behavior.
+}
+
+@doc(
+  method (lhs :: BinaryInteger as α).$shl_unchecked(rhs :: BinaryInteger) :: α
+  method (lhs :: BinaryInteger as α).$shr_unchecked(rhs :: BinaryInteger) :: α
+){
+  Overloads the @pille_expr(<<!) and @pille_expr(>>!)
+  operators for @pille_specl_bind(BinaryInteger)s, with
+  guaranteed wrapping behavior.
+}
+
+@doc(
+  method (lhs :: BinaryInteger as α).$eq(rhs :: α) :: Boolean
+  method (lhs :: BinaryInteger as α).$ne(rhs :: α) :: Boolean
+  method (lhs :: BinaryInteger as α).$lt(rhs :: α) :: Boolean
+  method (lhs :: BinaryInteger as α).$gt(rhs :: α) :: Boolean
+  method (lhs :: BinaryInteger as α).$le(rhs :: α) :: Boolean
+  method (lhs :: BinaryInteger as α).$ge(rhs :: α) :: Boolean
+){
+  Overloads the @pille_expr(==), @pille_expr(!=),
   @pille_expr(<), @pille_expr(<=), @pille_expr(>), and
-  @pille_expr(>=) operations on
+  @pille_expr(>=) operators for
   @pille_specl_bind(BinaryInteger)s.
 }
 
 @doc(
   method (specl BinaryInteger as δ).cast_exact(src :: Integral) :: δ
-){}
+){
+  Casts @rhombus(src) to @rhombus(δ), while asserting that
+  @rhombus(δ) can represent the value of @rhombus(src); it
+  is @tech{managed undefined behavior} if this assumption
+  does not hold.
+}
+
+@doc(
+  method (specl BinaryInteger as δ).cast_exact_unchecked(src :: BinaryInteger) :: δ
+){
+  Casts @rhombus(src) to @rhombus(δ), while asserting that
+  @rhombus(δ) can represent the value of @rhombus(src); it
+  is always undefined behavior if this assumption does not
+  hold.
+}
 
 @doc(
   method (specl BinaryInteger as δ).cast_wrap(src :: Integral) :: δ
-){}
+){
+  Casts @rhombus(src) to @rhombus(δ), with guaranteed
+  wrapping in the case that @rhombus(δ) cannot represent the
+  value of @rhombus(src).
+}

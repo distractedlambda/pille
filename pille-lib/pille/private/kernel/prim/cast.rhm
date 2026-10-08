@@ -50,6 +50,7 @@ export cast_ops:
   trunc create_trunc
   trunc_nsw create_trunc_nsw
   trunc_nuw create_trunc_nuw
+  trunc_nuw_nsw create_trunc_nuw_nsw
   uitofp create_ui2fp
   zext create_zext
   zext_nneg create_zext_nneg

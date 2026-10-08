@@ -30,7 +30,7 @@ specl.property (UInt(w)).max_value:
   2**w - 1
 
 //==============================================================================
-coercion (from :: UInt(from_width)) :: α && UInt(to_width):
+coercion (from :: UInt(from_width)) :: UInt(to_width) as α:
   ~when to_width > from_width
   prim.zext(from, ~to: α)
 
@@ -39,7 +39,7 @@ unify(UInt(w1), UInt(w2)):
   UInt(max(w1, w2))
 
 //==============================================================================
-coercion (from :: UInt(from_width)) :: α && Int(to_width):
+coercion (from :: UInt(from_width)) :: Int(to_width) as α:
   ~when to_width > from_width
   prim.zext(from, ~to: α)
 
@@ -48,7 +48,7 @@ unify(UInt(w1), Int(w2)):
   Int(max(w1 + 1, w2))
 
 //==============================================================================
-coercion (from :: Int(from_width)) :: α && Int(to_width):
+coercion (from :: Int(from_width)) :: Int(to_width) as α:
   ~when to_width > from_width
   prim.sext(from, ~to: α)
 
@@ -57,7 +57,7 @@ unify(Int(w1), Int(w2)):
   Int(max(w1, w2))
 
 //==============================================================================
-coercion (specl value :: nat) :: α && UInt(width):
+coercion (specl value :: nat) :: UInt(width) as α:
   ~when value.bit_length ≤ width
   prim.constant_int(α, value)
 
@@ -70,7 +70,7 @@ unify(Specl(v :: nat), UInt(w)):
   UInt(max(v.bit_length, w))
 
 //==============================================================================
-coercion (specl value :: int) :: α && Int(width):
+coercion (specl value :: int) :: Int(width) as α:
   ~when value.bit_length < width
   prim.constant_int(α, value)
 
@@ -84,267 +84,306 @@ unify(Specl(v :: int), Int(w)):
   Int(max(v.bit_length + 1, w))
 
 //==============================================================================
-method (lhs :: Int(n)).$add(rhs :: Int(n)) :: Int(n):
-  cond
-  | ub.allowed:
-      prim.add_nsw(lhs, rhs)
-  | ub.suppressed:
-      prim.add(lhs, rhs)
-  | ub.checked:
-      let res = prim.sadd_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
-
-method (lhs :: Int(n)).$add_wrap(rhs :: Int(n)) :: Int(n):
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$add_wrap(rhs :: α) :: α:
   prim.add(lhs, rhs)
 
-method (lhs :: Int(n)).$sub(rhs :: Int(n)) :: Int(n):
-  cond
-  | ub.allowed:
-      prim.sub_nsw(lhs, rhs)
-  | ub.suppressed:
-      prim.sub(lhs, rhs)
-  | ub.checked:
-      let res = prim.ssub_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
-
-method (lhs :: Int(n)).$sub_wrap(rhs :: Int(n)) :: Int(n):
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$sub_wrap(rhs :: α) :: α:
   prim.sub(lhs, rhs)
 
-method (rhs :: Int(n)).$neg() :: Int(n):
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$mul_wrap(rhs :: α) :: α:
+  prim.mul(lhs, rhs)
+
+method (rhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$neg_wrap() :: α:
+  0 -% rhs
+
+//==============================================================================
+method (lhs :: (Int(_) || Simd(Int(_), _)) as α).$add_unchecked(rhs :: α) :: α:
+  prim.add_nsw(lhs, rhs)
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$add_unchecked(rhs :: α) :: α:
+  prim.add_nuw(lhs, rhs)
+
+method (lhs :: (Int(_) || Simd(Int(_), _)) as α).$sub_unchecked(rhs :: α) :: α:
+  prim.sub_nsw(lhs, rhs)
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$sub_unchecked(rhs :: α) :: α:
+  prim.sub_nuw(lhs, rhs)
+
+method (lhs :: (Int(_) || Simd(Int(_), _)) as α).$mul_unchecked(rhs :: α) :: α:
+  prim.mul_nsw(lhs, rhs)
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$mul_unchecked(rhs :: α) :: α:
+  prim.mul_nuw(lhs, rhs)
+
+method (rhs :: (Int(_) || Simd(Int(_), _)) as α).$neg_unchecked() :: α:
+  0 -! rhs
+
+//==============================================================================
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$add(rhs :: α) :: α:
+  cond
+  | ub.allowed:
+      lhs +! rhs
+  | ub.suppressed:
+      lhs +% rhs
+  | ub.checked:
+      let res = specl.match α
+      | Int(_):
+          prim.sadd_with_overflow(lhs, rhs)
+      | UInt(_):
+          prim.uadd_with_overflow(lhs, rhs)
+      | Simd(Int(_), _):
+          let res = prim.sadd_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      | Simd(UInt(_), _):
+          let res = prim.uadd_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      when res[1] | panic()
+      res[0]
+
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$sub(rhs :: α) :: α:
+  cond
+  | ub.allowed:
+      lhs -! rhs
+  | ub.suppressed:
+      lhs -% rhs
+  | ub.checked:
+      let res = specl.match α
+      | Int(_):
+          prim.ssub_with_overflow(lhs, rhs)
+      | UInt(_):
+          prim.usub_with_overflow(lhs, rhs)
+      | Simd(Int(_), _):
+          let res = prim.ssub_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      | Simd(UInt(_), _):
+          let res = prim.usub_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      when res[1] | panic()
+      res[0]
+
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$mul(rhs :: α) :: α:
+  cond
+  | ub.allowed:
+      lhs *! rhs
+  | ub.suppressed:
+      lhs *% rhs
+  | ub.checked:
+      let res = specl.match α
+      | Int(_):
+          prim.smul_with_overflow(lhs, rhs)
+      | UInt(_):
+          prim.umul_with_overflow(lhs, rhs)
+      | Simd(Int(_), _):
+          let res = prim.smul_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      | Simd(UInt(_), _):
+          let res = prim.umul_with_overflow(lhs, rhs)
+          [res[0], res[1].any()]
+      when res[1] | panic()
+      res[0]
+
+method (rhs :: (Int(_) || Simd(Int(_), _)) as α).$neg() :: α:
   0 - rhs
 
-method (rhs :: Int(n)).$neg_wrap() :: Int(n):
-  0 -% rhs
+//==============================================================================
+global_defn.macro 'compare_ops:
+                     ($elem, $op_name, $prim_name)
+                     ...':
+  'method (lhs :: ($elem || Simd($elem, _)) as α). $op_name(rhs :: α):
+     prim. $prim_name(lhs, rhs)
+   ...'
 
-method (lhs :: Int(n)).$mul(rhs :: Int(n)) :: Int(n):
-  cond
-  | ub.allowed:
-      prim.mul_nsw(lhs, rhs)
-  | ub.suppressed:
-      prim.mul(lhs, rhs)
-  | ub.checked:
-      let res = prim.smul_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
-
-method (lhs :: Int(n)).$mul_wrap(rhs :: Int(n)) :: Int(n):
-  prim.mul(lhs, rhs)
-
-fun sdiv_safe(lhs :: Int(n), rhs :: Int(n)):
-  ub.allowed || (rhs != 0 && (lhs != Int(n).min_value || rhs != -1))
-
-method (lhs :: Int(n)).$div_trunc(rhs :: Int(n)) :: Int(n):
-  cond
-  | sdiv_safe(lhs, rhs):
-      prim.sdiv(lhs, rhs)
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: Int(n)).$rem_trunc(rhs :: Int(n)) :: Int(n):
-  cond
-  | sdiv_safe(lhs, rhs):
-      prim.srem(lhs, rhs)
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: Int(n)).$eq(rhs :: Int(n)) :: Boolean:
-  prim.icmp_eq(lhs, rhs)
-
-method (lhs :: Int(n)).$ne(rhs :: Int(n)) :: Boolean:
-  prim.icmp_ne(lhs, rhs)
-
-method (lhs :: Int(n)).$lt(rhs :: Int(n)) :: Boolean:
-  prim.icmp_slt(lhs, rhs)
-
-method (lhs :: Int(n)).$le(rhs :: Int(n)) :: Boolean:
-  prim.icmp_sle(lhs, rhs)
-
-method (lhs :: Int(n)).$gt(rhs :: Int(n)) :: Boolean:
-  prim.icmp_sgt(lhs, rhs)
-
-method (lhs :: Int(n)).$ge(rhs :: Int(n)) :: Boolean:
-  prim.icmp_sge(lhs, rhs)
+compare_ops:
+  (Bitwise, $eq, icmp_eq)
+  (Bitwise, $ne, icmp_ne)
+  (Int(_), $lt, icmp_slt)
+  (Int(_), $gt, icmp_sgt)
+  (Int(_), $le, icmp_sle)
+  (Int(_), $ge, icmp_sge)
+  (UInt(_), $lt, icmp_ult)
+  (UInt(_), $gt, icmp_ugt)
+  (UInt(_), $le, icmp_ule)
+  (UInt(_), $ge, icmp_uge)
 
 //==============================================================================
-method (lhs :: UInt(n)).$add(rhs :: UInt(n)) :: UInt(n):
-  cond
-  | ub.allowed:
-      prim.add_nuw(lhs, rhs)
-  | ub.suppressed:
-      prim.add(lhs, rhs)
-  | ub.checked:
-      let res = prim.uadd_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
+method (lhs :: (Bitwise || Simd(Bitwise, _)) as α).$and(rhs :: α) :: α:
+  prim.and(lhs, rhs)
 
-method (lhs :: UInt(n)).$add_wrap(rhs :: UInt(n)) :: UInt(n):
-  prim.add(lhs, rhs)
+method (lhs :: (Bitwise || Simd(Bitwise, _)) as α).$or(rhs :: α) :: α:
+  prim.or(lhs, rhs)
 
-method (lhs :: UInt(n)).$sub(rhs :: UInt(n)) :: UInt(n):
-  cond
-  | ub.allowed:
-      prim.sub_nuw(lhs, rhs)
-  | ub.suppressed:
-      prim.sub(lhs, rhs)
-  | ub.checked:
-      let res = prim.usub_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
+method (lhs :: (Bitwise || Simd(Bitwise, _)) as α).$xor(rhs :: α) :: α:
+  prim.xor(lhs, rhs)
 
-method (lhs :: UInt(n)).$sub_wrap(rhs :: UInt(n)) :: UInt(n):
-  prim.sub(lhs, rhs)
-
-method (rhs :: UInt(n)).$neg_wrap() :: UInt(n):
-  0 -% rhs
-
-method (lhs :: UInt(n)).$mul(rhs :: UInt(n)) :: UInt(n):
-  cond
-  | ub.allowed:
-      prim.mul_nuw(lhs, rhs)
-  | ub.suppressed:
-      prim.mul(lhs, rhs)
-  | ub.checked:
-      let res = prim.umul_with_overflow(lhs, rhs)
-      if res[1]
-      | panic()
-      | res[0]
-
-method (lhs :: UInt(n)).$mul_wrap(rhs :: UInt(n)) :: UInt(n):
-  prim.mul(lhs, rhs)
-
-method (lhs :: UInt(n)).$div_trunc(rhs :: UInt(n)) :: UInt(n):
-  cond
-  | ub.allowed || rhs != 0:
-      prim.udiv(lhs, rhs)
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: UInt(n)).$div_floor(rhs :: UInt(n)) :: UInt(n):
-  lhs /← rhs
-
-method (lhs :: UInt(n)).$div(rhs :: UInt(n)) :: UInt(n):
-  lhs /← rhs
-
-method (lhs :: UInt(n)).$rem_trunc(rhs :: UInt(n)) :: UInt(n):
-  cond
-  | ub.allowed || rhs != 0:
-      prim.urem(lhs, rhs)
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: UInt(n)).$rem_floor(rhs :: UInt(n)) :: UInt(n):
-  lhs %← rhs
-
-method (lhs :: UInt(n)).$rem(rhs :: UInt(n)) :: UInt(n):
-  lhs %← rhs
-
-method (lhs :: UInt(n)).$eq(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_eq(lhs, rhs)
-
-method (lhs :: UInt(n)).$ne(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_ne(lhs, rhs)
-
-method (lhs :: UInt(n)).$lt(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_ult(lhs, rhs)
-
-method (lhs :: UInt(n)).$le(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_ule(lhs, rhs)
-
-method (lhs :: UInt(n)).$gt(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_ugt(lhs, rhs)
-
-method (lhs :: UInt(n)).$ge(rhs :: UInt(n)) :: Boolean:
-  prim.icmp_uge(lhs, rhs)
+method (rhs :: (Bitwise || Simd(Bitwise, _)) as α).$not() :: α:
+  prim.not(rhs)
 
 //==============================================================================
+method (lhs :: (Int(_) || Simd(Int(_), _)) as α).$div_trunc_unchecked(rhs :: α) :: α:
+  prim.sdiv(lhs, rhs)
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$div_trunc_unchecked(rhs :: α) :: α:
+  prim.udiv(lhs, rhs)
+
+method (lhs :: (Int(_) || Simd(Int(_), _)) as α).$rem_trunc_unchecked(rhs :: α) :: α:
+  prim.srem(lhs, rhs)
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$rem_trunc_unchecked(rhs :: α) :: α:
+  prim.urem(lhs, rhs)
+
+//==============================================================================
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$div_trunc(rhs :: α) :: α:
+  cond
+  | ub.allowed || div_is_safe(lhs, rhs):
+      lhs /←! rhs
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$rem_trunc(rhs :: α) :: α:
+  cond
+  | ub.allowed || div_is_safe(lhs, rhs):
+      lhs %←! rhs
+  | ub.suppressed:
+      0
+  | ub.checked:
+      panic()
+
+fun div_is_safe(lhs :: α, rhs :: α):
+  specl.match α
+  | Int(_):
+      rhs != 0 ∧ (lhs != α.min_value ∨ rhs != -1)
+  | Simd(Int(_) as β, _):
+      (rhs != 0 ∧ (lhs != β.min_value ∨ rhs != -1)).all()
+  | UInt(_):
+      rhs != 0
+  | Simd(UInt(_), _):
+      (rhs != 0).all()
+
+//==============================================================================
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$div_floor_unchecked(rhs :: α) :: α:
+  lhs /←! rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$div_unchecked(rhs :: α) :: α:
+  lhs /←! rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$div_floor(rhs :: α) :: α:
+  lhs /← rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$div(rhs :: α) :: α:
+  lhs /← rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$rem_floor_unchecked(rhs :: α) :: α:
+  lhs %←! rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$rem_unchecked(rhs :: α) :: α:
+  lhs %←! rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$rem_floor(rhs :: α) :: α:
+  lhs %← rhs
+
+method (lhs :: (UInt(_) || Simd(UInt(_), _)) as α).$rem(rhs :: α) :: α:
+  lhs %← rhs
+
+//==============================================================================
+method (lhs :: BinaryInteger as α).$shl_unchecked(rhs :: BinaryInteger) :: α:
+  prim.shl(lhs, α.cast_exact(rhs))
+
+method (lhs :: Int(_) as α).$shr_unchecked(rhs :: BinaryInteger) :: α:
+  prim.ashr(lhs, α.cast_exact(rhs))
+
+method (lhs :: UInt(_) as α).$shr_unchecked(rhs :: BinaryInteger) :: α:
+  prim.lshr(lhs, α.cast_exact(rhs))
+
+//==============================================================================
+method (lhs :: (Int(w) || UInt(w)) as α).$shl_wrap(rhs :: BinaryInteger) :: α:
+  prim.shl(lhs, α.cast_wrap(rhs) %↓ w)
+
+method (lhs :: Int(w) as α).$shr_wrap(rhs :: BinaryInteger) :: α:
+  prim.ashr(lhs, α.cast_wrap(rhs) %↓ w)
+
+method (lhs :: UInt(w) as α).$shr_wrap(rhs :: BinaryInteger) :: α:
+  prim.lshr(lhs, α.cast_wrap(rhs) %↓ w)
+
+//==============================================================================
+method (lhs :: (Int(w) || UInt(w)) as α).$shl(rhs :: BinaryInteger) :: α:
+  cond
+  | ub.allowed:
+      lhs <<! rhs
+  | ub.suppressed:
+      lhs <<% rhs
+  | ub.checked:
+      unless rhs in 0..w | panic()
+      lhs <<! rhs
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shl(specl rhs :: int) :: α:
+  specl.assert(rhs ≥ 0 && rhs < w)
+  lhs <<! (rhs :: α)
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shr(rhs :: BinaryInteger) :: α:
+  cond
+  | ub.allowed:
+      lhs >>! rhs
+  | ub.suppressed:
+      lhs >>% rhs
+  | ub.checked:
+      unless rhs in 0..w | panic()
+      lhs >>! rhs
+
+method (lhs :: (Int(w) || UInt(w)) as α).$shr(specl rhs :: int) :: α:
+  specl.assert(rhs ≥ 0 && rhs < w)
+  lhs >>! (rhs :: α)
+
+//==============================================================================
+method (specl BinaryInteger as δ).cast_exact(src :: BinaryInteger as σ) :: δ:
+  cond
+  | σ coerces_to δ:
+      src
+  | ub.allowed:
+      δ.cast_exact_unchecked(src)
+  | ub.suppressed:
+      δ.cast_wrap(src)
+  | ub.checked:
+      unless src ≥ δ.min_value ∧ src ≤ δ.max_value | panic()
+      δ.cast_exact_unchecked(src)
+
 method (specl BinaryInteger as δ).cast_exact(src :: Specl(_ :: int) as σ) :: δ:
   specl.assert(σ coerces_to δ)
   src
 
-method (specl Int(w2) as δ).cast_exact(src :: Int(w1)) :: δ:
+//==============================================================================
+method (specl Int(wd) as δ).cast_exact_unchecked(src :: Int(ws)) :: δ:
   cond
-  | w1 ≤ w2:
+  | wd ≥ ws:
       src
-  | ub.allowed:
+  | wd < ws:
       prim.trunc_nsw(src, ~to: δ)
-  | ub.suppressed:
-      prim.trunc(src, ~to: δ)
-  | ub.checked:
-      if src ≥ δ.min_value && src ≤ δ.max_value
-      | prim.trunc_nsw(src, ~to: δ)
-      | panic()
 
-method (specl UInt(w2) as δ).cast_exact(src :: Int(w1)) :: δ:
+method (specl UInt(wd) as δ).cast_exact_unchecked(src :: UInt(ws)) :: δ:
   cond
-  | w1 == w2:
-      if ub.checked && src < 0
-      | panic()
-      | prim.retype(src, ~to: δ)
-  | w1 < w2:
-      cond
-      | ub.allowed:
-          prim.zext_nneg(src, ~to: δ)
-      | ub.suppressed:
-          prim.zext(src, ~to: δ)
-      | ub.checked:
-          if src < 0
-          | panic()
-          | prim.zext_nneg(src, ~to: δ)
-  | w1 > w2:
-      cond
-      | ub.allowed:
-          prim.trunc_nuw(src, ~to: δ)
-      | ub.suppressed:
-          prim.trunc(src, ~to: δ)
-      | ub.checked:
-          if src ≥ δ.min_value && src ≤ δ.max_value
-          | prim.trunc_nuw(src, ~to: δ)
-          | panic()
-
-method (specl UInt(w2) as δ).cast_exact(src :: UInt(w1)) :: δ:
-  cond
-  | w1 ≤ w2:
+  | wd ≥ ws:
       src
-  | ub.allowed:
+  | wd < ws:
       prim.trunc_nuw(src, ~to: δ)
-  | ub.suppressed:
-      prim.trunc(src, ~to: δ)
-  | ub.checked:
-      if src ≤ δ.max_value
-      | prim.trunc_nuw(src, ~to: δ)
-      | panic()
 
-method (specl Int(w2) as δ).cast_exact(src :: UInt(w1)) :: δ:
+method (specl Int(wd) as δ).cast_exact_unchecked(src :: UInt(ws)) :: δ:
   cond
-  | w1 < w2:
+  | wd > ws:
       src
-  | w1 == w2:
-      if ub.checked && src > δ.max_value
-      | panic()
-      | prim.retype(src, ~to: δ)
-  | ub.allowed:
+  | wd == ws:
+      prim.retype(src, ~to: δ)
+  | wd < ws:
+      prim.trunc_nuw_nsw(src, ~to: δ)
+
+method (specl UInt(wd) as δ).cast_exact_unchecked(src :: Int(ws)) :: δ:
+  cond
+  | wd > ws:
+      prim.zext_nneg(src, ~to: δ)
+  | wd == ws:
+      prim.retype(src, ~to: δ)
+  | wd < ws:
       prim.trunc_nuw(src, ~to: δ)
-  | ub.suppressed:
-      prim.trunc(src, ~to: δ)
-  | ub.checked:
-      if src ≤ δ.max_value
-      | prim.trunc_nuw(src, ~to: δ)
-      | panic()
 
 //==============================================================================
 method (specl BinaryInteger as δ).cast_wrap(specl src :: int) :: δ:
@@ -377,48 +416,3 @@ method (specl Int(w2) as δ).cast_wrap(src :: UInt(w1)) :: δ:
       prim.retype(src, ~to: δ)
   | w1 > w2:
       prim.trunc(src, ~to: δ)
-
-//==============================================================================
-method (rhs :: α && BinaryInteger).$not() :: α:
-  prim.not(rhs)
-
-method (lhs :: α && BinaryInteger).$and(rhs :: α) :: α:
-  prim.and(lhs, rhs)
-
-method (lhs :: α && BinaryInteger).$or(rhs :: α) :: α:
-  prim.or(lhs, rhs)
-
-method (lhs :: α && BinaryInteger).$xor(rhs :: α) :: α:
-  prim.xor(lhs, rhs)
-
-//==============================================================================
-method (lhs :: (Int(w) || UInt(w)) as α).$shl(rhs :: BinaryInteger) :: α:
-  cond
-  | ub.allowed || rhs in 0..w:
-      prim.shl(lhs, α.cast_exact(rhs))
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: (Int(w) || UInt(w)) as α).$shl(specl rhs :: int) :: α:
-  specl.assert(rhs ≥ 0 && rhs < w)
-  prim.shl(lhs, rhs :: α)
-
-method (lhs :: (Int(w) || UInt(w)) as α).$shr(rhs :: BinaryInteger) :: α:
-  cond
-  | ub.allowed || rhs in 0..w:
-      let rhs = α.cast_exact(rhs)
-      specl.match α
-      | Int(_): prim.ashr(lhs, rhs)
-      | UInt(_): prim.lshr(lhs, rhs)
-  | ub.suppressed:
-      0
-  | ub.checked:
-      panic()
-
-method (lhs :: (Int(w) || UInt(w)) as α).$shr(specl rhs :: int) :: α:
-  specl.assert(rhs ≥ 0 && rhs < w)
-  specl.match α
-  | Int(_): prim.ashr(lhs, rhs :: α)
-  | UInt(_): prim.lshr(lhs, rhs :: α)

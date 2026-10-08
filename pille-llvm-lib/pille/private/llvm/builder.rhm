@@ -254,6 +254,15 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     | val:
         val
 
+  method create_trunc_nuw_nsw(~name = "", src, dst_type) :~ Value:
+    match create_trunc(~name, src, dst_type)
+    | inst :: TruncInst:
+        inst.nuw_flag := #true
+        inst.nsw_flag := #true
+        inst
+    | val:
+        val
+
   method create_zext_nneg(~name = "", src, dst_type) :~ Value:
     match create_zext(~name, src, dst_type)
     | inst :: ZExtInst:

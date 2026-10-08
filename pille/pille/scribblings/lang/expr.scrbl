@@ -195,6 +195,16 @@
 }
 
 @doc(
+  unique_member add_unchecked
+  operator lhs +! rhs:
+    ~transparent
+    ~order: addition
+){
+  Like @pille_expr(+), but without @managed_ub_tech{managing
+  undefined behavior}.
+}
+
+@doc(
   unique_member sub
   operator lhs - rhs:
     ~transparent
@@ -228,6 +238,21 @@
 }
 
 @doc(
+  unique_member sub_unchecked
+  operator lhs -! rhs:
+    ~transparent
+    ~order: addition
+
+  unique_member neg_unchecked
+  operator -!rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(-), but without @managed_ub_tech{managing
+  undefined behavior}.
+}
+
+@doc(
   unique_member mul
   operator lhs * rhs:
     ~transparent
@@ -247,12 +272,32 @@
 }
 
 @doc(
+  unique_member mul_unchecked
+  operator lhs *! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(*), but without @managed_ub_tech{managing
+  undefined behavior}.
+}
+
+@doc(
   unique_member div
   operator lhs / rhs:
     ~transparent
     ~order: multiplication
 ){
   Like @pille_expr(+), but for division.
+}
+
+@doc(
+  unique_member div_unchecked
+  operator lhs /! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(/), but without @managed_ub_tech{managing
+  undefined behavior}.
 }
 
 @doc(
@@ -265,6 +310,16 @@
 }
 
 @doc(
+  unique_member div_trunc_unchecked
+  operator lhs /←! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(/←), but without
+  @managed_ub_tech{managing undefined behavior}.
+}
+
+@doc(
   unique_member div_floor
   operator lhs /↓ rhs:
     ~transparent
@@ -274,12 +329,32 @@
 }
 
 @doc(
+  unique_member div_floor_unchecked
+  operator lhs /↓! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(/↓), but without
+  @managed_ub_tech{managing undefined behavior}.
+}
+
+@doc(
   unique_member div_ceil
   operator lhs /↑ rhs:
     ~transparent
     ~order: multiplication
 ){
   Like @pille_expr(/), but rounded towards @rhombus(#inf).
+}
+
+@doc(
+  unique_member div_ceil_unchecked
+  operator lhs /↑! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(/↑), but without
+  @managed_ub_tech{managing undefined behavior}.
 }
 
 @doc(
@@ -302,6 +377,16 @@
 }
 
 @doc(
+  unique_member rem_unchecked
+  operator lhs %! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(%), but without @managed_ub_tech{managing
+  undefined behavior}.
+}
+
+@doc(
   unique_member rem_trunc
   operator lhs %← rhs:
     ~transparent
@@ -309,6 +394,16 @@
 ){
   Like @pille_expr(%), but specifically the remainder of
   truncating division (as in @pille_expr(/←)).
+}
+
+@doc(
+  unique_member rem_trunc_unchecked
+  operator lhs %←! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(%←), but without
+  @managed_ub_tech{managing undefined behavior}.
 }
 
 @doc(
@@ -322,6 +417,16 @@
 }
 
 @doc(
+  unique_member rem_floor_unchecked
+  operator lhs %↓! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(%↓), but without
+  @managed_ub_tech{managing undefined behavior}.
+}
+
+@doc(
   unique_member rem_ceil
   operator lhs %↑ rhs:
     ~transparent
@@ -329,6 +434,16 @@
 ){
   Like @pille_expr(%), but specifically the remainder of
   ceiling division (as in @pille_expr(/↑)).
+}
+
+@doc(
+  unique_member rem_ceil_unchecked
+  operator lhs %↑! rhs:
+    ~transparent
+    ~order: multiplication
+){
+  Like @pille_expr(%↑), but without
+  @managed_ub_tech{managing undefined behavior}.
 }
 
 @doc(
@@ -413,6 +528,27 @@
 }
 
 @doc(
+  unique_member shl_wrap
+
+  operator lhs <<% rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(<<), but with guaranteed wrapping
+  behavior.
+}
+
+@doc(
+  unique_member shl_unchecked
+  operator lhs <<! rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(<<), but without
+  @managed_ub_tech{managing undefined behavior}.
+}
+
+@doc(
   unique_member shr
 
   operator lhs >> rhs:
@@ -420,6 +556,27 @@
     ~order: bitwise_shift
 ){
   Like @pille_expr(+), but for a bitwise right shift.
+}
+
+@doc(
+  unique_member shr_wrap
+
+  operator lhs >>% rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(>>), but with guaranteed wrapping
+  behavior.
+}
+
+@doc(
+  unique_member shr_unchecked
+  operator lhs >>! rhs:
+    ~transparent
+    ~order: bitwise_shift
+){
+  Like @pille_expr(>>), but without
+  @managed_ub_tech{managing undefined behavior}.
 }
 
 @doc(

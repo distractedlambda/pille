@@ -18,26 +18,6 @@ unify(Specl(_ :: boolean), Boolean):
   Boolean
 
 //==============================================================================
-method (b :: Boolean).$not():
-  !b
-
-method (lhs :: Boolean).$and(rhs :: Boolean):
-  prim.and(lhs, rhs)
-
-method (lhs :: Boolean).$or(rhs :: Boolean):
-  prim.or(lhs, rhs)
-
-method (lhs :: Boolean).$xor(rhs :: Boolean):
-  prim.xor(lhs, rhs)
-
-//==============================================================================
-method (lhs :: Boolean).$eq(rhs :: Boolean):
-  lhs === rhs
-
-method (lhs :: Boolean).$ne(rhs :: Boolean):
-  lhs !== rhs
-
-//==============================================================================
 method (test :: Boolean).select(then :: τ, else :: ε) :: α:
   ~where α = unify(τ, ε)
   prim.select(test, then :: α, else :: α)

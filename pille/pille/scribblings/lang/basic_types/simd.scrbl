@@ -62,21 +62,51 @@
 }
 
 @doc(
-  method (rhs :: α && Simd(Bitwise, _)).$not() :: α
+  method (rhs :: Simd(Bitwise, _) as α).$not() :: α
+  method (lhs :: Simd(Bitwise, _) as α).$and(rhs :: α) :: α
+  method (lhs :: Simd(Bitwise, _) as α).$or(rhs :: α) :: α
+  method (lhs :: Simd(Bitwise, _) as α).$xor(rhs :: α) :: α
 
-  method (lhs :: α && Simd(Bitwise, _)).$and(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger || FloatingPoint, _) as α).$add(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger || FloatingPoint, _) as α).$sub(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger || FloatingPoint, _) as α).$mul(rhs :: α) :: α
+  method (rhs :: Simd(Int(_) || FloatingPoint, _) as α).$neg() :: α
 
-  method (lhs :: α && Simd(Bitwise, _)).$or(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as α).$add_wrap(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as α).$sub_wrap(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α
+  method (rhs :: Simd(BinaryInteger, _) as α).$neg_wrap() :: α
 
-  method (lhs :: α && Simd(Bitwise, _)).$xor(rhs :: α) :: α
-){}
+  method (lhs :: Simd(BinaryInteger, _) as α).$add_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as α).$sub_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(BinaryInteger, _) as α).$mul_unchecked(rhs :: α) :: α
+  method (rhs :: Simd(Int(_), _) as α).$neg_unchecked() :: α
+
+  method (lhs :: Simd(BinaryInteger, _) as α).$div_trunc(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$div_floor(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_) || FloatingPoint, _) as α).$div(rhs :: α) :: α
+
+  method (lhs :: Simd(BinaryInteger, _) as α).$div_trunc_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$div_floor_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$div_unchecked(rhs :: α) :: α
+
+  method (lhs :: Simd(BinaryInteger || FloatingPoint, _) as α).$rem_trunc(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$rem_floor(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$rem(rhs :: α) :: α
+
+  method (lhs :: Simd(BinaryInteger, _) as α).$rem_trunc_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$rem_floor_unchecked(rhs :: α) :: α
+  method (lhs :: Simd(UInt(_), _) as α).$rem_unchecked(rhs :: α) :: α
+){
+  Overloads for a variety of operators, lifted to
+  @pille_specl_expr(Simd) values by applying them
+  independently along each lane.
+}
 
 @doc(
-  method (smd :: Simd(α && Bitwise, n)).reduce_and() :: α
-
-  method (smd :: Simd(α && Bitwise, n)).reduce_or() :: α
-
-  method (smd :: Simd(α && Bitwise, n)).reduce_xor() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_and() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_or() :: α
+  method (smd :: Simd(Bitwise as α, _)).reduce_xor() :: α
 ){
   Parallel reduction operations: these are equivalent to a
   serial reduction that folds over one lane at a time, but
@@ -84,23 +114,15 @@
 }
 
 @doc(
-  method (smd :: Simd(Boolean, n)).all() :: Boolean
-
-  method (smd :: Simd(Boolean, n)).any() :: Boolean
-
-  method (smd :: Simd(Boolean, n)).parity() :: Boolean
+  method (smd :: Simd(Boolean, _)).all() :: Boolean
+  method (smd :: Simd(Boolean, _)).any() :: Boolean
+  method (smd :: Simd(Boolean, _)).parity() :: Boolean
 ){
   Equivalent to the @tt{reduce_and}, @tt{reduce_or}, and
   @tt{reduce_xor} methods, respectively. These names are
   intended for when @rhombus(smd) represents the result of
   some logical predicate.
 }
-
-@doc(
-  method (lhs :: Simd(BinaryInteger, _) as α).$add_wrap(rhs :: α) :: α
-
-  method (lhs :: Simd(BinaryInteger, _) as α).$mul_wrap(rhs :: α) :: α
-){}
 
 @doc(
   method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(

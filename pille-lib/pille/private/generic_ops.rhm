@@ -89,8 +89,10 @@ export generic_binops:
   (∨, logical_disjunction, or)
   (⊻, logical_disjunction, xor)
   (<<, bitwise_shift, shl)
+  (<<%, bitwise_shift, shl_wrap) ~no_specl
   (<<!, bitwise_shift, shl_unchecked) ~no_specl
   (>>, bitwise_shift, shr)
+  (>>%, bitwise_shift, shr_wrap) ~no_specl
   (>>!, bitwise_shift, shr_unchecked) ~no_specl
   (==, equivalence, eq) ~no_specl
   (!=, equivalence, ne) ~no_specl
