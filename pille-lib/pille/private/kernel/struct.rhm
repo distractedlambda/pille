@@ -129,7 +129,9 @@ class StructType(
     caches.unkeyed.get_or_compute(
       ~get_cache: fun(): cached_backing_tuple_type,
       ~set_cache: (cached_backing_tuple_type := _),
-      fun(): TupleType(species.concretize_fields(specl_args)))
+      fun():
+        ImplicitKey.with_empty_env(_) <| fun():
+          TupleType(species.concretize_fields(specl_args)))
 
   private field cached_backing_tuple_type = caches.unkeyed.init()
 
@@ -139,57 +141,57 @@ class StructType(
 
   //============================================================================
   override compute_rhombus_interop():
-    // TODO check for implicits
-    let to_rhombus_concr:
-      resolve_overload(
-        this,
-        unique_member.symbol(to_rhombus),
-        [])
+    ImplicitKey.with_empty_env(_) <| fun():
+      let to_rhombus_concr:
+        resolve_overload(
+          this,
+          unique_member.symbol(to_rhombus),
+          [])
 
-    guard to_rhombus_concr.inout_mask == 0
-    | error(
-        ~exn: Exn.Fail.Concretize,
-        "'$to_rhombus' method must not take receiver as 'inout'")
+      guard to_rhombus_concr.inout_mask == 0
+      | error(
+          ~exn: Exn.Fail.Concretize,
+          "'$to_rhombus' method must not take receiver as 'inout'")
 
-    let carrier_type = to_rhombus_concr.result_type
-    let carrier_interop = carrier_type.rhombus_interop
+      let carrier_type = to_rhombus_concr.result_type
+      let carrier_interop = carrier_type.rhombus_interop
 
-    let from_rhombus_concr:
-      resolve_overload(
-        SpeclType(this),
-        unique_member.symbol(from_rhombus),
-        [carrier_type])
+      let from_rhombus_concr:
+        resolve_overload(
+          SpeclType(this),
+          unique_member.symbol(from_rhombus),
+          [carrier_type])
 
-    guard from_rhombus_concr.inout_mask == 0
-    | error(
-        ~exn: Exn.Fail.Concretize,
-        "'$from_rhombus' method must not take receiver or argument as 'inout'")
+      guard from_rhombus_concr.inout_mask == 0
+      | error(
+          ~exn: Exn.Fail.Concretize,
+          "'$from_rhombus' method must not take receiver or argument as 'inout'")
 
-    let from_rhombus_coe:
-      resolve_coercer(
-        from_rhombus_concr.result_type,
-        this)
+      let from_rhombus_coe:
+        resolve_coercer(
+          from_rhombus_concr.result_type,
+          this)
 
-    Type.RhombusInteropSpec(
-      ~byte_size:
-        carrier_interop.byte_size,
-      ~write_from_rhombus:
-        carrier_interop.write_from_rhombus,
-      ~read_from_pille:
-        let carrier_read_low = carrier_interop.read_from_pille
-        let from_rhombus_low = from_rhombus_concr.lower_call
-        fun(slot):
-          let carrier_val = carrier_read_low(slot)
-          let [from_rhombus_val] = from_rhombus_low({}, [#false, carrier_val])
-          from_rhombus_coe({}, from_rhombus_val),
-      ~write_from_pille:
-        let to_rhombus_low = to_rhombus_concr.lower_call
-        let carrier_write_low = carrier_interop.write_from_pille
-        fun(slot, this_val):
-          let [carrier_val] = to_rhombus_low([], [this_val])
-          carrier_write_low(slot, carrier_val),
-      ~read_from_rhombus:
-        carrier_interop.read_from_rhombus)
+      Type.RhombusInteropSpec(
+        ~byte_size:
+          carrier_interop.byte_size,
+        ~write_from_rhombus:
+          carrier_interop.write_from_rhombus,
+        ~read_from_pille:
+          let carrier_read_low = carrier_interop.read_from_pille
+          let from_rhombus_low = from_rhombus_concr.lower_call
+          fun(slot):
+            let carrier_val = carrier_read_low(slot)
+            let [from_rhombus_val] = from_rhombus_low({}, [#false, carrier_val])
+            from_rhombus_coe({}, from_rhombus_val),
+        ~write_from_pille:
+          let to_rhombus_low = to_rhombus_concr.lower_call
+          let carrier_write_low = carrier_interop.write_from_pille
+          fun(slot, this_val):
+            let [carrier_val] = to_rhombus_low([], [this_val])
+            carrier_write_low(slot, carrier_val),
+        ~read_from_rhombus:
+          carrier_interop.read_from_rhombus)
 
   //============================================================================
   private implements Printable
