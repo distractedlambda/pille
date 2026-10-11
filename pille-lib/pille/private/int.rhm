@@ -137,7 +137,7 @@ method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$add(rhs :: α) 
       | Simd(UInt(_), _):
           let res = prim.uadd_with_overflow(lhs, rhs)
           [res[0], res[1].any()]
-      when res[1] | panic()
+      when res[1] | panic("integer overflow or underflow")
       res[0]
 
 method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$sub(rhs :: α) :: α:
@@ -158,7 +158,7 @@ method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$sub(rhs :: α) 
       | Simd(UInt(_), _):
           let res = prim.usub_with_overflow(lhs, rhs)
           [res[0], res[1].any()]
-      when res[1] | panic()
+      when res[1] | panic("integer overflow or underflow")
       res[0]
 
 method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$mul(rhs :: α) :: α:
@@ -179,7 +179,7 @@ method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$mul(rhs :: α) 
       | Simd(UInt(_), _):
           let res = prim.umul_with_overflow(lhs, rhs)
           [res[0], res[1].any()]
-      when res[1] | panic()
+      when res[1] | panic("integer overflow or underflow")
       res[0]
 
 method (rhs :: (Int(_) || Simd(Int(_), _)) as α).$neg() :: α:
@@ -239,7 +239,7 @@ method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$div_trunc(rhs :
   | ub.suppressed:
       0
   | ub.checked:
-      panic()
+      panic("invalid integer division")
 
 method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$rem_trunc(rhs :: α) :: α:
   cond
@@ -248,7 +248,7 @@ method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$rem_trunc(rhs :
   | ub.suppressed:
       0
   | ub.checked:
-      panic()
+      panic("invalid integer division")
 
 fun div_is_safe(lhs :: α, rhs :: α):
   specl.match α
@@ -314,7 +314,7 @@ method (lhs :: (Int(w) || UInt(w)) as α).$shl(rhs :: BinaryInteger) :: α:
   | ub.suppressed:
       lhs <<% rhs
   | ub.checked:
-      unless rhs in 0..w | panic()
+      unless rhs in 0..w | panic("shift amount out of range")
       lhs <<! rhs
 
 method (lhs :: (Int(w) || UInt(w)) as α).$shl(specl rhs :: int) :: α:
@@ -328,7 +328,7 @@ method (lhs :: (Int(w) || UInt(w)) as α).$shr(rhs :: BinaryInteger) :: α:
   | ub.suppressed:
       lhs >>% rhs
   | ub.checked:
-      unless rhs in 0..w | panic()
+      unless rhs in 0..w | panic("shift amount out of range")
       lhs >>! rhs
 
 method (lhs :: (Int(w) || UInt(w)) as α).$shr(specl rhs :: int) :: α:
@@ -345,7 +345,7 @@ method (specl BinaryInteger as δ).cast_exact(src :: BinaryInteger as σ) :: δ:
   | ub.suppressed:
       δ.cast_wrap(src)
   | ub.checked:
-      unless src ≥ δ.min_value ∧ src ≤ δ.max_value | panic()
+      unless src ≥ δ.min_value ∧ src ≤ δ.max_value | panic("src value out of range")
       δ.cast_exact_unchecked(src)
 
 method (specl BinaryInteger as δ).cast_exact(src :: Specl(_ :: int) as σ) :: δ:

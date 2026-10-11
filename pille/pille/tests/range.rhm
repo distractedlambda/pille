@@ -47,11 +47,11 @@ check:
 check:
   pille:
     for (i ∈ 1..1):
-      panic()
+      panic("shouldn't get here")
   ~completes
 
 check:
   pille:
     for (i ∈ (1 :: Int(32))..1):
-      panic()
+      panic("shouldn't get here")
   ~completes

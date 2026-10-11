@@ -134,7 +134,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.sadd_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
@@ -152,7 +152,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.uadd_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 //==============================================================================
@@ -171,7 +171,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
       let new = prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
       let overflow = offset.$sparse_data > 0 && new ≤ ptr.$sparse_data
       let underflow = offset.$sparse_data < 0 && new ≥ ptr.$sparse_data
-      when mask.select(overflow ∨ underflow, #false).any() | panic()
+      when mask.select(overflow ∨ underflow, #false).any() | panic("pointer arithmetic overflow/underflow")
       new
   .{data, mask}
 
@@ -189,7 +189,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   | ub.checked:
       let new = prim.ptradd(ptr.$sparse_data, offset.$sparse_data)
       let overflow = new < ptr.$sparse_data
-      when mask.select(overflow, #false).any() | panic()
+      when mask.select(overflow, #false).any() | panic("pointer arithmetic overflow")
       new
   .{data, mask}
 
@@ -257,7 +257,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.ssub_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
@@ -275,7 +275,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.usub_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 //==============================================================================
@@ -322,7 +322,7 @@ method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.smul_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
@@ -340,7 +340,7 @@ method (mask :: Simd(Boolean, n)).sparse_mul(lhs :: α, rhs :: β) :: γ:
       check_mask_covers(mask, lhs)
       check_mask_covers(mask, rhs)
       let res = prim.umul_with_overflow(lhs.$sparse_data, rhs.$sparse_data)
-      when mask.select(res[1], #false).any() | panic()
+      when mask.select(res[1], #false).any() | panic("integer overflow/underflow")
       .{res[0], mask}
 
 //==============================================================================
@@ -362,7 +362,7 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
           .{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
-          unless mask.select(nonzero, #true).all() | panic()
+          unless mask.select(nonzero, #true).all() | panic("integer division by 0")
           .{opt_vp_udiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
@@ -392,7 +392,7 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
           .{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask.select(nonzero, #false)),
             #void}
       | ub.checked:
-          unless mask.select(nonzero, #true).all() | panic()
+          unless mask.select(nonzero, #true).all() | panic("integer division by 0")
           .{opt_vp_urem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
@@ -423,7 +423,7 @@ method (mask :: Simd(Boolean, n)).sparse_div_trunc(lhs :: α, rhs :: β) :: γ:
           .{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
-          unless mask.select(safe, #true).all() | panic()
+          unless mask.select(safe, #true).all() | panic("invalid integer division")
           .{opt_vp_sdiv(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
@@ -450,7 +450,7 @@ method (mask :: Simd(Boolean, n)).sparse_rem_trunc(lhs :: α, rhs :: β) :: γ:
           .{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask.select(safe, #false)),
             #void}
       | ub.checked:
-          unless mask.select(safe, #true).all() | panic()
+          unless mask.select(safe, #true).all() | panic("invalid integer division")
           .{opt_vp_srem(lhs.$sparse_data, rhs.$sparse_data, mask),
             mask}
 
@@ -594,12 +594,12 @@ fun check_align
 | (ptr :: RawPtr, specl align :: alignment) :: Void:
     // FIXME: deduplicate this code
     unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
-    | panic()
+    | panic("misaligned pointer")
 | (mask :: Simd(Boolean, n), ptrs :: Simd(RawPtr, n), specl align :: alignment) :: Void:
     let ptr_ints = prim.ptrtoint(ptrs, ~to: Simd(NativeUInt, n))
     let misalignments = ptr_ints ∧ (align - 1)
     let misaligned = mask.select(misalignments != 0, #false)
-    when misaligned.any() | panic()
+    when misaligned.any() | panic("misaligned pointer")
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_load(
@@ -739,7 +739,7 @@ coercion (cast :: SparseCastExact(Int(w1), n)) :: δ && SparseSimd(Int(w2), n):
   | ub.checked:
       let src_data = cast.src.$sparse_data
       let in_bounds = (src_data ≥ Int(w2).min_value) ∧ (src_data ≤ Int(w2).max_value)
-      unless cast.mask.select(in_bounds, #true).all() | panic()
+      unless cast.mask.select(in_bounds, #true).all() | panic("src value out of bounds")
       .{prim.trunc_nsw(src_data, ~to: Simd(Int(w2), n)),
         cast.mask}
 
@@ -756,7 +756,7 @@ coercion (cast :: SparseCastExact(UInt(w1), n)) :: δ && SparseSimd(UInt(w2), n)
   | ub.checked:
       let src_data = cast.src.$sparse_data
       let in_bounds = src_data ≤ UInt(w2).max_value
-      unless cast.mask.select(in_bounds, #true).all() | panic()
+      unless cast.mask.select(in_bounds, #true).all() | panic("src value out of bounds")
       .{prim.trunc_nuw(src_data, ~to: Simd(UInt(w2), n)),
         cast.mask}
 
@@ -789,4 +789,4 @@ method (mask :: Simd(Boolean, n)).sparse_assign(inout dst :: δ && SparseSimd(_,
 //==============================================================================
 fun check_mask_covers(mask :: Simd(Boolean, n), smd :: SparseSimd(_, n)) :: Void:
   unless (mask ∧ smd.$sparse_mask) === mask
-  | panic()
+  | panic("SparseSimd masking error")

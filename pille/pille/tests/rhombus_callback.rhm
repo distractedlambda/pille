@@ -25,11 +25,11 @@ check:
 
 check:
   pille:
-    panic()
+    panic("this is just a test")
     #void // TODO: support Never results here instead
-  ~throws "panic"
+  ~throws "this is just a test"
 
 check:
   pille(x :: Int(8) = 42, y :: Int(8) = 99):
     x + y
-  ~throws "panic"
+  ~throws "integer overflow or underflow"

@@ -11,7 +11,7 @@ import:
 //==============================================================================
 fun check_align(ptr :: RawPtr, specl align :: alignment) :: Void:
   unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
-  | panic()
+  | panic("misaligned pointer")
 
 //==============================================================================
 method (ptr :: RawPtr).load(specl α :: type) :: α:
@@ -55,7 +55,7 @@ method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
   | ub.checked:
       let new = prim.ptradd(ptr, offset)
       if (offset > 0 && new ≤ ptr) || (offset < 0 && new ≥ ptr)
-      | panic()
+      | panic("pointer arithmetic overflow/underflow")
       | new
 
 method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
@@ -68,7 +68,7 @@ method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
   | ub.checked:
       let new = prim.ptradd(ptr, offset)
       if new < ptr
-      | panic()
+      | panic("pointer arithmetic overflow")
       | new
 
 method (ptr :: RawPtr).$add(specl offset :: int) :: RawPtr:

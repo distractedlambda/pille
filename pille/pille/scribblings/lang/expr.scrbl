@@ -1148,11 +1148,19 @@
 @section{Aborting Execution}
 
 @doc(
-  fun panic() :: Never
+  fun panic(
+    specl msg :: string,
+    specl loc :: maybe(srcloc),
+  ) :: Never
+
+  fun panic(specl msg :: string) :: Never
 ){
-  Signals an unrecoverable error and aborts execution. This
+  Signals an unrecoverable error and aborts execution; this
   is the canonical way to ``abort'' or ``halt and catch
-  fire''.
+  fire''. The optional @rhombus(loc) argument gives a source
+  location to be associated with the error; direct calls to
+  the single-argument form fill in this second argument
+  automatically (with the source location of the call).
 
   When using @tech{hosted execution}, this function only
   aborts the active @rhombus(pille) form (causing it to
