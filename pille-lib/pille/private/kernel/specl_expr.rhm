@@ -63,6 +63,8 @@ space.enforest specl_expr:
     | '$(_ :: Number)'
     | '$(_ :: Boolean)'
     | '$(_ :: String)'
+    | '$t':
+        match_when t.unwrap() is_a Srcloc
 
   export:
     eval

@@ -186,6 +186,7 @@
   | $number
   | $boolean
   | $string
+  | $srcloc
 ){}
 
 @doc(
