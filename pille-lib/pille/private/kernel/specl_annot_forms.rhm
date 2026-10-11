@@ -110,3 +110,7 @@ fun guard_matching(thunk):
     thunk()
     ~catch exn :: Exn.Fail.Concretize.Recoverable:
       #false
+
+//==============================================================================
+export specl_annot.macro 'maybe($(ann :: specl_annot_meta.Parsed))':
+  '$ann || matching(#false)'

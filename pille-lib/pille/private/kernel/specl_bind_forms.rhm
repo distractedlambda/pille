@@ -38,10 +38,6 @@ export specl_bind.macro '#%parens($child)':
   child
 
 //==============================================================================
-export specl_bind.macro '#%literal $(value :: specl_expr_meta.Literal)':
-  specl_bind_meta.pack_equal_to('#%literal $value')
-
-//==============================================================================
 export specl_bind.macro '$lhs :: $(rhs :: specl_annot_meta.AfterInfixParsed('::')) $()':
   ~weaker_than: ~other
   ~associativity: ~none

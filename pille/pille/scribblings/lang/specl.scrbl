@@ -386,6 +386,10 @@
 ){}
 
 @doc(
+  specl_annot.macro 'maybe($specl_annot)'
+){}
+
+@doc(
   specl_annot.macro 'matching($specl_bind)'
 ){}
 

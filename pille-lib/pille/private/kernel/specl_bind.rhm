@@ -303,3 +303,7 @@ fun disjunction_impl(srcloc, &arms):
       ~exn: Exn.Fail.Concretize.Recoverable,
       "no matching alternative",
       error.cause(each exns), ...)
+
+//==============================================================================
+export specl_bind.macro '#%literal $(value :: specl_expr_meta.Literal)':
+  specl_bind_meta.pack_equal_to('#%literal $value')
