@@ -367,6 +367,7 @@
   specl_annot.macro 'boolean'
   specl_annot.macro 'string'
   specl_annot.macro 'number'
+  specl_annot.macro 'srcloc'
   specl_annot.macro 'type'
 ){}
 

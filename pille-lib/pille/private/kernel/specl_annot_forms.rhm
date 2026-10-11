@@ -64,6 +64,7 @@ export rhombus_annots:
   pos_real: PosReal
   rational: Rational
   real: Real
+  srcloc: Srcloc
   string: String
   type: Type
 
