@@ -36,7 +36,7 @@ export specl_expr.macro '$lhs = $rhs':
   syntax_meta.error("not a specialization operator", op)
 
 //==============================================================================
-export specl_expr.macro '#%parens($child)':
+export specl_expr.macro '#%parens($(child :: specl_expr_meta.Parsed))':
   child
 
 //==============================================================================

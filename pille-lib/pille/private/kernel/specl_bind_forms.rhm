@@ -34,7 +34,7 @@ fun wildcard(_):
   values()
 
 //==============================================================================
-export specl_bind.macro '#%parens($child)':
+export specl_bind.macro '#%parens($(child :: specl_bind_meta.Parsed))':
   child
 
 //==============================================================================

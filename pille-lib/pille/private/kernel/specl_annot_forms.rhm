@@ -12,7 +12,7 @@ meta export only_space namespace:
   specl_annot_meta
 
 //==============================================================================
-export specl_annot.macro '#%parens($child)':
+export specl_annot.macro '#%parens($(child :: specl_annot_meta.Parsed))':
   child
 
 //==============================================================================

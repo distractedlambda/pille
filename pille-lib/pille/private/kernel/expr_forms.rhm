@@ -30,7 +30,7 @@ meta syntax_class pille_expr_meta.DollarOp:
 | '$(bound_as pille_expr_meta.space: '$')'
 
 //==============================================================================
-export pille_expr.macro '#%parens($child)':
+export pille_expr.macro '#%parens($(child :: pille_expr_meta.Parsed))':
   child
 
 //==============================================================================
