@@ -89,6 +89,13 @@ fun make_range_from(start :: α) :: RangeFrom(α):
 
 fun make_range(start :: α, stop :: β) :: Range(γ):
   ~where γ = unify(α, β)
+
+  let start = start :: γ
+  let stop = stop :: γ
+
+  when ub.checked && stop < start
+  | panic("inverted range")
+
   .{start, stop}
 
 fun make_range_to(stop :: α) :: RangeTo(α):

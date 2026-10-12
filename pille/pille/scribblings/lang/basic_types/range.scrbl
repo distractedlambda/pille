@@ -56,6 +56,11 @@
   @pille_specl_expr(RangeFrom) (the second case),
   @pille_specl_expr(RangeTo) (the third case), or
   @pille_specl_expr(RangeFull) (the fourth case).
+
+  In the @pille_specl_expr(Range)-creating form, it is
+  @tech{managed undefined behavior} for the result of
+  @rhombus(end_expr) to be less than (in the sense of
+  @pille_expr(<)) the result of @rhombus(start_expr).
 }
 
 @doc(
