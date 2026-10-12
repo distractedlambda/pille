@@ -132,21 +132,16 @@ specl.method (lhs :: number).$pow(rhs :: number):
     lhs ** rhs
 
 //==============================================================================
-export specl.operator lhs == rhs:
-  ~order: equivalence
+specl.method (lhs).$eq(rhs):
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs == rhs
 
 //==============================================================================
-export specl.operator lhs != rhs:
-  ~order: equivalence
+specl.method (lhs).$ne(rhs):
   #%rhombus(lhs, rhs):
     import rhombus/static open
     lhs != rhs
-
-export only_space specl_expr:
-  rename != as ≠
 
 //==============================================================================
 specl.method (lhs :: comparable).$lt(rhs :: comparable):

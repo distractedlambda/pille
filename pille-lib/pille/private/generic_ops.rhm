@@ -94,8 +94,8 @@ export generic_binops:
   (>>, bitwise_shift, shr)
   (>>%, bitwise_shift, shr_wrap) ~no_specl
   (>>!, bitwise_shift, shr_unchecked) ~no_specl
-  (==, equivalence, eq) ~no_specl
-  (!=, equivalence, ne) ~no_specl
+  (==, equivalence, eq)
+  (!=, equivalence, ne)
   (<, order_comparison, lt)
   (>, order_comparison, gt)
   (<=, order_comparison, le)

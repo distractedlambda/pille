@@ -274,10 +274,13 @@
 ){}
 
 @doc(
-  specl.operator (lhs :: any) == (rhs :: any) :: boolean
-  specl.operator (lhs :: any) != (rhs :: any) :: boolean
-  specl.operator (lhs :: any) ≠ (rhs :: any) :: boolean
+  specl.operator lhs == rhs
+  specl.operator lhs != rhs
+  specl.operator lhs ≠ rhs
   operator_order: ~order: equivalence
+
+  specl.method (lhs :: any).$eq(rhs :: any) :: boolean
+  specl.method (lhs :: any).$ne(rhs :: any) :: boolean
 ){}
 
 @doc(
