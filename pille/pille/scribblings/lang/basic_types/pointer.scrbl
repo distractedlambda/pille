@@ -1,7 +1,14 @@
 #lang rhombus/scribble/manual
 
 @(import:
-    "common.rhm" open)
+    "common.rhm" open
+    meta_label:
+      rhombus/static:
+        expose:
+          Nat
+      ffi:
+        expose:
+          ptr_t)
 
 @title(~tag: "Basic_Types_Pointers"){Pointers}
 
@@ -237,6 +244,116 @@
 ){
   Like the corresponding methods on
   @pille_specl_expr(RawPtr).
+}
+
+@//=============================================================================
+@section{Slices}
+
+A @deftech{slice} is a pointer paired with a length,
+representing a contiguous span of memory.
+
+@doc(
+  struct RawSlice:
+    ptr :: RawPtr
+    len :: USize
+
+  struct Slice(α :: type):
+    ptr :: Ptr(α)
+    len :: USize
+
+  struct SliceMut(α :: type):
+    ptr :: PtrMut(α)
+    len :: USize
+){}
+
+@doc(
+  specl_bind.macro 'SliceOf($specl_bind)'
+){
+  Matches both @pille_specl_bind(Slice(specl_bind)) and
+  @pille_specl_bind(SliceMut(specl_bind)).
+}
+
+@doc(
+  specl_bind.macro 'AnySlice'
+){
+  Matches all @pille_specl_expr(RawSlice),
+  @pille_specl_expr(Slice), and @pille_specl_expr(SliceMut)
+  types.
+}
+
+@doc(
+  specl.property (RawSlice).Ptr:
+    RawPtr
+
+  specl.property (Slice(α)).Ptr:
+    Ptr(α)
+
+  specl.property (SliceMut(α)).Ptr:
+    PtrMut(α)
+){
+  Provides uniform access to any slice type's corresponding
+  pointer type.
+}
+
+@doc(
+  coercion (src :: SliceMut(α)) :: Slice(α)
+){}
+
+@doc(
+  coercion (src :: SliceOf(_)) :: RawSlice
+){}
+
+@doc(
+  method (s :: AnySlice as σ).$to_rhombus() :: Tuple(σ.Ptr, USize)
+
+  method (specl AnySlice as σ).$from_rhombus(parts) :: σ
+){
+  Overloads that make slices @tech{interoperable} with
+  Rhombus as @rhm_annot([ptr_t, Nat]) tuples.
+}
+
+@doc(
+  method (s :: SliceOf(α))
+    .$index_read(i :: Integral) :: α
+
+  method (s :: SliceMut(α))
+    .$index_write(i :: Integral, val :: CoercesTo(α)) :: Void
+){
+  Overloads providing indexed access to the elements of a
+  slice.
+}
+
+@doc(
+  property (s :: SliceOf(_)).$start_index :: USize
+  property (s :: SliceOf(_)).$end_index :: USize
+  method (s :: SliceOf(_)).$next_index(i :: USize) :: USize
+){
+  Overloads that allow slices to act as sequences (in forms
+  like @pille_expr(for)).
+}
+
+@doc(
+  property (s :: SliceOf(_)).indices :: Range(USize)
+){
+  Provides convenient access to a @pille_specl_expr(Range)
+  of the valid indices into slice.
+}
+
+@doc(
+  method (s :: AnySlice as σ)
+    .$index_read(rng :: Range(Integral)) :: σ
+
+  method (s :: AnySlice as σ)
+    .$index_read(rng :: RangeFrom(Integral)) :: σ
+
+  method (s :: AnySlice as σ)
+    .$index_read(rng :: RangeTo(Integral)) :: σ
+
+  method (s :: AnySlice as σ)
+    .$index_read(rng :: RangeFull) :: σ
+){
+  Overloads for constructing sub-slices with
+  @pille_expr(#%index) notation.
 }
 
 @//=============================================================================

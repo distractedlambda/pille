@@ -1,0 +1,112 @@
+#lang pille/private/kernel
+
+import:
+  "cond.rhm" open
+  "generic_ops.rhm" open
+  "int.rhm" open
+  "iter.rhm" open
+  "panic.rhm" open
+  "pointer.rhm" open
+  "range.rhm" open
+  "specl_ops.rhm" open
+  "type_traits.rhm" open
+
+//==============================================================================
+export struct RawSlice:
+  ptr :: RawPtr
+  len :: USize
+
+export struct Slice(α :: type):
+  ptr :: Ptr(α)
+  len :: USize
+
+export struct SliceMut(α :: type):
+  ptr :: PtrMut(α)
+  len :: USize
+
+export specl_bind.macro 'SliceOf($(α :: specl_bind_meta.Parsed))':
+  '(Slice(β) || SliceMut(β)) where $α = β'
+
+export specl_bind.macro 'AnySlice':
+  'RawSlice || SliceOf(_)'
+
+//==============================================================================
+specl.property (RawSlice).Ptr:
+  RawPtr
+
+specl.property (Slice(α)).Ptr:
+  Ptr(α)
+
+specl.property (SliceMut(α)).Ptr:
+  PtrMut(α)
+
+//==============================================================================
+coercion (src :: SliceMut(α)) :: Slice(α):
+  .{src.ptr, src.len}
+
+coercion (src :: SliceOf(α)) :: RawSlice:
+  .{src.ptr, src.len * α.byte_stride}
+
+//==============================================================================
+method (s :: AnySplice).$to_rhombus():
+   [s.ptr, s.len]
+
+method (specl AnySlice as δ).$from_rhombus(parts) :: δ:
+  .{parts[0], parts[1]}
+
+//==============================================================================
+property (s :: SliceOf(_)).indices :: Range(USize):
+  0..s.len
+
+property (s :: SliceOf(_)).$start_index :: USize:
+  0
+
+property (s :: SliceOf(_)).$end_index :: USize:
+  s.len
+
+method (s :: SliceOf(_)).$next_index(i :: USize) :: USize:
+  i + 1
+
+method (s :: SliceOf(α)).$index_read(i :: Integral) :: α:
+  range_check(s, i)
+  s.ptr[i]
+
+method (s :: SliceMut(α)).$index_write(i :: Integral, val :: CoercesTo(α)) :: Void:
+  range_check(s, i)
+  s.ptr[i] := val
+
+fun range_check
+| (s :: AnySlice, specl i :: neg_int):
+    specl.error("negative slice index")
+| (s :: AnySlice, i :: Integral):
+    unless ub.allowed || i ∈ s.indices
+    | panic("slice index out of bounds")
+
+//==============================================================================
+method (s :: AnySlice as σ).$index_read(rng :: Range(Integral)) :: σ:
+  let start = USize.cast_exact(rng.start)
+  let end = USize.cast_exact(rng.end)
+
+  when ub.checked && (start < 0 ∨ end > s.len)
+  | panic("slice subrange out of bounds")
+
+  .{s.ptr + start, end - start}
+
+method (s :: AnySlice as σ).$index_read(rng :: RangeFrom(Integral)) :: σ:
+  let start = USize.cast_exact(rng.start)
+
+  when ub.checked && (start < 0 ∨ start > s.len)
+  | panic("slice subrange out of bounds")
+
+  .{s.ptr + start, s.len - start}
+
+method (s :: AnySlice as σ).$index_read(rng :: RangeTo(Integral)) :: σ:
+  let end = USize.cast_exact(rng.end)
+
+  when ub.checked && (end < 0 ∨ end > s.len)
+  | panic("slice subrange out of bounds")
+
+  .{s.ptr, end}
+
+method (s :: AnySlice as σ).$index_read(rng :: RangeFull) :: σ:
+  s
