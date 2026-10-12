@@ -68,14 +68,16 @@ import self!global_jit open
 //==============================================================================
 module pille_ext ~lang rhombus/static:
   import:
-    pille open
-    parent!global_jit open
+    "private/rhm_panic.rhm" open
     "private/runtime/ub_policy.rhm" open
+    parent!global_jit open
+    pille open
 
   export:
+    Panic
+    UbPolicy
     all_from(pille)
     configure_jit
-    UbPolicy
 
 import self!pille_ext as pille
 

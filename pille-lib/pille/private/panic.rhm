@@ -2,6 +2,7 @@
 
 import:
   "cond.rhm" open
+  "rhm_panic.rhm" open
 
 export expr.macro
 | 'panic($msg)':
@@ -16,7 +17,7 @@ fun do_panic
     | using_hosted_execution:
         rhombus(loc, msg):
           import rhombus/static open
-          error(~srcloc: loc, msg)
+          error(~exn: Panic, ~srcloc: loc, msg)
         prim.unreachable
     | ~else:
         prim.trap

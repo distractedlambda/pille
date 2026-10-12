@@ -1,0 +1,5 @@
+#lang rhombus/static/and_meta
+
+export class Panic():
+  ~name: pille.Panic
+  extends Exn.Fail

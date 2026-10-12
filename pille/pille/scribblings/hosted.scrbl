@@ -99,6 +99,16 @@ itself (for qualified access to everything else).
   not a correctness concern.
 }
 
+@section{Handling Panics}
+
+@doc(
+  class pille.Panic():
+    extends Exn.Fail
+){
+  The kind of exception thrown when the body of a
+  @rhombus(pille) form panics.
+}
+
 @section{Configuring the JIT}
 
 @doc(
