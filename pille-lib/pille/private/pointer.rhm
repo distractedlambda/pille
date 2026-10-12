@@ -10,7 +10,7 @@ import:
 
 //==============================================================================
 fun check_align(ptr :: RawPtr, specl align :: alignment) :: Void:
-  unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
+  unless prim.ptrtoint(ptr, ~to: USize) % align == 0
   | panic("misaligned pointer")
 
 //==============================================================================
@@ -46,7 +46,7 @@ method (ptr :: RawPtr).store(value :: α, specl align :: alignment) :: Void:
 
 //==============================================================================
 method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
-  let offset = NativeInt.cast_exact(offset)
+  let offset = ISize.cast_exact(offset)
   cond
   | ub.allowed:
       prim.ptradd ~inbounds (ptr, offset)
@@ -59,7 +59,7 @@ method (ptr :: RawPtr).$add(offset :: Int(_)) :: RawPtr:
       | new
 
 method (ptr :: RawPtr).$add(offset :: UInt(_)) :: RawPtr:
-  let offset = NativeUInt.cast_exact(offset)
+  let offset = USize.cast_exact(offset)
   cond
   | ub.allowed:
       prim.ptradd ~inbounds ~nuw (ptr, offset)
@@ -76,13 +76,13 @@ method (ptr :: RawPtr).$add(specl offset :: int) :: RawPtr:
   | offset == 0:
       ptr
   | offset > 0:
-      ptr + (offset :: NativeUInt)
+      ptr + (offset :: USize)
   | offset < 0:
-      ptr + (offset :: NativeInt)
+      ptr + (offset :: ISize)
 
 //==============================================================================
 method (ptr :: RawPtr).$sub(amount :: BinaryInteger) :: RawPtr:
-  ptr + (- NativeInt.cast_exact(amount))
+  ptr + (- ISize.cast_exact(amount))
 
 method (ptr :: RawPtr).$sub(specl amount :: int) :: RawPtr:
   ptr + (-amount)
@@ -148,11 +148,11 @@ method (specl φ && PtrTo(_)).$from_rhombus(raw :: RawPtr):
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$add(offset :: UInt(_)) :: φ:
-  let offset = NativeUInt.cast_exact(offset)
+  let offset = USize.cast_exact(offset)
   .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(offset :: Int(_)) :: φ:
-  let offset = NativeInt.cast_exact(offset)
+  let offset = ISize.cast_exact(offset)
   .{ptr.raw + offset * α.byte_stride}
 
 method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
@@ -160,7 +160,7 @@ method (ptr :: φ && PtrTo(α)).$add(specl offset :: int) :: φ:
 
 //==============================================================================
 method (ptr :: φ && PtrTo(α)).$sub(amount :: BinaryInteger) :: φ:
-  ptr + (- NativeInt.cast_exact(amount))
+  ptr + (- ISize.cast_exact(amount))
 
 method (ptr :: φ && PtrTo(α)).$sub(specl amount :: int) :: φ:
   ptr + (-amount)

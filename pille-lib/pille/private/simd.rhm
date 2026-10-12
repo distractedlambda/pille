@@ -65,11 +65,11 @@ method (smd :: Simd(Boolean, n)).parity() :: Boolean:
 
 //==============================================================================
 method (ptrs :: Simd(RawPtr, n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
-  let offsets = Simd(NativeInt, n).cast_wrap(offsets)
+  let offsets = Simd(ISize, n).cast_wrap(offsets)
   prim.ptradd(ptrs, offsets)
 
 method (ptrs :: Simd(PtrTo(α), n) as φ).$add_wrap(offsets :: Simd(BinaryInteger, n)) :: φ:
-  let offsets = Simd(NativeInt, n).cast_wrap(offsets)
+  let offsets = Simd(ISize, n).cast_wrap(offsets)
   let offsets = offsets *% α.byte_stride
   prim.ptradd(ptrs, offsets)
 
@@ -161,7 +161,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   offset :: SparseSimd(Int(_), n),
 ) :: SparseSimd(RawPtr, n):
   when ub.checked | check_mask_covers(mask, ptr)
-  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeInt, n)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(ISize, n)
   let data = cond
   | ub.allowed:
       prim.ptradd ~inbounds (ptr.$sparse_data, offset.$sparse_data)
@@ -180,7 +180,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   offset :: SparseSimd(UInt(_), n),
 ) :: SparseSimd(RawPtr, n):
   when ub.checked | check_mask_covers(mask, ptr)
-  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeUInt, n)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(USize, n)
   let data = cond
   | ub.allowed:
       prim.ptradd ~inbounds ~nuw (ptr.$sparse_data, offset.$sparse_data)
@@ -202,16 +202,16 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   | offset == 0:
       ptr
   | offset > 0:
-      mask.sparse_add(ptr, offset :: SparseSimd(NativeUInt, n))
+      mask.sparse_add(ptr, offset :: SparseSimd(USize, n))
   | offset < 0:
-      mask.sparse_add(ptr, offset :: SparseSimd(NativeInt, n))
+      mask.sparse_add(ptr, offset :: SparseSimd(ISize, n))
 
 //==============================================================================
 method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: φ && SparseSimd(PtrTo(α), n),
   offset :: SparseSimd(Int(_), n),
 ) :: φ:
-  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeInt, n)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(ISize, n)
   let offset = mask.sparse_mul(offset, α.byte_stride)
   prim.retype(
     mask.sparse_add(
@@ -223,7 +223,7 @@ method (mask :: Simd(Boolean, n)).sparse_add(
   ptr :: φ && SparseSimd(PtrTo(α), n),
   offset :: SparseSimd(UInt(_), n),
 ) :: φ:
-  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(NativeUInt, n)
+  let offset = mask.sparse_cast_exact(offset) :: SparseSimd(USize, n)
   let offset = mask.sparse_mul(offset, α.byte_stride)
   prim.retype(
     mask.sparse_add(
@@ -283,7 +283,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(
   ptr :: SparseSimd(RawPtr, n),
   amount :: SparseSimd(BinaryInteger, n),
 ) :: SparseSimd(RawPtr, n):
-  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(NativeInt, n)
+  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(ISize, n)
   mask.sparse_add(ptr, mask.sparse_neg(amount))
 
 method (mask :: Simd(Boolean, n)).sparse_sub(
@@ -297,7 +297,7 @@ method (mask :: Simd(Boolean, n)).sparse_sub(
   ptr :: φ && SparseSimd(PtrTo(_), n),
   amount :: SparseSimd(BinaryInteger, n),
 ) :: φ:
-  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(NativeInt, n)
+  let amount = mask.sparse_cast_exact(amount) :: SparseSimd(ISize, n)
   mask.sparse_add(ptr, mask.sparse_neg(amount))
 
 method (mask :: Simd(Boolean, n)).sparse_sub(
@@ -593,10 +593,10 @@ method (mask :: Simd(Boolean, n)).sparse_ge(lhs :: α, rhs :: β) :: SparseSimd(
 fun check_align
 | (ptr :: RawPtr, specl align :: alignment) :: Void:
     // FIXME: deduplicate this code
-    unless prim.ptrtoint(ptr, ~to: NativeUInt) % align == 0
+    unless prim.ptrtoint(ptr, ~to: USize) % align == 0
     | panic("misaligned pointer")
 | (mask :: Simd(Boolean, n), ptrs :: Simd(RawPtr, n), specl align :: alignment) :: Void:
-    let ptr_ints = prim.ptrtoint(ptrs, ~to: Simd(NativeUInt, n))
+    let ptr_ints = prim.ptrtoint(ptrs, ~to: Simd(USize, n))
     let misalignments = ptr_ints ∧ (align - 1)
     let misaligned = mask.select(misalignments != 0, #false)
     when misaligned.any() | panic("misaligned pointer")

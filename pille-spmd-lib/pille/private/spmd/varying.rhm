@@ -68,7 +68,7 @@ coercion (src :: #%SeqVarying(α, pc)) :: #%Varying(BinaryInteger as β, pc) as 
 
 coercion (src :: #%SeqVarying(PtrTo(_) as α, pc)) :: #%Varying(PtrTo(_) as β, pc) as δ:
   ~when α coerces_to β
-  δ{(src.$seq_start :: Simd(β, pc)) +% Simd(NativeUInt, pc).iota}
+  δ{(src.$seq_start :: Simd(β, pc)) +% Simd(USize, pc).iota}
 
 unify(#%SeqVarying(α, pc), #%Varying(β, pc)):
   #%Varying(unify(α, β), pc)

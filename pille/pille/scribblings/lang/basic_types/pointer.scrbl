@@ -15,7 +15,7 @@
   validly-dereferencable memory.
 
   In some regards a @pille_specl_expr(RawPtr) is like a
-  @pille_specl_expr(NativeUInt) representing a memory
+  @pille_specl_expr(USize) representing a memory
   address, but arithmetic on @pille_specl_expr(RawPtr)s
   carries additional restrictions to allow optimizers to
   better reason about aliasing.
@@ -85,7 +85,7 @@
   method (ptr :: RawPtr).$sub(amount :: BinaryInteger) :: RawPtr
 ){
   Equivalent to:
-  @rhombusblock(#,(pille_expr(ptr + (-(amount.cast_exact() :: NativeInt)))))
+  @rhombusblock(#,(pille_expr(ptr + (-(amount.cast_exact() :: ISize)))))
 }
 
 @doc(

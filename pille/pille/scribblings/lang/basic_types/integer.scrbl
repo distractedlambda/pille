@@ -13,7 +13,7 @@
 }
 
 @doc(
-  type NativeInt
+  type ISize
 ){
   An alias for the @pille_specl_expr(Int) type with the same
   number of bits as a pointer.
@@ -27,7 +27,7 @@
 }
 
 @doc(
-  type NativeUInt
+  type USize
 ){
   An alias for the @pille_specl_expr(UInt) type with the
   same number of bits as a pointer.

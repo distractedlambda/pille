@@ -9,10 +9,10 @@ import:
   "type_traits.rhm" open
 
 //==============================================================================
-export specl.def NativeInt:
+export specl.def ISize:
   Int(RawPtr.byte_size * 8)
 
-export specl.def NativeUInt:
+export specl.def USize:
   UInt(RawPtr.byte_size * 8)
 
 //==============================================================================

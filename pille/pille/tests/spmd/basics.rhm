@@ -8,7 +8,7 @@ import:
 check:
   let len = 57
   let buf = new uint32_t[len]
-  pille(buf :: PtrMut(UInt(32)), len :: NativeUInt):
+  pille(buf :: PtrMut(UInt(32)), len :: USize):
     spmd(8):
       par_for (idx in 0..len):
         buf[idx] := 42
