@@ -35,14 +35,15 @@ while providing the additional bindings documented below.
   The @rhombus(~expect_panic) and
   @rhombus(~expect_concr_fail) options are
   mutually-exclusive. If neither are supplied, then the test
-  is considered to have iff the @rhombus(body) concretizes
-  successfully and executes without panicking. If
-  @rhombus(~expect_panic) is supplied, then the
-  @rhombus(body) must still concretize, but it is expected
-  to panic during its execution (and the test fails if it
-  does not). If @rhombus(~expect_concr_fail) is supplied,
-  then the @rhombus(body) is expected to fail to concretize
-  (and the test fails if it concretizes successfully).
+  is considered to have passed iff the @rhombus(body)
+  concretizes successfully and executes without
+  panicking. If @rhombus(~expect_panic) is supplied, then
+  the @rhombus(body) must still concretize, but it is
+  expected to panic during its execution (and the test fails
+  if it does not). If @rhombus(~expect_concr_fail) is
+  supplied, then the @rhombus(body) is expected to fail to
+  concretize (and the test fails if it concretizes
+  successfully).
 
   When running the testsuite, each @pille_global_defn(test)
   is run once for each @tech{undefined behavior policy} (so,
