@@ -6,4 +6,5 @@
   '("base"
     "pille-llvm-lib"
     "rhombus-lib"
-    "shrubbery-lib"))
+    "shrubbery-lib"
+    "compiler-lib"))

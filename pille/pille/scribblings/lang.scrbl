@@ -23,3 +23,4 @@
 @include_section("lang/specl.scrbl")
 @include_section("lang/rhombus.scrbl")
 @include_section("lang/ub.scrbl")
+@include_section("lang/test.scrbl")

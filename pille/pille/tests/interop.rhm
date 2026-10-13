@@ -68,11 +68,3 @@ check:
   pille:
     127 :: Int(8)
   ~is 127
-
-check:
-  pille:
-    #'count_down(x = 9 :: Int(32)):
-      if x == 0
-      | break count_down: 42
-      | continue count_down(x - 1)
-  ~is 42

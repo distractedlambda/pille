@@ -1,51 +1,38 @@
-#lang rhombus/static
+#lang pille/testsuite
 
-import:
-  pille/hosted open
+implicit scale :: Specl(_ :: nat)
 
-pille.implicit scale :: Specl(_ :: nat)
+test:
+  using scale = 2
+  assert(scale == 2)
 
-pille.fun apply_scale(lhs, using scale):
+fun apply_scale(lhs, using scale):
   lhs * scale
 
-pille.fun apply_scale_twice(x, using scale):
+test:
+  using scale = 2
+  assert(apply_scale(4) == 8)
+
+fun apply_scale_twice(x, using scale):
   apply_scale(apply_scale(x))
 
-pille.fun apply_scale_twice_transparent(x):
+test:
+  using scale = 2
+  assert(apply_scale_twice(4) == 16)
+
+test:
+  ~expect_concr_fail
+  apply_scale_twice(4)
+
+fun apply_scale_twice_transparent(x):
   ~transparent
   apply_scale(apply_scale(x))
 
-check:
-  pille:
-    using scale = 2
-    scale
-  ~is 2
+test:
+  using scale = 2
+  assert(apply_scale_twice_transparent(4) == 16)
 
-check:
-  pille:
-    using scale = 2
-    apply_scale(4)
-  ~is 8
-
-check:
-  pille:
-    using scale = 2
-    apply_scale_twice(4)
-  ~is 16
-
-check:
-  pille:
-    apply_scale_twice(4)
-  ~throws "no applicable overload"
-
-check:
-  pille:
-    using scale = 2
-    apply_scale_twice_transparent(4)
-  ~is 16
-
-check:
-  pille:
-    using scale :: Int(32) = 4
-    #void
-  ~throws "binding requires a Specl type"
+test:
+  ~expect_concr_fail
+  using scale :: Int(32) = 4
+  #void

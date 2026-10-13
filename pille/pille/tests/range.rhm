@@ -1,57 +1,28 @@
-#lang rhombus/static
+#lang pille/testsuite
 
-import:
-  pille/hosted open
+test:
+  assert(5 ∈ 4..7)
+  assert((5 :: Int(32)) ∈ 4..7)
+  assert((5 :: Int(32)) ∈ 4..(7 :: Int(17)))
+  assert((5 :: Int(32)) ∈ (4 :: Int(8)) .. (7 :: Int(17)))
+  assert((5 :: Int(32)) ∉ (4 :: Int(8)) .. (5 :: Int(17)))
 
-check:
-  pille:
-    5 ∈ 4..7
-  ~is #true
+test:
+  var sum :: Int(32) = 0
+  for (i ∈ 1..10):
+    sum := sum + i
+  assert(sum == 45)
 
-check:
-  pille:
-    (5 :: Int(32)) ∈ 4..7
-  ~is #true
+test:
+  var sum :: Int(32) = 0
+  for (i ∈ 15..99, j ∈ 1..10):
+    sum := sum + j
+  assert(sum == 45)
 
-check:
-  pille:
-    (5 :: Int(32)) ∈ 4..(7 :: Int(17))
-  ~is #true
+test:
+  for (i ∈ 1..1):
+    panic("shouldn't get here")
 
-check:
-  pille:
-    (5 :: Int(32)) ∈ (4 :: Int(8)) .. (7 :: Int(17))
-  ~is #true
-
-check:
-  pille:
-    (5 :: Int(32)) ∈ (4 :: Int(8)) .. (5 :: Int(17))
-  ~is #false
-
-check:
-  pille:
-    var sum :: Int(32) = 0
-    for (i ∈ 1..10):
-      sum := sum + i
-    sum
-  ~is 45
-
-check:
-  pille:
-    var sum :: Int(32) = 0
-    for (i ∈ 15..99, j ∈ 1..10):
-      sum := sum + j
-    sum
-  ~is 45
-
-check:
-  pille:
-    for (i ∈ 1..1):
-      panic("shouldn't get here")
-  ~completes
-
-check:
-  pille:
-    for (i ∈ (1 :: Int(32))..1):
-      panic("shouldn't get here")
-  ~completes
+test:
+  for (i ∈ (1 :: Int(32))..1):
+    panic("shouldn't get here")
