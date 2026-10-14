@@ -150,10 +150,10 @@ meta:
   | '': field [arg, ...] = []
 
 export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
-  let [dyn_arg_syms, specl_arg_inits, dyn_arg_inits, stub_body]:
+  let [[dyn_arg_sym, ...], [specl_arg_init, ...], [dyn_arg_init, ...], stub_body]:
     recur process_args(
       args = [arg, ...],
-      dyn_arg_type_ids = [],
+      dyn_arg_type_ids :~ List = [],
       specl_arg_idx = 0,
     ):
       match args
@@ -201,10 +201,10 @@ export expr.macro 'pille $(_ :: MaybeArgs: open): $body':
 
   let stub = syntax_meta.lift_expr_to_before(
     'make_stub(
-       [#'$(each dyn_arg_syms), ...],
+       [#'$dyn_arg_sym, ...],
        fun(specl_arg_vals :~ List): $stub_body)')
 
-  '$stub([$(each specl_arg_inits), ...], [$(each dyn_arg_inits), ...])'
+  '$stub([$specl_arg_init, ...], [$dyn_arg_init, ...])'
 
 fun make_stub(
   dyn_arg_syms :: [Symbol, ...],
