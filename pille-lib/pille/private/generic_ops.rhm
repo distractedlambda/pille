@@ -215,6 +215,27 @@ export operator lhs ∉ rhs:
   ¬(lhs in rhs)
 
 //==============================================================================
+export unique_member contains_all
+
+export operator lhs ⊆ rhs:
+  ~order: equivalence
+  ~transparent
+  rhs.$contains_all(lhs)
+
+export specl.operator lhs ⊆ rhs:
+  ~order: equivalence
+  rhs.$contains_all(lhs)
+
+export operator lhs ⊄ rhs:
+  ~order: equivalence
+  ~transparent
+  ¬(lhs ⊆ rhs)
+
+export specl.operator lhs ⊄ rhs:
+  ~order: equivalence
+  ¬(lhs ⊆ rhs)
+
+//==============================================================================
 export only_space expr specl_expr:
   rename:
     ¬ as not

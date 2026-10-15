@@ -241,6 +241,16 @@
 ){}
 
 @doc(
+  specl.operator lhs ⊆ rhs:
+    ~order: equivalence
+    rhs.$contains_all(lhs)
+
+  specl.operator lhs ⊄ rhs:
+    ~order: equivalence
+    ¬(lhs ⊆ rhs)
+){}
+
+@doc(
   specl_expr.macro 'if $specl_expr
                     | $specl_expr
                     | $specl_expr'

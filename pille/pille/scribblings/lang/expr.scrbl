@@ -165,6 +165,20 @@
 }
 
 @doc(
+  unique_member contains_all
+
+  operator lhs ⊆ rhs:
+    ~order: equivalence
+    ~transparent
+    rhs.$contains_all(lhs)
+
+  operator lhs ⊄ rhs:
+    ~order: equivalence
+    ~transparent
+    ¬(lhs ⊆ rhs)
+){}
+
+@doc(
   unique_member add
   operator (lhs :: α) + (rhs :: β):
     ~transparent
