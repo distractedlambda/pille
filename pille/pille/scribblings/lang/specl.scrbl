@@ -257,6 +257,13 @@
 ){}
 
 @doc(
+  specl_expr.macro 'cond
+                    | $specl_expr: $specl_expr
+                    | ...
+                    | ~else: $specl_expr'
+){}
+
+@doc(
   specl_expr.macro 'match $specl_expr
                     | $specl_bind: $specl_expr
                     | $specl_bind: $specl_expr

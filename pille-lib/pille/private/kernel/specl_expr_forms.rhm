@@ -175,6 +175,20 @@ export specl_expr.macro 'if $(test :: specl_expr_meta.Parsed)
      | $(specl_expr_meta.unpack_rhombus_expr(else))')
 
 //==============================================================================
+export specl_expr.macro 'cond
+                         | $(test :: Group): $(body :: Group)
+                         | ...
+                         | ~else: $(else_body :: Group)':
+  recur roll(tests :~ List = [test, ...], bodies :~ List = [body, ...]):
+    match values(tests, bodies)
+    | ([], []):
+        else_body
+    | ([hd_test, &tests], [hd_body, &bodies]):
+        'if $hd_test
+         | $hd_body
+         | $(roll(tests, bodies))'
+
+//==============================================================================
 export specl_expr.macro 'any($(arg :: specl_expr_meta.Parsed), ...)':
   specl_expr_meta.pack_rhombus_expr(
     'any($(specl_expr_meta.unpack_rhombus_expr(arg)),
