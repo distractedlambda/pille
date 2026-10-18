@@ -17,8 +17,12 @@
   | ~name: $id_or_op_name
 
   grammar maybe_specl_args
-  | ($specl_bind, ...)
+  | ($specl_arg, ...)
   | ε
+
+  grammar specl_arg
+  | $specl_bind ~as $specl_member_name
+  | $specl_bind
 
   grammar field
   | $member_name #,(pille_expr(::)) $field_type
@@ -43,7 +47,11 @@
     @item{Otherwise, @rhombus(id_name) is bound to a
     specialization value (as if by
     @pille_global_defn(specl.def)) that is a unique
-    @pille_specl_annot(type).})
+    @pille_specl_annot(type).}
+
+    @item{In either case, @rhombus(id_name) is also bound as
+    a @tech{specialization annotation} (that does not take
+    any arguments).})
 
   Each @rhombus(field) defines a data member, where the
   respective @rhombus(field_type) computes the field's type
@@ -57,6 +65,12 @@
   @nontermref(member_name) as an assignable property of the
   new type(s), as if there were corresponding
   @pille_global_defn(property) definitions.
+
+  For each @rhombus(specl_arg) that ends in
+  @rhombus(~as specl_member_name), the value of that
+  argument can be accessed as a specialization property of
+  the new type(s), as if there were a corresponding
+  @pille_global_defn(specl.property) definition.
 
   A definition for the @pille_expr($new) method (usually
   invoked implicitly by the @pille_expr(#%comp) operator) is

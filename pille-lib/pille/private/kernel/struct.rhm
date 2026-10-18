@@ -9,6 +9,8 @@ import:
   "method.rhm" open
   "method_call.rhm" open
   "rhombus_interop.rhm" open
+  "specl_annot.rhm" open
+  "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
   "specl_def.rhm" open
   "specl_expr.rhm" open
@@ -20,12 +22,21 @@ import:
 
 //==============================================================================
 meta:
+  syntax_class SpeclArg:
+    kind: ~group
+    fields:
+      bind
+      property_name :~ maybe(Syntax.matched_of(specl_expr_meta.MemberName))
+  | '$(bind :: NonemptySequence) ~as $(property_name :: specl_expr_meta.MemberName)'
+  | '$(bind :: Group)':
+      field property_name = #false
+
   syntax_class SpeclArgs:
     kind: ~sequence
     fields:
       present :~ Boolean
-      [arg, ...]
-  | '($arg, ...)':
+      [arg :~ Syntax.matched_of(SpeclArg), ...]
+  | '($(arg :: SpeclArg), ...)':
       field present = #true
   | '':
       field present = #false
@@ -69,19 +80,24 @@ export defn.macro 'struct $(name :: IdentifierName) $(specl_args :: SpeclArgs) $
        $(Function.count(body.field, ...)),
        fun(specl_arg_vals):
          specl_bind.compile(
-           specl_bind.parallel_bindings($specl_args.arg, ...),
+           specl_bind.parallel_bindings($specl_args.arg.bind, ...),
            specl_arg_vals,
            [$body.field.rhombus_type_expr, ...]))
 
    define_struct_methods(
      species,
-     [$body.field.name.symbol_expr, ...])
+     [$body.field.name.symbol_expr, ...],
+     [$(specl_args.arg.property_name?.symbol_expr), ...])
 
    def type_extractor:
      make_struct_type_extractor(species)
 
+   specl_annot $name:
+     $(specl_annot_meta.pack_rhombus_predicate(
+         'make_struct_annot_predicate(species)'))
+
    $(if specl_args.present
-     | let [specl_arg_id, ...] = [Syntax.make_temp_id(specl_args.arg), ...]
+     | let [specl_arg_id, ...] = [Syntax.make_temp_id(specl_args.arg.bind), ...]
        '«specl.fun $name($specl_arg_id, ...):
            ~name: $display_name
            #%rhombus($specl_arg_id, ...):
@@ -214,9 +230,19 @@ fun make_struct_type_extractor(species :~ StructSpecies):
     values(&target.specl_args)
 
 //==============================================================================
+fun make_struct_annot_predicate(species :~ StructSpecies):
+  fun(target):
+    match target
+    | target :: _StructType when target.species === species:
+        #true
+    | ~else:
+        #false
+
+//==============================================================================
 fun define_struct_methods(
   species :: StructSpecies,
   field_names :: [Symbol, ...],
+  specl_arg_names :: [maybe(Symbol), ...],
 ):
   // Field properties
   for (field_name in field_names, field_idx in 0..):
@@ -262,6 +288,19 @@ fun define_struct_methods(
                    receiver_val,
                    slot,
                    new_value_coe({}, new_value_val))]))
+
+  // Specl arg properties
+  for (name in specl_arg_names, idx in 0..):
+    keep_when name
+    SpeclOverload.register(
+      ~selector:
+        ReadSelector(name),
+      ~impl:
+        fun(receiver, args :~ List):
+          guard.let [] = args | #false
+          guard.let receiver :: _StructType = receiver | #false
+          guard receiver.species === species | #false
+          receiver.specl_args[idx])
 
 //==============================================================================
 // Baseline `$new` implementation
