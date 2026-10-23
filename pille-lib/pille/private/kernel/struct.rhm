@@ -87,7 +87,9 @@ export defn.macro 'struct $(name :: IdentifierName) $(specl_args :: SpeclArgs) $
    define_struct_methods(
      species,
      [$body.field.name.symbol_expr, ...],
-     [$(specl_args.arg.property_name?.symbol_expr), ...])
+     [$(body.field.name.srcloc()), ...],
+     [$(specl_args.arg.property_name?.symbol_expr), ...],
+     [$(specl_args.arg.property_name?.srcloc()), ...])
 
    def type_extractor:
      make_struct_type_extractor(species)
@@ -242,12 +244,15 @@ fun make_struct_annot_predicate(species :~ StructSpecies):
 fun define_struct_methods(
   species :: StructSpecies,
   field_names :: [Symbol, ...],
+  field_srclocs :: [maybe(Srcloc), ...],
   specl_arg_names :: [maybe(Symbol), ...],
+  specl_arg_srclocs :: [maybe(Srcloc), ...]
 ):
   // Field properties
-  for (field_name in field_names, field_idx in 0..):
+  for (field_name in field_names, srcloc in field_srclocs, field_idx in 0..):
     // Read
     Overload.register(
+      ~srcloc,
       ~selector:
         ReadSelector(field_name),
       ~concretizer:
@@ -290,9 +295,10 @@ fun define_struct_methods(
                    new_value_coe({}, new_value_val))]))
 
   // Specl arg properties
-  for (name in specl_arg_names, idx in 0..):
+  for (name in specl_arg_names, srcloc in specl_arg_srclocs, idx in 0..):
     keep_when name
     SpeclOverload.register(
+      ~srcloc,
       ~selector:
         ReadSelector(name),
       ~impl:
