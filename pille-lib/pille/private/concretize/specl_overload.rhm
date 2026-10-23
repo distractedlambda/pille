@@ -76,8 +76,11 @@ class SpeclOverload(
         let result:
           try:
             ovl.impl(receiver, args)
-            ~catch exn :: Exn.Fail.Concretize.Recoverable:
-              esc(find_match(overloads, exns ++ [exn]))
+            ~catch
+            | _ :: Exn.Fail.Concretize.Recoverable.Inapplicable:
+                esc(find_match(overloads, exns))
+            | exn :: Exn.Fail.Concretize.Recoverable:
+                esc(find_match(overloads, exns ++ [exn]))
         recur check_ambiguity(overloads :~ [SpeclOverload, ...] = overloads):
           guard.let [other_ovl, &overloads] = overloads
           | result

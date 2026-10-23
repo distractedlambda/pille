@@ -100,8 +100,11 @@ class Overload(
         guard.let concr!!:
           try:
             ovl.concretizer(receiver_type, arg_types)
-            ~catch exn :: Exn.Fail.Concretize.Recoverable:
-              esc(find_match(overloads, exns ++ [exn]))
+            ~catch
+            | _ :: Exn.Fail.Concretize.Recoverable.Inapplicable:
+                esc(find_match(overloads, exns))
+            | exn :: Exn.Fail.Concretize.Recoverable:
+                esc(find_match(overloads, exns ++ [exn]))
         | find_match(overloads, exns)
         recur check_ambiguity(overloads :~ [Overload, ...] = overloads):
           guard.let [other_ovl, &overloads] = overloads

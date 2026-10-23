@@ -303,9 +303,9 @@ fun define_struct_methods(
         ReadSelector(name),
       ~impl:
         fun(receiver, args :~ List):
-          guard.let [] = args | #false
-          guard.let receiver :: _StructType = receiver | #false
-          guard receiver.species === species | #false
+          guard.let [] = args | inapplicable_overload()
+          guard.let receiver :: _StructType = receiver | inapplicable_overload()
+          guard receiver.species === species | inapplicable_overload()
           receiver.specl_args[idx])
 
 //==============================================================================

@@ -38,6 +38,18 @@ class Exn.Fail.Concretize.Recoverable():
     super(message, marks, self_srclocs, clauses)()
 
 //==============================================================================
+class Exn.Fail.Concretize.Recoverable.Inapplicable():
+  extends Exn.Fail.Concretize.Recoverable
+
+  constructor(message, marks, self_srclocs, clauses):
+    super(message, marks, self_srclocs, clauses)()
+
+export fun inapplicable_overload() :: Never:
+  error(
+    ~exn: Exn.Fail.Concretize.Recoverable.Inapplicable,
+    "inapplicable overload")
+
+//==============================================================================
 class error.Cause(exn :: Exn.Fail):
   extends error.Clause
 
