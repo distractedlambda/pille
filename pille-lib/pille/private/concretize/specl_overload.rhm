@@ -97,7 +97,7 @@ class SpeclOverload(
                 ~details: ["two overloads disagree, and neither takes priority"],
                 error.text(~label: "first overload", ovl.srcloc?.to_report_string() || "???"),
                 error.val(~label: "first overload's result", result),
-                error.text(~label: "second overload", ovl.srcloc?.to_report_string() || "???"),
+                error.text(~label: "second overload", other_ovl.srcloc?.to_report_string() || "???"),
                 error.val(~label: "second overload's result", other_result),
                 error.val(~label: "receiver", receiver),
                 error.val(~label: "selector", selector),
