@@ -403,3 +403,13 @@ test:
 test:
   ~expect_concr_fail
   assert(1 :: Int(32))
+
+//==============================================================================
+// Undefined behavior policies
+
+test:
+  // Exactly one policy is active.
+  specl.let n:
+    (if ub.checked | 1 | 0) + (if ub.suppressed | 1 | 0) + (if ub.allowed | 1 | 0)
+  specl.assert(n == 1)
+  #void
