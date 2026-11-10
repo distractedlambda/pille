@@ -431,3 +431,17 @@ test:
   let a :: Float = 1.5
   let b :: Float = 1.5
   assert(a === b)
+
+//==============================================================================
+// `cond` arms with mixed-sign specialization integers
+
+fun classify_unannotated(n :: Int(32)):
+  cond
+  | n < 0: -1
+  | n == 0: 0
+  | ~else: 1
+
+test:
+  assert(classify_unannotated(-5 :: Int(32)) == -1)
+  assert(classify_unannotated(0 :: Int(32)) == 0)
+  assert(classify_unannotated(5 :: Int(32)) == 1)
