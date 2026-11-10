@@ -4,7 +4,12 @@ module reader ~lang rhombus/reader:
   ~lang "testsuite.rhm"
 
 import:
+  "private/runtime/compiler.rhm" open
+  "private/runtime/jit_linker.rhm" open
   "private/util/syntax.rhm" open
+  "hosted.rhm"!global_jit:
+    expose:
+      with_jit_linker
   lib("racket/base.rkt")
   lib("raco/testing.rkt")
   pille except #%module_block
@@ -68,9 +73,13 @@ export defn.macro 'test: $(_ :: TestBody: open)':
          $expect_panic,
          $expect_concr_fail,
          fun():
-           all(
-             pille.specl_expr.eval($guard_expr),
-             ...),
+           // Guards such as `ub.checked` need to know which compiler
+           // they're running under.
+           with_jit_linker(_) <| fun(linker :~ JitLinker):
+             parameterize { Compiler.current: linker.compiler }:
+               all(
+                 pille.specl_expr.eval($guard_expr),
+                 ...),
          fun():
            hosted.pille:
              $body))'
