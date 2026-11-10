@@ -1,0 +1,11 @@
+#lang pille/testsuite
+
+// The other tests for `#%rhombus` are in specl.rhm. This one has its own
+// file so that a syntax error here doesn't keep those from running.
+
+test:
+  specl.let n:
+    #%rhombus(x = 20, y = 1):
+      import rhombus/static open
+      x * 2 + y
+  specl.assert(n == 41)
