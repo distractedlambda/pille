@@ -258,3 +258,27 @@ test:
   let v :: Simd(Int(8), 4) = -128 :: Int(8)
   v /← (-1 :: Int(8))
   #void
+
+//==============================================================================
+// Unifying vector types
+
+test:
+  let a = Simd(Int(8), 4).iota
+  let b = Simd(Int(16), 4).iota
+  assert(type_of(a + b) == Simd(Int(16), 4))
+  assert(((a + b) == b + b).all())
+  let c :: Boolean = #true
+  assert(type_of(if c | a | b) == Simd(Int(16), 4))
+
+test:
+  specl.assert(unify(Simd(UInt(8), 4), Simd(Int(8), 4)) == Simd(Int(9), 4))
+  specl.assert(unify(Simd(UInt(8), 4), SparseSimd(UInt(8), 4)) == SparseSimd(UInt(8), 4))
+  #void
+
+test:
+  // Sparse operations accept a dense operand alongside a sparse one.
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  let s :: SparseSimd(UInt(8), 4) = v
+  assert(on.sparse_refine_mask(on.sparse_eq(s, v)).all())
+  assert(on.sparse_refine_mask(on.sparse_eq(on.sparse_add(s, v), v + v)).all())
