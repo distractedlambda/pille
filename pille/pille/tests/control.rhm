@@ -413,3 +413,21 @@ test:
     (if ub.checked | 1 | 0) + (if ub.suppressed | 1 | 0) + (if ub.allowed | 1 | 0)
   specl.assert(n == 1)
   #void
+
+//==============================================================================
+// Representational equivalence of floating-point values
+
+test:
+  // `===` compares bits, so NaN is equivalent to itself even though it is
+  // not `==` to itself.
+  let zero :: Double = 0.0
+  let nan = zero / zero
+  assert(nan === nan)
+  let negzero :: Double = -0.0
+  assert(zero == negzero)
+  assert(zero !== negzero)
+
+test:
+  let a :: Float = 1.5
+  let b :: Float = 1.5
+  assert(a === b)
