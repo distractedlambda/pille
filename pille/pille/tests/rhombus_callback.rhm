@@ -33,3 +33,37 @@ check:
   pille(x :: Int(8) = 42, y :: Int(8) = 99):
     x + y
   ~throws "integer overflow or underflow"
+
+check:
+  // An argument without `=` passes the Pille variable with the same name.
+  pille(x :: UInt(32) = 20):
+    rhombus(x) :: UInt(32):
+      x + 1
+  ~is 21
+
+check:
+  // The default result type is `Void`.
+  pille:
+    rhombus:
+      #void
+  ~is #void
+
+check:
+  pille:
+    rhombus(t = [1 :: Int(8), #true :: Boolean]) :: Tuple(Int(8), Boolean):
+      let [n, b] = t
+      [n + 1, !b]
+  ~is [2, #false]
+
+check:
+  pille:
+    rhombus(x = 2.5 :: Double) :: Double:
+      x * 2
+  ~is 5.0
+
+check:
+  // The result has to be representable by the result type.
+  pille:
+    rhombus :: UInt(8):
+      256
+  ~throws "argument does not satisfy annotation"

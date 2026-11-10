@@ -1,0 +1,239 @@
+#lang pille/testsuite
+
+// Comparing a sparse value with a dense one would need `Simd` and
+// `SparseSimd` to unify, so this makes the dense side sparse first.
+fun sparse(x :: Simd(α, n)) :: SparseSimd(α, n):
+  x
+
+//==============================================================================
+// Dense vectors
+
+test:
+  // Scalars broadcast to every lane.
+  let v :: Simd(Int(32), 4) = 3 :: Int(32)
+  assert((v == 3).all())
+  let w :: Simd(Int(32), 4) = 5
+  assert((w == 5).all())
+
+test:
+  let v = Simd(UInt(8), 4).iota
+  assert(type_of(v) == Simd(UInt(8), 4))
+  // The lanes are 0, 1, 2, 3.
+  assert(v.reduce_or() == 3)
+  assert(v.reduce_and() == 0)
+  assert(v.reduce_xor() == 0)
+  assert((v < 4).all())
+  assert((v == 2).any())
+  assert(!(v == 7).any())
+  assert(!(v < 2).all())
+  assert(!(v < 2).parity())
+  assert((v < 3).parity())
+
+test:
+  let v = Simd(Int(16), 4).iota
+  let w = v + 1
+  // The lanes of w are 1, 2, 3, 4.
+  assert(w.reduce_or() == 7)
+  assert(w.reduce_xor() == 4)
+  assert(((v - w) == -1).all())
+  assert(((w * w) - (w + w) == (v * v) - 1).all())
+  assert((-v ≤ 0).all())
+  assert(((w * 6) /←! w == 6).all())
+  assert(((w + 4) %←! w == (4 %←! w)).all())
+
+test:
+  // Checked division doesn't concretize for `Simd` values under the
+  // `check` policy yet, because coercing `Never` to `Simd` is ambiguous.
+  ~when !ub.checked
+  let v = Simd(Int(16), 4).iota
+  let w = v + 1
+  assert(((w * 6) /← w == 6).all())
+  assert(((w + 4) %← w == (4 %← w)).all())
+
+test:
+  let v = Simd(UInt(16), 4).iota
+  let w = v + 1
+  assert(((v +% 1) == w).all())
+  assert(((w -% 1) == v).all())
+  assert(((v *% 2) == v + v).all())
+  assert(((v +! 1) == w).all())
+  assert(((w -! 1) == v).all())
+  assert(((v *! 2) == v + v).all())
+  assert(((w * 6) /! w == 6).all())
+  assert(((w * 6) /↓! w == 6).all())
+  assert(((w * 6 + 1) %! w == (1 %! w)).all())
+  assert(((w * 6 + 1) %↓! w == (1 %! w)).all())
+
+test:
+  ~when !ub.checked
+  let v = Simd(UInt(16), 4).iota
+  let w = v + 1
+  assert(((w * 6) / w == 6).all())
+  assert(((w * 6) /← w == 6).all())
+  assert(((w * 6) /↓ w == 6).all())
+  assert(((w * 6 + 1) % w == (1 % w)).all())
+  assert(((w * 6 + 1) %← w == (1 % w)).all())
+  assert(((w * 6 + 1) %↓ w == (1 % w)).all())
+
+test:
+  let v = Simd(UInt(8), 4).iota
+  let wrapped = v -% 1
+  // Lane 0 wraps around to 255.
+  assert(wrapped.reduce_or() == 255)
+  assert((wrapped == 255).parity())
+  let m :: Simd(UInt(8), 4) = 0b1100
+  assert(((v ∧ m) == 0).all())
+  assert(((v ∨ m) == v + 12).all())
+  assert(((v ⊻ m) == v + 12).all())
+  assert(((¬v) == 255 - v).all())
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let v = Simd(UInt(8), 4).iota
+  v + 253
+  #void
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let v = Simd(UInt(8), 4).iota
+  v - 1
+  #void
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let v = Simd(Int(8), 4).iota
+  v * 64
+  #void
+
+test:
+  let v = Simd(Int(32), 4).iota
+  let lo = v < 2
+  let hi = v ≥ 2
+  assert((lo ⊻ hi).all())
+  assert(!(lo ∧ hi).any())
+  assert((lo ∨ hi).all())
+  assert((¬lo == hi).all())
+  // The lanes of the selection are 0, 1, -2, -3.
+  let picked = lo.select(v, -v)
+  assert((picked ≤ 1).all())
+  assert((picked == -3).any())
+  assert(picked.reduce_xor() == (0 ⊻ 1 ⊻ -2 ⊻ -3))
+
+test:
+  // Lanewise coercions widen the elements.
+  let v = Simd(UInt(8), 4).iota
+  let a :: Simd(UInt(16), 4) = v
+  let b :: Simd(Int(16), 4) = v
+  let c :: Simd(Int(32), 4) = b
+  assert((a == 3).any())
+  assert((b == 3).any())
+  assert((c == 3).any())
+
+test:
+  ~expect_concr_fail
+  let v = Simd(UInt(16), 4).iota
+  v :: Simd(UInt(8), 4)
+
+test:
+  ~expect_concr_fail
+  let v = Simd(UInt(8), 4).iota
+  v :: Simd(UInt(8), 8)
+
+test:
+  // A Simd value and a scalar unify to a Simd type.
+  let v = Simd(UInt(8), 4).iota
+  let x :: UInt(16) = 1
+  assert(type_of(v + x) == Simd(UInt(16), 4))
+  let c :: Boolean = #true
+  assert(type_of(if c | v | x) == Simd(UInt(16), 4))
+
+test:
+  // `iota` needs an element type that can count up to the last lane.
+  ~expect_concr_fail
+  Simd(UInt(8), 300).iota
+  #void
+
+//==============================================================================
+// Sparse vectors
+
+test:
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  let s :: SparseSimd(UInt(8), 4) = v
+  let doubled = on.sparse_add(s, s)
+  assert(on.sparse_refine_mask(on.sparse_eq(doubled, sparse(v + v))).all())
+  let tripled = on.sparse_mul(s, 3 :: UInt(8))
+  assert(on.sparse_refine_mask(on.sparse_eq(tripled, sparse(v * 3))).all())
+  let back = on.sparse_sub(tripled, s)
+  assert(on.sparse_refine_mask(on.sparse_eq(back, doubled)).all())
+
+test:
+  // Masked-off lanes are left out of the operation, so they can't
+  // overflow.
+  let v = Simd(UInt(8), 4).iota
+  let lo = v < 2
+  let s :: SparseSimd(UInt(8), 4) = v
+  let r = lo.sparse_add(s, 254 :: UInt(8))
+  assert((lo.sparse_refine_mask(lo.sparse_eq(r, sparse(v +% 254))) == lo).all())
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let on :: Simd(Boolean, 4) = #true
+  let s :: SparseSimd(UInt(8), 4) = Simd(UInt(8), 4).iota
+  on.sparse_add(s, 254 :: UInt(8))
+  #void
+
+test:
+  // Lanes the mask disables become undefined, and using them is managed
+  // undefined behavior.
+  ~when ub.checked
+  ~expect_panic
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  let s :: SparseSimd(UInt(8), 4) = v
+  let r = (v < 2).sparse_add(s, s)
+  on.sparse_eq(r, r)
+  #void
+
+test:
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(Int(8), 4).iota
+  let s :: SparseSimd(Int(8), 4) = v
+  let lo = on.sparse_lt(s, 2 :: Int(8))
+  let picked = on.sparse_select(lo, s, on.sparse_sub(0 :: Int(8), s))
+  assert(on.sparse_refine_mask(on.sparse_eq(picked, sparse((v < 2).select(v, -v)))).all())
+
+test:
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  var dst :: SparseSimd(UInt(8), 4) = v
+  (v ≥ 2).sparse_assign(dst, 9 :: UInt(8))
+  assert(on.sparse_refine_mask(on.sparse_eq(dst, sparse((v < 2).select(v, 9)))).all())
+
+test:
+  // Assigning to a lane defines it.
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  let s :: SparseSimd(UInt(8), 4) = v
+  var dst = (v < 2).sparse_add(s, s)
+  (v ≥ 2).sparse_assign(dst, 0 :: UInt(8))
+  assert(on.sparse_refine_mask(on.sparse_eq(dst, sparse((v < 2).select(v + v, 0)))).all())
+
+test:
+  let on :: Simd(Boolean, 4) = #true
+  let v = Simd(UInt(8), 4).iota
+  let s :: SparseSimd(UInt(8), 4) = v
+  let wide :: SparseSimd(UInt(16), 4) = s
+  let signed :: SparseSimd(Int(16), 4) = s
+  assert(on.sparse_refine_mask(on.sparse_eq(wide, sparse(Simd(UInt(16), 4).iota))).all())
+  assert(on.sparse_refine_mask(on.sparse_eq(signed, sparse(Simd(Int(16), 4).iota))).all())
+  let b :: SparseSimd(Boolean, 4) = v < 2
+  let nb = on.sparse_not(b)
+  assert((on.sparse_refine_mask(nb) == (v ≥ 2)).all())
+  assert(!on.sparse_refine_mask(on.sparse_and(b, nb)).any())
+  assert(on.sparse_refine_mask(on.sparse_or(b, nb)).all())
+  assert(on.sparse_refine_mask(on.sparse_xor(b, nb)).all())

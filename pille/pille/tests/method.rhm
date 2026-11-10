@@ -1,0 +1,413 @@
+#lang pille/testsuite
+
+struct Celsius:
+  degrees :: Int(32)
+
+//==============================================================================
+// Methods and overloading
+
+method (x :: Int(_)).kind(): 1
+method (x :: UInt(_)).kind(): 2
+method (x :: Boolean).kind(): 3
+
+test:
+  assert((0 :: Int(8)).kind() == 1)
+  assert((0 :: UInt(64)).kind() == 2)
+  assert((#true :: Boolean).kind() == 3)
+
+test:
+  ~expect_concr_fail
+  (1.5 :: Double).kind()
+
+method (x :: Int(w)).width_class():
+  ~when w ≤ 8
+  "small"
+
+method (x :: Int(w)).width_class():
+  ~when w > 8
+  "large"
+
+test:
+  specl.assert(type_of((0 :: Int(8)).width_class()) == Specl("small"))
+  specl.assert(type_of((0 :: Int(64)).width_class()) == Specl("large"))
+
+method (x :: α).double_width() :: δ:
+  ~where Int(w) = α
+  ~where δ = Int(w * 2)
+  x
+
+test:
+  let x :: Int(8) = -3
+  let y = x.double_width()
+  assert(type_of(y) == Int(16))
+  assert(y == -3)
+
+test:
+  ~expect_concr_fail
+  (0 :: UInt(8)).double_width()
+
+method (c :: Celsius).add(d :: Int(32)) :: Celsius:
+  Celsius{c.degrees + d}
+
+method (c :: Celsius).add(specl n :: nat) :: Celsius:
+  // Specialization arguments are passed as `Specl` values.
+  Celsius{c.degrees + n * 2}
+
+test:
+  let c = Celsius{10}
+  assert(c.add(5 :: Int(32)).degrees == 15)
+  assert(c.add(5).degrees == 20)
+
+// The earlier arguments' bindings are in scope for the later ones.
+method (x :: α).same_type_as(y :: α): #true
+
+test:
+  assert((1 :: Int(8)).same_type_as(2 :: Int(8)))
+
+test:
+  ~expect_concr_fail
+  (1 :: Int(8)).same_type_as(2 :: Int(16))
+
+//==============================================================================
+// Implied result types
+
+priority preferred:
+  ~higher_than fallback
+
+// This overload has the higher priority, but its body only concretizes for
+// some arguments. Without a result type, a failure just disqualifies it.
+method (x).describe():
+  ~priority preferred
+  x.kind()
+
+method (x).describe():
+  ~priority fallback
+  0
+
+test:
+  assert((0 :: Int(8)).describe() == 1)
+  assert((0.0 :: Double).describe() == 0)
+
+//==============================================================================
+// Priorities
+
+priority low
+priority mid:
+  ~higher_than low
+priority high:
+  ~higher_than: mid
+priority lower_than_low:
+  ~lower_than low
+
+method (x :: Int(_)).rank():
+  ~priority low
+  1
+
+method (x :: Int(8)).rank():
+  ~priority high
+  3
+
+method (x :: Int(_) || Boolean).lower_rank():
+  ~priority low
+  1
+
+method (x :: _).lower_rank():
+  ~priority lower_than_low
+  0
+
+test:
+  // `high` is above `low` through `mid`.
+  assert((0 :: Int(8)).rank() == 3)
+  assert((0 :: Int(16)).rank() == 1)
+  assert((0 :: Int(16)).lower_rank() == 1)
+  assert((0 :: UInt(16)).lower_rank() == 0)
+
+method (x :: Int(_)).ambiguous(): 1
+method (x :: Int(8)).ambiguous(): 2
+
+test:
+  // Two candidates with unrelated automatic priorities are ambiguous.
+  ~expect_concr_fail
+  (0 :: Int(8)).ambiguous()
+
+test:
+  // Only one of the overloads applies here, so there is no ambiguity.
+  assert((0 :: Int(16)).ambiguous() == 1)
+
+//==============================================================================
+// Properties
+
+property (c :: Celsius).fahrenheit :: Int(32):
+  c.degrees * 9 /← 5 + 32
+
+property (inout c :: Celsius).fahrenheit := (f :: Int(32)):
+  c.degrees := (f - 32) * 5 /← 9
+
+property (specl Celsius).freezing :: Celsius:
+  Celsius{0}
+
+test:
+  let c = Celsius{100}
+  assert(c.fahrenheit == 212)
+  assert(Celsius.freezing.degrees == 0)
+
+test:
+  var c = Celsius{0}
+  c.fahrenheit := 212
+  assert(c.degrees == 100)
+  assert(c.fahrenheit == 212)
+
+test:
+  // A property is only assignable when its receiver is.
+  ~expect_concr_fail
+  let c = Celsius{0}
+  c.fahrenheit := 212
+
+test:
+  ~expect_concr_fail
+  var c = Celsius{0}
+  Celsius.freezing := c
+
+//==============================================================================
+// Unique member names
+
+unique_member secret
+
+method (c :: Celsius).$secret() :: Int(32):
+  c.degrees + 1
+
+unique_member secret_prop
+
+property (c :: Celsius).$secret_prop :: Int(32):
+  c.degrees + 2
+
+test:
+  let c = Celsius{1}
+  assert(c.$secret() == 2)
+  assert(c .$ secret() == 2)
+  assert(c.$secret_prop == 3)
+
+// A plain method with the same symbol is a different member.
+method (c :: Celsius).secret() :: Int(32):
+  c.degrees + 100
+
+test:
+  let c = Celsius{1}
+  assert(c.secret() == 101)
+  assert(c.$secret() == 2)
+
+//==============================================================================
+// `inout` arguments
+
+method (inout c :: Celsius).warm(by :: Int(32)) :: Void:
+  c.degrees := c.degrees + by
+
+fun increment(inout n :: Int(32)) :: Void:
+  n := n + 1
+
+test:
+  var c = Celsius{1}
+  c.warm(2 :: Int(32))
+  c.warm(3 :: Int(32))
+  assert(c.degrees == 6)
+
+test:
+  var c = Celsius{1}
+  increment(c.degrees)
+  assert(c.degrees == 2)
+
+test:
+  ~expect_concr_fail
+  let c = Celsius{1}
+  c.warm(2 :: Int(32))
+
+test:
+  ~expect_concr_fail
+  increment(1 :: Int(32))
+
+//==============================================================================
+// Functions
+
+fun sign
+| (n :: Int(_)):
+    ~when: #true
+    cond
+    | n < 0: -1 :: Int(8)
+    | n > 0: 1
+    | ~else: 0
+| (n :: UInt(_)):
+    if n > 0 | 1 :: Int(8) | 0
+
+test:
+  assert(sign(-5 :: Int(32)) == -1)
+  assert(sign(0 :: Int(32)) == 0)
+  assert(sign(5 :: UInt(32)) == 1)
+
+fun with_result_type(x :: Int(8)) :: Int(32):
+  x
+
+test:
+  assert(type_of(with_result_type(1 :: Int(8))) == Int(32))
+
+test:
+  // A function with no arguments.
+  assert(no_args() == 7)
+
+fun no_args(): 7
+
+//==============================================================================
+// Operators
+
+operator (a :: Int(32)) ⊕ (b :: Int(32)):
+  ~order: addition
+  a * 10 + b
+
+operator ⊖ (a :: Int(32)):
+  -a
+
+operator (a :: Int(32)) !!:
+  a * a
+
+operator
+| (a :: Int(32)) ⊗ (b :: Int(32)):
+    ~order: multiplication
+    a * b
+| (a :: Boolean) ⊗ (b :: Boolean):
+    a ∧ b
+
+test:
+  let one :: Int(32) = 1
+  let two :: Int(32) = 2
+  let three :: Int(32) = 3
+  assert(one ⊕ two == 12)
+  assert((⊖ three) == -3)
+  assert((three !!) == 9)
+  assert(two ⊗ three == 6)
+  // `⊗` has the precedence of multiplication, so it binds tighter than `⊕`.
+  assert(one ⊕ two ⊗ three == 16)
+  let yes :: Boolean = #true
+  assert(yes ⊗ yes)
+
+//==============================================================================
+// Generic operators and their methods
+
+struct Money:
+  cents :: Int(64)
+
+method (a :: Money).$add(b :: Money) :: Money:
+  Money{a.cents + b.cents}
+
+method (a :: Money).$lt(b :: Money) :: Boolean:
+  a.cents < b.cents
+
+method (a :: Money).$eq(b :: Money) :: Boolean:
+  a.cents == b.cents
+
+// Integers coerce to `Money`, so `+` can unify them.
+coercion (n :: Int(w)) :: Money:
+  ~when w ≤ 64
+  Money{n}
+
+unify(Int(w), Money):
+  ~when w ≤ 64
+  Money
+
+test:
+  let a = Money{100}
+  let b = Money{250}
+  assert((a + b).cents == 350)
+  assert(a < b)
+  assert(a == Money{100})
+  // `+` falls back to unifying the operand types.
+  assert((a + (5 :: Int(32))).cents == 105)
+  assert(((5 :: Int(32)) + a).cents == 105)
+
+//==============================================================================
+// `$call`, `$new`, `$index_read`, `$index_write`, and `$contains`
+
+struct Scaler:
+  factor :: Int(32)
+
+method (s :: Scaler).$call(x :: Int(32)) :: Int(32):
+  s.factor * x
+
+method (specl Scaler).$new(a :: Int(32), b :: Int(32)) :: Scaler:
+  ~priority preferred
+  Scaler{a * b}
+
+struct Grid:
+  cells :: Tuple(Int(32), Int(32), Int(32), Int(32))
+
+method (g :: Grid).$index_read(specl row :: nat, specl col :: nat) :: Int(32):
+  g.cells[row * 2 + col]
+
+method (inout g :: Grid).$index_write(specl row :: nat, specl col :: nat, v :: Int(32)) :: Void:
+  g.cells[row * 2 + col] := v
+
+struct Evens
+
+method (e :: Evens).$contains(n :: Int(_)) :: Boolean:
+  n %← 2 == 0
+
+test:
+  let s = Scaler{3}
+  assert(s(4 :: Int(32)) == 12)
+  assert(s.$call(4 :: Int(32)) == 12)
+
+test:
+  // A struct's own `$new` has an automatic priority, but a two-argument
+  // `$new` doesn't conflict with it.
+  let s = Scaler{2 :: Int(32), 5 :: Int(32)}
+  assert(s.factor == 10)
+
+test:
+  var g = Grid{[1 :: Int(32), 2 :: Int(32), 3 :: Int(32), 4 :: Int(32)]}
+  assert(g[0, 1] == 2)
+  assert(g[1, 0] == 3)
+  g[1, 1] := 40
+  assert(g[1, 1] == 40)
+  assert(g.cells[3] == 40)
+
+test:
+  let e = Evens{}
+  assert((4 :: Int(32)) ∈ e)
+  assert((4 :: Int(32)) in e)
+  assert((5 :: Int(32)) ∉ e)
+
+//==============================================================================
+// Initializer expressions
+
+method (specl Celsius).from_fahrenheit(f :: Int(32)) :: Celsius:
+  Celsius{(f - 32) * 5 /← 9}
+
+method (specl Celsius).$call(d :: Int(32)) :: Celsius:
+  Celsius{d}
+
+test:
+  let a :: Celsius = .{5}
+  let b :: Celsius = .freezing
+  let c :: Celsius = .from_fahrenheit(212 :: Int(32))
+  let d :: Celsius = .(7 :: Int(32))
+  assert(a.degrees == 5)
+  assert(b.degrees == 0)
+  assert(c.degrees == 100)
+  assert(d.degrees == 7)
+
+fun takes_celsius(c :: Celsius) :: Int(32):
+  c.degrees
+
+test:
+  // Function arguments match types exactly, so an initializer expression
+  // needs an explicit target type there.
+  assert(takes_celsius(.{9} :: Celsius) == 9)
+
+test:
+  // An initializer expression has its own type until it is coerced.
+  specl.assert(type_of(.{1, 2}) matches InitExpr'.{_, _}')
+  specl.assert(type_of(.freezing) matches InitExpr'_')
+  specl.assert(type_of(.freezing) matches InitExpr'.freezing')
+
+test:
+  ~expect_concr_fail
+  let a :: Celsius = .not_a_member
+  #void

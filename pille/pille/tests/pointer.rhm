@@ -1,0 +1,335 @@
+#lang rhombus/static
+
+import:
+  ffi open
+  pille/hosted open
+
+pille.fun set_and_peek(inout x :: UInt(32), p :: PtrMut(UInt(32))) :: UInt(32):
+  x := 77
+  // The caller's memory isn't updated until the call returns.
+  p[]
+
+pille.fun bump(inout x :: UInt(32)) :: Void:
+  x := x + 1
+
+// The JIT only sees overloads defined before this call.
+pille.configure_jit(~ub_policy: #'check)
+
+fun make_buffer(len :: Nat) :~ ptr_t:
+  let buf = new uint32_t[len]
+  for (i in 0..len):
+    mem buf[i] := i * 10
+  buf
+
+fun read_buffer(buf :: ptr_t, len :: Nat) :~ List:
+  for List (i in 0..len):
+    mem (cast (uint32_t*) buf)[i]
+
+//==============================================================================
+// Typed pointers
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf):
+    [p[], p[0], p[3]]
+  ~is [0, 0, 30]
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: PtrMut(UInt(32)) = buf):
+    p[] := 7
+    p[2] := 9
+    #void
+  read_buffer(buf, 4)
+  ~is [7, 10, 9, 30]
+
+check:
+  // Offsets are scaled by the element's stride, and can have any
+  // integer type.
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf):
+    let i :: Int(8) = 1
+    let u :: UInt(64) = 2
+    [(p + 3)[],
+     (p + i)[],
+     (p + u)[],
+     ((p + 3) - 1)[],
+     ((p + 3) - i)[],
+     (p + 3)[-2]]
+  ~is [30, 10, 20, 20, 20, 10]
+
+check:
+  let buf = new uint16_t[3]
+  mem buf[0] := 1
+  mem buf[1] := 2
+  mem buf[2] := 3
+  pille(p :: Ptr(UInt(16)) = buf):
+    (p + 2)[]
+  ~is 3
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf):
+    let q = p + 1
+    [p < q, p <= q, q > p, q >= p, p == p, p != q, p == q, q < p]
+  ~is [#true, #true, #true, #true, #true, #true, #false, #false]
+
+check:
+  // A `PtrMut` coerces to a `Ptr`, but not the other way around.
+  let buf = make_buffer(4)
+  pille(p :: PtrMut(UInt(32)) = buf):
+    let q :: Ptr(UInt(32)) = p
+    q[1]
+  ~is 10
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf):
+    p :: PtrMut(UInt(32))
+  ~throws "incompatible types"
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf):
+    p[0] := 1
+  ~throws "not assignable"
+
+//==============================================================================
+// Raw pointers
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: RawPtr = buf):
+    [p.load(UInt(32)),
+     (p + 4).load(UInt(32)),
+     (p + 12).load(UInt(32)),
+     ((p + 12) - 4).load(UInt(32))]
+  ~is [0, 10, 30, 20]
+
+check:
+  let buf = make_buffer(2)
+  pille(p :: RawPtr = buf):
+    (p + 4).store(99 :: UInt(32))
+    #void
+  read_buffer(buf, 2)
+  ~is [0, 99]
+
+check:
+  // An explicit alignment allows unaligned access.
+  let buf = new uint8_t[8]
+  for (i in 0..8):
+    mem buf[i] := 0
+  pille(p :: RawPtr = buf):
+    (p + 1).store(0x01020304 :: UInt(32), 1)
+    (p + 1).load(UInt(32), 1)
+  ~is 0x01020304
+
+check:
+  let buf = make_buffer(2)
+  pille(p :: RawPtr = buf):
+    (p + 1).load(UInt(32))
+  ~throws "misaligned pointer"
+
+check:
+  let buf = make_buffer(2)
+  pille(p :: RawPtr = buf):
+    (p + 2).store(1 :: UInt(32))
+  ~throws "misaligned pointer"
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: RawPtr = buf):
+    let q = p + 8
+    [p < q, p <= q, q > p, q >= p, p == p, p != q, p == q]
+  ~is [#true, #true, #true, #true, #true, #true, #false]
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: RawPtr = buf):
+    PtrMut(UInt(32)).from_raw(p + 8)[]
+  ~is 20
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: RawPtr = buf):
+    PtrMut(UInt(32)).from_raw(p + 2)
+    #void
+  ~throws "misaligned pointer"
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: PtrMut(UInt(32)) = buf):
+    var q = p
+    q.raw := p.raw + 4
+    [q[], (q.raw == (p + 1).raw)]
+  ~is [10, #true]
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: PtrMut(UInt(32)) = buf):
+    var q = p
+    q.raw := p.raw + 1
+    #void
+  ~throws "misaligned pointer"
+
+check:
+  // Raw pointers can be passed back to Rhombus.
+  let buf = make_buffer(4)
+  let p :~ ptr_t:
+    pille(p :: PtrMut(UInt(32)) = buf):
+      (p + 2).raw
+  mem (cast (uint32_t*) p)[0]
+  ~is 20
+
+check:
+  // Mutable byte strings are also accepted as pointers.
+  let bstr = Bytes.make(4, 0)
+  pille(p :: PtrMut(UInt(8)) = bstr):
+    p[1] := 65
+    p[3] := 66
+    #void
+  bstr
+  ~is_now #"\0A\0B"
+
+//==============================================================================
+// Slices
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    [s.len, s[0], s[4]]
+  ~is [5, 0, 40]
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: SliceMut(UInt(32)) = [buf, 5]):
+    s[1] := 11
+    // Assigned values are coerced to the element type.
+    s[2] := (22 :: UInt(8))
+    #void
+  read_buffer(buf, 5)
+  ~is [0, 11, 22, 30, 40]
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    let i :: USize = 5
+    s[i]
+  ~throws "slice index out of bounds"
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    s[-1]
+  ~throws "negative slice index"
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    var sum :: UInt(32) = 0
+    for (x in s):
+      sum := sum + x
+    sum
+  ~is 100
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    var sum :: USize = 0
+    for (i in s.indices):
+      sum := sum + i
+    sum
+  ~is 10
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    let mid = s[1..4]
+    let tail = s[2..]
+    let head = s[..2]
+    let all = s[..]
+    [mid.len, mid[0], mid[2],
+     tail.len, tail[0],
+     head.len, head[1],
+     all.len, all[4]]
+  ~is [3, 10, 30,
+       3, 20,
+       2, 10,
+       5, 40]
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    let hi :: USize = 6
+    s[1..hi]
+    #void
+  ~throws "slice subrange out of bounds"
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    let lo :: USize = 6
+    s[lo..]
+    #void
+  ~throws "slice subrange out of bounds"
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    let hi :: USize = 6
+    s[..hi]
+    #void
+  ~throws "slice subrange out of bounds"
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: SliceMut(UInt(32)) = [buf, 5]):
+    let ro :: Slice(UInt(32)) = s
+    [ro.len, ro[3]]
+  ~is [5, 30]
+
+check:
+  let buf = make_buffer(5)
+  pille(s :: Slice(UInt(32)) = [buf, 5]):
+    s :: SliceMut(UInt(32))
+  ~throws "incompatible types"
+
+check:
+  pille:
+    specl.assert(Slice(Int(8)).Ptr == Ptr(Int(8)))
+    specl.assert(SliceMut(Int(8)).Ptr == PtrMut(Int(8)))
+    specl.assert(RawSlice.Ptr == RawPtr)
+    specl.assert(Slice(Int(8)) matches SliceOf(Int(_)))
+    specl.assert(SliceMut(Int(8)) matches SliceOf(Int(8)))
+    specl.assert(!(RawSlice matches SliceOf(_)))
+    specl.assert(RawSlice matches AnySlice)
+    specl.assert(Ptr(Int(8)) matches PtrTo(Int(8)))
+    specl.assert(PtrMut(Int(8)) matches PtrTo(_))
+    specl.assert(!(RawPtr matches PtrTo(_)))
+    #void
+  ~is #void
+
+//==============================================================================
+// `inout` arguments use call-by-value-result
+
+check:
+  let buf = make_buffer(1)
+  let peeked:
+    pille(p :: PtrMut(UInt(32)) = buf):
+      set_and_peek(p[0], p)
+  [peeked, mem (cast (uint32_t*) buf)[0]]
+  ~is [0, 77]
+
+check:
+  // The coordinate subexpressions of an `inout` argument are evaluated
+  // only once, even though the argument is both read and written.
+  let buf = make_buffer(3)
+  let evaluations:
+    pille(p :: PtrMut(UInt(32)) = buf):
+      var count :: UInt(32) = 0
+      bump(p[block:
+               count := count + 1
+               count])
+      count
+  [evaluations, read_buffer(buf, 3)]
+  ~is [1, [0, 11, 20]]

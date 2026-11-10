@@ -1,0 +1,82 @@
+#lang pille/testsuite
+
+//==============================================================================
+// User-defined coercions and unification rules
+
+struct Meters:
+  value :: Int(32)
+
+struct Feet:
+  value :: Int(32)
+
+coercion (f :: Feet) :: Meters:
+  Meters{f.value * 3 /← 10}
+
+unify(Feet, Meters):
+  Meters
+
+fun meters_of(m :: Meters) :: Int(32):
+  m.value
+
+test:
+  let f = Feet{100}
+  let m :: Meters = f
+  assert(m.value == 30)
+  assert(meters_of(f :: Meters) == 30)
+
+test:
+  // Coercions aren't applied backwards.
+  ~expect_concr_fail
+  Meters{1} :: Feet
+
+test:
+  // Unification rules are tried in both orders.
+  let c :: Boolean = #true
+  assert(type_of(if c | Feet{1} | Meters{1}) == Meters)
+  assert(type_of(if c | Meters{1} | Feet{1}) == Meters)
+  specl.assert(unify(Feet, Meters) == Meters)
+  specl.assert(unify(Meters, Feet) == Meters)
+
+test:
+  specl.assert(Feet coerces_to Meters)
+  specl.assert(!(Meters coerces_to Feet))
+  specl.assert(Feet matches CoercesTo(Meters))
+  specl.assert(Meters matches CoercesFrom(Feet))
+
+//==============================================================================
+// Coercions with conditions
+
+struct Wide(w :: pos_int):
+  value :: Int(w)
+
+coercion (src :: Wide(ws)) :: Wide(wd):
+  ~when wd > ws
+  Wide(wd){src.value}
+
+test:
+  let a = Wide(8){-3}
+  let b :: Wide(16) = a
+  assert(b.value == -3)
+
+test:
+  ~expect_concr_fail
+  let a = Wide(16){-3}
+  a :: Wide(8)
+
+//==============================================================================
+// Coercions don't see implicit arguments
+
+implicit unit_scale :: Int(32)
+
+struct Scaled:
+  value :: Int(32)
+
+coercion (x :: Int(32)) :: Scaled:
+  ~transparent
+  Scaled{x * unit_scale}
+
+test:
+  ~expect_concr_fail
+  using unit_scale = 2 :: Int(32)
+  let s :: Scaled = (1 :: Int(32))
+  #void
