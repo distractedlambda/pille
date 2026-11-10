@@ -184,3 +184,11 @@ test:
   ~expect_concr_fail
   var p = Pair(Int(32), Int(32)){0, 0}
   p := Pair(Int(8), Int(8)){3, 4}
+
+//==============================================================================
+// Struct arguments that don't match their annotations
+
+test:
+  // `Sized` requires a positive count, so this isn't a valid type.
+  ~expect_concr_fail
+  specl.assert(Sized(Int(8), 0) is_a type)
