@@ -42,15 +42,6 @@ test:
   assert(((w + 4) %←! w == (4 %←! w)).all())
 
 test:
-  // Checked division doesn't concretize for `Simd` values under the
-  // `check` policy yet, because coercing `Never` to `Simd` is ambiguous.
-  ~when !ub.checked
-  let v = Simd(Int(16), 4).iota
-  let w = v + 1
-  assert(((w * 6) /← w == 6).all())
-  assert(((w + 4) %← w == (4 %← w)).all())
-
-test:
   let v = Simd(UInt(16), 4).iota
   let w = v + 1
   assert(((v +% 1) == w).all())
@@ -63,17 +54,6 @@ test:
   assert(((w * 6) /↓! w == 6).all())
   assert(((w * 6 + 1) %! w == (1 %! w)).all())
   assert(((w * 6 + 1) %↓! w == (1 %! w)).all())
-
-test:
-  ~when !ub.checked
-  let v = Simd(UInt(16), 4).iota
-  let w = v + 1
-  assert(((w * 6) / w == 6).all())
-  assert(((w * 6) /← w == 6).all())
-  assert(((w * 6) /↓ w == 6).all())
-  assert(((w * 6 + 1) % w == (1 % w)).all())
-  assert(((w * 6 + 1) %← w == (1 % w)).all())
-  assert(((w * 6 + 1) %↓ w == (1 % w)).all())
 
 test:
   let v = Simd(UInt(8), 4).iota
@@ -237,3 +217,44 @@ test:
   assert(!on.sparse_refine_mask(on.sparse_and(b, nb)).any())
   assert(on.sparse_refine_mask(on.sparse_or(b, nb)).all())
   assert(on.sparse_refine_mask(on.sparse_xor(b, nb)).all())
+
+//==============================================================================
+// Checked division of dense vectors
+
+test:
+  let v = Simd(Int(16), 4).iota
+  let w = v + 1
+  assert(((w * 6) /← w == 6).all())
+  assert(((w + 4) %← w == (4 %← w)).all())
+
+test:
+  let v = Simd(UInt(16), 4).iota
+  let w = v + 1
+  assert(((w * 6) / w == 6).all())
+  assert(((w * 6) /← w == 6).all())
+  assert(((w * 6) /↓ w == 6).all())
+  assert(((w * 6 + 1) % w == (1 % w)).all())
+  assert(((w * 6 + 1) %← w == (1 % w)).all())
+  assert(((w * 6 + 1) %↓ w == (1 % w)).all())
+
+test:
+  // Lane 0 divides by zero.
+  ~when ub.checked
+  ~expect_panic
+  let v = Simd(UInt(8), 4).iota
+  v /← v
+  #void
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let v = Simd(UInt(8), 4).iota
+  v % v
+  #void
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let v :: Simd(Int(8), 4) = -128 :: Int(8)
+  v /← (-1 :: Int(8))
+  #void
