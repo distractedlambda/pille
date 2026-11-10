@@ -1,0 +1,427 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Bounds
+
+test:
+  assert(Int(8).min_value == -128)
+  assert(Int(8).max_value == 127)
+  assert(UInt(8).min_value == 0)
+  assert(UInt(8).max_value == 255)
+  assert(Int(1).min_value == -1)
+  assert(Int(1).max_value == 0)
+  assert(UInt(64).max_value == 18446744073709551615)
+
+test:
+  assert(ISize.byte_size == RawPtr.byte_size)
+  assert(USize.byte_size == RawPtr.byte_size)
+  assert(type_of(0 :: ISize) == Int(RawPtr.byte_size * 8))
+  assert(type_of(0 :: USize) == UInt(RawPtr.byte_size * 8))
+
+//==============================================================================
+// Coercions and unification
+
+test:
+  let x :: Int(8) = -5
+  let y :: Int(32) = x
+  assert(y == -5)
+
+test:
+  let x :: UInt(8) = 200
+  let y :: UInt(16) = x
+  assert(y == 200)
+
+test:
+  // Coercing from `UInt` to a wider `Int` zero-extends.
+  let x :: UInt(8) = 255
+  let y :: Int(9) = x
+  assert(y == 255)
+
+test:
+  ~expect_concr_fail
+  let x :: Int(32) = 0
+  x :: Int(16)
+
+test:
+  ~expect_concr_fail
+  let x :: UInt(8) = 0
+  x :: Int(8)
+
+test:
+  ~expect_concr_fail
+  let x :: Int(8) = 0
+  x :: UInt(16)
+
+test:
+  ~expect_concr_fail
+  let x :: Int(8) = 0
+  (x :: Int(8)) :: UInt(8)
+
+test:
+  assert(type_of((0 :: UInt(8)) + (0 :: UInt(16))) == UInt(16))
+  assert(type_of((0 :: Int(8)) + (0 :: Int(16))) == Int(16))
+  assert(type_of((0 :: UInt(16)) + (0 :: Int(8))) == Int(17))
+  assert(type_of((0 :: UInt(8)) + (0 :: Int(16))) == Int(16))
+  assert(type_of((0 :: UInt(8)) + 1000) == UInt(10))
+  assert(type_of((0 :: Int(8)) + 1000) == Int(11))
+  assert(type_of((0 :: Int(8)) + -1000) == Int(11))
+
+test:
+  // Unifying two specialization integers picks the narrowest
+  // type that can represent both.
+  let c :: Boolean = #true
+  assert(type_of(if c | 3 | 200) == UInt(8))
+  assert(type_of(if c | -3 | 200) == Int(9))
+  assert(type_of(if c | -128 | 127) == Int(8))
+
+//==============================================================================
+// Arithmetic
+
+test:
+  let a :: Int(32) = 17
+  let b :: Int(32) = -5
+  assert(a + b == 12)
+  assert(a - b == 22)
+  assert(a * b == -85)
+  assert(-a == -17)
+  assert(-b == 5)
+
+test:
+  let a :: UInt(32) = 17
+  let b :: UInt(32) = 5
+  assert(a + b == 22)
+  assert(a - b == 12)
+  assert(a * b == 85)
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(8) = 127
+  a + (1 :: Int(8))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(8) = -128
+  a - (1 :: Int(8))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: UInt(8) = 0
+  a - (1 :: UInt(8))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: UInt(8) = 16
+  a * (16 :: UInt(8))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(8) = -128
+  -a
+
+test:
+  // Under the `suppress` policy, overflow is defined (but its result is
+  // unspecified), so we just check that it doesn't panic.
+  ~when ub.suppressed
+  let a :: Int(8) = 127
+  a + (1 :: Int(8))
+  #void
+
+//==============================================================================
+// Wrapping arithmetic
+
+test:
+  let a :: Int(8) = 127
+  assert(a +% (1 :: Int(8)) == -128)
+  let b :: Int(8) = -128
+  assert(b -% (1 :: Int(8)) == 127)
+  assert(-%b == -128)
+  let c :: UInt(8) = 0
+  assert(c -% (1 :: UInt(8)) == 255)
+  let d :: UInt(8) = 16
+  assert(d *% (17 :: UInt(8)) == 16)
+  let e :: UInt(8) = 1
+  assert(-%e == 255)
+
+//==============================================================================
+// Unchecked arithmetic, used only on values that don't overflow
+
+test:
+  let a :: Int(32) = 40
+  let b :: Int(32) = 2
+  assert(a +! b == 42)
+  assert(a -! b == 38)
+  assert(a *! b == 80)
+  assert(-!a == -40)
+  assert(a /←! b == 20)
+  assert(a %←! (3 :: Int(32)) == 1)
+  let c :: UInt(32) = 40
+  let d :: UInt(32) = 3
+  assert(c /! d == 13)
+  assert(c /↓! d == 13)
+  assert(c %! d == 1)
+  assert(c %↓! d == 1)
+
+//==============================================================================
+// Division
+
+test:
+  // Signed division truncates towards zero, and the remainder takes the
+  // sign of the dividend.
+  let seven :: Int(32) = 7
+  let two :: Int(32) = 2
+  assert(seven /← two == 3)
+  assert((-seven) /← two == -3)
+  assert(seven /← (-two) == -3)
+  assert((-seven) /← (-two) == 3)
+  assert(seven %← two == 1)
+  assert((-seven) %← two == -1)
+  assert(seven %← (-two) == 1)
+  assert((-seven) %← (-two) == -1)
+
+test:
+  // For unsigned integers, all the division and remainder operators agree.
+  let a :: UInt(16) = 1000
+  let b :: UInt(16) = 7
+  assert(a / b == 142)
+  assert(a /← b == 142)
+  assert(a /↓ b == 142)
+  assert(a % b == 6)
+  assert(a %← b == 6)
+  assert(a %↓ b == 6)
+
+test:
+  // Plain `/` and `%` are reserved for unsigned integers, since their
+  // meaning is ambiguous for negative operands.
+  ~expect_concr_fail
+  let a :: Int(32) = 7
+  a / (2 :: Int(32))
+
+test:
+  ~expect_concr_fail
+  let a :: Int(32) = 7
+  a % (2 :: Int(32))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(32) = 7
+  a /← (0 :: Int(32))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(32) = 7
+  a %← (0 :: Int(32))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: UInt(32) = 7
+  a / (0 :: UInt(32))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: UInt(32) = 7
+  a % (0 :: UInt(32))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(8) = -128
+  a /← (-1 :: Int(8))
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let a :: Int(8) = -128
+  a %← (-1 :: Int(8))
+
+test:
+  ~when ub.suppressed
+  let a :: Int(32) = 7
+  a /← (0 :: Int(32))
+  #void
+
+//==============================================================================
+// Bitwise operations
+
+test:
+  let a :: UInt(8) = 0b1100_1010
+  let b :: UInt(8) = 0b1010_0110
+  assert((a ∧ b) == 0b1000_0010)
+  assert((a ∨ b) == 0b1110_1110)
+  assert((a ⊻ b) == 0b0110_1100)
+  assert(¬a == 0b0011_0101)
+  assert((a and b) == (a ∧ b))
+  assert((a or b) == (a ∨ b))
+  assert((a xor b) == (a ⊻ b))
+  assert((not a) == ¬a)
+
+test:
+  let a :: Int(8) = 0
+  assert(¬a == -1)
+
+//==============================================================================
+// Shifts
+
+test:
+  let one :: UInt(8) = 1
+  let three :: UInt(8) = 3
+  assert(one << three == 8)
+  assert((128 :: UInt(8)) >> three == 16)
+  // A shift amount can have a different integer type from the value.
+  let amount :: Int(32) = 7
+  assert(one << amount == 128)
+
+test:
+  let one :: UInt(8) = 1
+  assert(one << 7 == 128)
+  assert((-128 :: Int(8)) >> 7 == -1)
+
+test:
+  // A constant shift amount is checked during concretization.
+  ~expect_concr_fail
+  let one :: UInt(8) = 1
+  one << 8
+
+test:
+  ~expect_concr_fail
+  let one :: UInt(8) = 1
+  one >> -1
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let one :: UInt(8) = 1
+  let amount :: UInt(8) = 8
+  one << amount
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let one :: Int(32) = 1
+  let amount :: Int(32) = -1
+  one >> amount
+
+test:
+  // Wrapping shifts take the shift amount modulo the bit width.
+  let one :: UInt(8) = 1
+  let nine :: UInt(8) = 9
+  assert(one <<% nine == 2)
+  assert((128 :: UInt(8)) >>% nine == 64)
+  let a :: UInt(32) = 0xF0
+  let four :: UInt(32) = 4
+  assert(a <<! four == 0xF00)
+  assert(a >>! four == 0xF)
+
+//==============================================================================
+// Comparisons
+
+test:
+  let a :: Int(8) = -1
+  let b :: Int(8) = 1
+  assert(a < b)
+  assert(a <= b)
+  assert(a ≤ b)
+  assert(b > a)
+  assert(b >= a)
+  assert(b ≥ a)
+  assert(a != b)
+  assert(a ≠ b)
+  assert(!(a == b))
+
+test:
+  // The same bit pattern compares differently when it is unsigned.
+  let a :: UInt(8) = 255
+  let b :: UInt(8) = 1
+  assert(a > b)
+
+test:
+  // Mixed-sign comparisons are done in a common type, so they compare
+  // mathematical values rather than bit patterns.
+  let a :: Int(8) = -1
+  let b :: UInt(8) = 255
+  assert(a < b)
+  assert(a != b)
+
+//==============================================================================
+// Casts
+
+test:
+  let big :: Int(32) = 100
+  assert(Int(8).cast_exact(big) == 100)
+  assert(type_of(Int(8).cast_exact(big)) == Int(8))
+  let neg :: Int(32) = -100
+  assert(Int(8).cast_exact(neg) == -100)
+  let u :: UInt(32) = 255
+  assert(UInt(8).cast_exact(u) == 255)
+  let s :: Int(16) = 255
+  assert(UInt(8).cast_exact(s) == 255)
+  assert(UInt(8).cast_exact(42) == 42)
+
+test:
+  ~expect_concr_fail
+  UInt(8).cast_exact(256)
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let big :: Int(32) = 128
+  Int(8).cast_exact(big)
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let neg :: Int(32) = -1
+  UInt(32).cast_exact(neg)
+
+test:
+  let big :: Int(32) = 300
+  assert(UInt(8).cast_wrap(big) == 44)
+  assert(Int(8).cast_wrap(big) == 44)
+  let neg :: Int(8) = -1
+  assert(UInt(8).cast_wrap(neg) == 255)
+  assert(UInt(16).cast_wrap(neg) == 65535)
+  let u :: UInt(8) = 255
+  assert(Int(8).cast_wrap(u) == -1)
+  assert(Int(16).cast_wrap(u) == 255)
+  assert(UInt(8).cast_wrap(-1) == 255)
+
+test:
+  let x :: Int(32) = 1000
+  assert(Int(16).cast_exact_unchecked(x) == 1000)
+  let y :: UInt(32) = 1000
+  assert(Int(16).cast_exact_unchecked(y) == 1000)
+
+//==============================================================================
+// Type classes
+
+test:
+  assert(specl(Int(8) matches BinaryInteger))
+  assert(specl(UInt(8) matches BinaryInteger))
+  assert(specl(!(Boolean matches BinaryInteger)))
+  assert(specl(!(Specl(1) matches BinaryInteger)))
+  assert(specl(Boolean matches Bitwise))
+  assert(specl(Int(8) matches Bitwise))
+  assert(specl(!(Float matches Bitwise)))
+  assert(specl(Specl(-1) matches Integral))
+  assert(specl(UInt(3) matches Integral))
+  assert(specl(!(Specl(1.5) matches Integral)))
+  assert(specl(!(Boolean matches Integral)))
+
+fun double_it(x :: BinaryInteger):
+  x + x
+
+test:
+  assert(double_it(21 :: Int(32)) == 42)
+  assert(double_it(21 :: UInt(8)) == 42)
+
+test:
+  ~expect_concr_fail
+  double_it(21)
