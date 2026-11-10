@@ -1,0 +1,92 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Expression macros
+
+expr.macro 'twice($e)':
+  '$e + $e'
+
+expr.macro 'swap_args $f($a, $b)':
+  '$f($b, $a)'
+
+fun minus(a :: Int(32), b :: Int(32)) :: Int(32):
+  a - b
+
+test:
+  let x :: Int(32) = 21
+  assert(twice(x) == 42)
+  assert(swap_args minus(1 :: Int(32), 10 :: Int(32)) == 9)
+
+test:
+  expr.macro 'thrice($e)':
+    '$e + $e + $e'
+  let x :: Int(32) = 2
+  assert(thrice(x) == 6)
+
+test:
+  // Macros are hygienic, so the `tmp` in the template doesn't capture the
+  // caller's `tmp`.
+  expr.macro 'add_one($e)':
+    'block:
+       let tmp :: Int(32) = 1
+       $e + tmp'
+  let tmp :: Int(32) = 10
+  assert(add_one(tmp) == 11)
+
+//==============================================================================
+// Local definition macros
+
+local_defn.macro 'let_double $id = $e':
+  'let $id = $e + $e'
+
+local_defn.block_macro 'returning_first ($e)
+                        $body
+                        ...':
+  'block:
+     let first = $e
+     $body
+     ...
+     first'
+
+test:
+  let x :: Int(32) = 4
+  let_double y = x
+  assert(y == 8)
+
+test:
+  var count :: Int(32) = 0
+  let r:
+    returning_first (count + 1)
+    count := 100
+    count + 5
+  assert(r == 1)
+  assert(count == 100)
+
+//==============================================================================
+// Specialization macros
+
+specl_expr.macro 'bits_of($t)':
+  '($t).byte_size * 8'
+
+specl_bind.macro 'Narrow':
+  'Int(w) when w ≤ 8'
+
+specl_annot.macro 'small_nat':
+  'nat && matching(n when n < 10)'
+
+test:
+  specl.assert(bits_of(Int(32)) == 32)
+  specl.assert(Int(4) matches Narrow)
+  specl.assert(!(Int(16) matches Narrow))
+  specl.assert(5 is_a small_nat)
+  specl.assert(!(15 is_a small_nat))
+  specl.assert(!(-1 is_a small_nat))
+
+fun narrow_only(x :: Narrow): x
+
+test:
+  assert(narrow_only(1 :: Int(8)) == 1)
+
+test:
+  ~expect_concr_fail
+  narrow_only(1 :: Int(9))
