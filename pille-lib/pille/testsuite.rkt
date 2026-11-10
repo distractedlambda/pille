@@ -131,7 +131,8 @@ fun run_tests(the_tests :: [Test, ...]):
             exn)
           println()
       | #false:
-          println(@str{@header_str: @remark\n}, ~out: stderr)
+          println(@str{@header_str: @remark}, ~out: stderr)
+          println(~out: stderr)
 
     keep_when try:
       test.eval_guards()
