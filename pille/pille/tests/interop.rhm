@@ -68,3 +68,123 @@ check:
   pille:
     127 :: Int(8)
   ~is 127
+
+//==============================================================================
+// Interoperable types
+
+check:
+  pille(x :: Double = 1): x
+  ~is 1.0
+
+check:
+  pille(x :: Float = 1/2): x
+  ~is 0.5
+
+check:
+  pille(x :: Double = 2.5, y :: Float = 0.25): x + y
+  ~is 2.75
+
+check:
+  pille(b :: Boolean = #true): !b
+  ~is #false
+
+check:
+  pille(x :: UInt(64) = 18446744073709551615): x
+  ~is 18446744073709551615
+
+check:
+  pille(x :: Int(64) = -9223372036854775808): x
+  ~is -9223372036854775808
+
+check:
+  pille(x :: UInt(8) = 256): x
+  ~throws "argument does not satisfy annotation"
+
+check:
+  pille(x :: UInt(8) = -1): x
+  ~throws "argument does not satisfy annotation"
+
+check:
+  // Tuples are represented as lists.
+  pille(t :: Tuple(Int(32), Boolean) = [5, #true]):
+    [t[0] + 1, !t[1]]
+  ~is [6, #false]
+
+check:
+  pille: [1 :: Int(8), [2 :: Int(8), #void]]
+  ~is [1, [2, #void]]
+
+check:
+  pille: specl("text")
+  ~is "text"
+
+check:
+  pille: #void
+  ~is #void
+
+check:
+  // Each distinct specialization value gets its own compilation.
+  for List (w in [8, 16, 32]):
+    pille(specl w): Int(w).max_value
+  ~is [127, 32767, 2147483647]
+
+check:
+  pille(specl.let w = 4, x :: UInt(w) = 15): x
+  ~is 15
+
+check:
+  pille(specl.let w = 4, x :: UInt(w) = 16): x
+  ~throws "argument does not satisfy annotation"
+
+check:
+  pille(specl (n :: nat) = 12): specl(n)
+  ~is 12
+
+check:
+  pille(specl (n :: nat) = -12): specl(n)
+  ~throws "target does not satisfy annotation"
+
+check:
+  pille: specl(using_hosted_execution)
+  ~is #true
+
+//==============================================================================
+// User-defined interoperable types
+
+pille.struct Celsius:
+  degrees :: Int(32)
+
+pille.method (c :: Celsius).$to_rhombus() :: Int(32):
+  c.degrees
+
+pille.method (specl Celsius).$from_rhombus(d :: Int(32)) :: Celsius:
+  Celsius{d}
+
+pille.configure_jit()
+
+check:
+  pille(c :: Celsius = 30): c.degrees + 1
+  ~is 31
+
+//==============================================================================
+// Panics
+
+check:
+  pille:
+    panic("boom")
+    #void
+  ~throws "boom"
+
+check:
+  // A panic raises `pille.Panic`, and only aborts the current `pille`
+  // form.
+  let caught:
+    try:
+      pille:
+        panic("boom")
+        #void
+      #false
+      ~catch _ :: pille.Panic:
+        #true
+  [caught, pille: 1 :: Int(8)]
+  ~is [#true, 1]
