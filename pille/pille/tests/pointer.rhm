@@ -333,3 +333,13 @@ check:
       count
   [evaluations, read_buffer(buf, 3)]
   ~is [1, [0, 11, 20]]
+
+//==============================================================================
+// Unsigned pointer offsets
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf, r :: RawPtr = buf):
+    let u :: UInt(64) = 2
+    [((p + 3) - u)[], ((r + 12) - u).load(UInt(32))]
+  ~is [10, 20]

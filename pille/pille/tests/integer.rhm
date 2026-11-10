@@ -425,3 +425,25 @@ test:
 test:
   ~expect_concr_fail
   double_it(21)
+
+//==============================================================================
+// Mixing signed and unsigned types in casts and shifts
+
+test:
+  let u :: UInt(32) = 255
+  assert(Int(16).cast_exact(u) == 255)
+
+test:
+  ~when ub.checked
+  ~expect_panic
+  let u :: UInt(32) = 40000
+  Int(16).cast_exact(u)
+
+test:
+  // Right shifts of signed integers are arithmetic, and the shift amount
+  // can be unsigned.
+  let neg :: Int(8) = -128
+  let three :: UInt(8) = 3
+  assert(neg >> three == -16)
+  let one :: Int(8) = 1
+  assert(one << three == 8)
