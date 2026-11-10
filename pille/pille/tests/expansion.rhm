@@ -1,0 +1,16 @@
+#lang rhombus/static
+
+// Each module in "expansion" holds tests that fail while the module
+// expands. When `raco test` compiles a directory, one module that fails
+// to expand stops every test from running. So "info.rkt" keeps
+// `raco test` and `raco setup` away from those modules, and this file
+// loads them at run time instead. An expansion error then shows up as
+// one failed check.
+
+check:
+  Evaluator.instantiate(ModulePath 'pille/tests/expansion/byte_size_of_named_type')
+  ~completes
+
+check:
+  Evaluator.instantiate(ModulePath 'pille/tests/expansion/specl_rhombus_args')
+  ~completes

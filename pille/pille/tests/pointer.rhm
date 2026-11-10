@@ -12,6 +12,12 @@ pille.fun set_and_peek(inout x :: UInt(32), p :: PtrMut(UInt(32))) :: UInt(32):
 pille.fun bump(inout x :: UInt(32)) :: Void:
   x := x + 1
 
+// This isn't a slice, so it shouldn't be interoperable, even though it
+// has the same fields as one.
+pille.struct NotASlice:
+  ptr :: RawPtr
+  len :: USize
+
 // The JIT only sees overloads defined before this call.
 pille.configure_jit(~ub_policy: #'check)
 
@@ -333,3 +339,51 @@ check:
       count
   [evaluations, read_buffer(buf, 3)]
   ~is [1, [0, 11, 20]]
+
+//==============================================================================
+// Unsigned pointer offsets
+
+check:
+  let buf = make_buffer(4)
+  pille(p :: Ptr(UInt(32)) = buf, r :: RawPtr = buf):
+    let u :: UInt(64) = 2
+    [((p + 3) - u)[], ((r + 12) - u).load(UInt(32))]
+  ~is [10, 20]
+
+//==============================================================================
+// Returning typed pointers and slices to Rhombus
+
+check:
+  let buf = make_buffer(4)
+  let p :~ ptr_t:
+    pille(p :: PtrMut(UInt(32)) = buf):
+      p + 2
+  mem (cast (uint32_t*) p)[0]
+  ~is 20
+
+check:
+  // Slices are passed back to Rhombus as a pointer and a length.
+  let buf = make_buffer(5)
+  let [p :~ ptr_t, len]:
+    pille(s :: Slice(UInt(32)) = [buf, 5]):
+      s[2..]
+  [mem (cast (uint32_t*) p)[0], len]
+  ~is [20, 3]
+
+//==============================================================================
+// Raw slices
+
+check:
+  // Any typed slice coerces to a `RawSlice` measured in bytes.
+  let buf = make_buffer(5)
+  pille(s :: SliceMut(UInt(32)) = [buf, 5]):
+    let raw :: RawSlice = s
+    let raw_ro :: RawSlice = (s :: Slice(UInt(32)))
+    [raw.len, raw.ptr.load(UInt(32)), raw_ro.len]
+  ~is [20, 0, 20]
+
+check:
+  let buf = make_buffer(5)
+  pille(p :: RawPtr = buf):
+    NotASlice{p, 5}
+  ~throws "Rhombus interop unsupported"

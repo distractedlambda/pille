@@ -411,3 +411,20 @@ test:
   ~expect_concr_fail
   let a :: Celsius = .not_a_member
   #void
+
+//==============================================================================
+// Priorities ordered through both `~higher_than` and `~lower_than`
+
+method (x :: Int(8)).far_rank():
+  ~priority high
+  3
+
+method (x :: _).far_rank():
+  ~priority lower_than_low
+  0
+
+test:
+  // `high` is above `low` through `mid`, and `lower_than_low` is below
+  // `low`, so `high` should win.
+  assert((0 :: Int(8)).far_rank() == 3)
+  assert(#true.far_rank() == 0)
