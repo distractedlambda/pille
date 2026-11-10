@@ -1,0 +1,405 @@
+#lang pille/testsuite
+
+//==============================================================================
+// `if` and specialization-time conditions
+
+test:
+  // When the test is `Specl(#true)` or `Specl(#false)`, the branch that is
+  // not taken is never concretized, so it only needs to parse.
+  let x = if #true | 1 | (#void + #void)
+  let y = if #false | (#void + #void) | 2
+  assert(x == 1)
+  assert(y == 2)
+
+test:
+  // The type of a specialization-time `if` is the type of the branch that
+  // is taken, so the two branches don't need to unify.
+  let x = if #true | (1 :: Int(8)) | #false
+  assert(type_of(x) == Int(8))
+
+test:
+  ~expect_concr_fail
+  let c :: Boolean = #true
+  if c | 1 | (#void + #void)
+
+test:
+  ~expect_concr_fail
+  let n :: Int(32) = 1
+  if n | 1 | 2
+
+test:
+  let c :: Boolean = #false
+  let x = if c | (1 :: UInt(8)) | (2 :: Int(16))
+  assert(type_of(x) == Int(16))
+  assert(x == 2)
+
+//==============================================================================
+// `when`, `unless`, and `cond`
+
+test:
+  var x :: Int(32) = 0
+  let yes :: Boolean = #true
+  let no :: Boolean = #false
+  when yes | x := x + 1
+  when no | x := x + 10
+  unless yes | x := x + 100
+  unless no | x := x + 1000
+  assert(x == 1001)
+
+test:
+  assert(type_of(when #false | 1) == Void)
+
+fun classify(n :: Int(32)) :: Int(32):
+  cond
+  | n < 0: -1 :: Int(32)
+  | n == 0: 0
+  | ~else: 1
+
+test:
+  assert(classify(-5 :: Int(32)) == -1)
+  assert(classify(0 :: Int(32)) == 0)
+  assert(classify(5 :: Int(32)) == 1)
+
+test:
+  // Without `~else`, `cond` is fine as long as some test is
+  // `Specl(#true)`.
+  let n :: Int(32) = 7
+  let r:
+    cond
+    | n < 0: 1
+    | #true: 2
+  assert(r == 2)
+
+test:
+  ~expect_concr_fail
+  let n :: Int(32) = 7
+  cond
+  | n < 0: 1
+  | n > 0: 2
+
+test:
+  // Tests after a `Specl(#true)` one are never concretized.
+  let r:
+    cond
+    | #false: (#void + #void)
+    | #true: 3
+    | ~else: (#void * #void)
+  assert(r == 3)
+
+//==============================================================================
+// Short-circuiting
+
+test:
+  var count :: Int(32) = 0
+  let yes :: Boolean = #true
+  let no :: Boolean = #false
+  let a = no && block:
+    count := count + 1
+    yes
+  let b = yes || block:
+    count := count + 1
+    no
+  assert(count == 0)
+  assert(!a)
+  assert(b)
+  let c = yes && block:
+    count := count + 1
+    no
+  let d = no || block:
+    count := count + 1
+    yes
+  assert(count == 2)
+  assert(!c)
+  assert(d)
+
+test:
+  let yes :: Boolean = #true
+  let no :: Boolean = #false
+  assert(all(yes))
+  assert(all(yes, yes, yes))
+  assert(!all(yes, no, yes))
+  assert(any(no, no, yes))
+  assert(!any(no))
+  assert(!any(no, no, no))
+
+test:
+  var count :: Int(32) = 0
+  let no :: Boolean = #false
+  all(no, block:
+            count := count + 1
+            #true)
+  assert(count == 0)
+
+test:
+  // `&&` and `||` also work on specialization values.
+  assert(type_of(#true && #false) == Specl(#false))
+  assert(type_of(#false || #true) == Specl(#true))
+
+//==============================================================================
+// Boolean operations
+
+test:
+  let t :: Boolean = #true
+  let f :: Boolean = #false
+  assert(!f)
+  assert(¬f)
+  assert(not f)
+  assert(t ∧ t)
+  assert(!(t ∧ f))
+  assert(t ∨ f)
+  assert(!(f ∨ f))
+  assert(t ⊻ f)
+  assert(!(t ⊻ t))
+  assert(t == t)
+  assert(t != f)
+
+test:
+  assert(type_of(!#true) == Specl(#false))
+  let b :: Boolean = #true
+  assert(type_of(!b) == Boolean)
+
+test:
+  let t :: Boolean = #true
+  let f :: Boolean = #false
+  assert(t.select(1, 2) == 1)
+  assert(f.select(1, 2) == 2)
+  let x :: UInt(8) = 7
+  let y :: Int(16) = -7
+  assert(type_of(t.select(x, y)) == Int(16))
+  assert(f.select(x, y) == -7)
+
+test:
+  // Unlike `if`, `select` evaluates both arguments.
+  var count :: Int(32) = 0
+  let t :: Boolean = #true
+  t.select(block:
+             count := count + 1
+             1,
+           block:
+             count := count + 10
+             2)
+  assert(count == 11)
+
+//==============================================================================
+// Representational equivalence
+
+test:
+  let a :: Int(32) = 5
+  let b :: Int(32) = 5
+  let c :: Int(32) = 6
+  assert(a === b)
+  assert(a !== c)
+  // The operands are coerced to a common type first.
+  let d :: Int(8) = 5
+  assert(a === d)
+
+test:
+  // Types with only one inhabitant are always equivalent.
+  assert(type_of(#void === #void) == Specl(#true))
+  assert(type_of(#void !== #void) == Specl(#false))
+
+//==============================================================================
+// `Void` and `Never`
+
+test:
+  // Anything coerces to `Void`.
+  let v :: Void = 42
+  assert(type_of(v) == Void)
+
+test:
+  let c :: Boolean = #true
+  assert(type_of(if c | 1 | #void) == Void)
+
+fun never_returns() :: Never:
+  panic("never")
+
+test:
+  // `Never` coerces to anything, and unifies with anything.
+  let c :: Boolean = #true
+  let x = if c | (1 :: Int(32)) | never_returns()
+  assert(type_of(x) == Int(32))
+  assert(x == 1)
+
+test:
+  ~expect_panic
+  let x :: Int(32) = never_returns()
+  #void
+
+//==============================================================================
+// Labels, `break`, and `continue`
+
+test:
+  let x = #'out:
+    break out(5)
+    6
+  assert(x == 5)
+
+test:
+  let x = #'out:
+    7
+  assert(x == 7)
+
+test:
+  // The type of a labeled block unifies the body with every `break` result.
+  let c :: Boolean = #true
+  let x = #'out:
+    when c | break out(1 :: UInt(8))
+    2 :: Int(16)
+  assert(type_of(x) == Int(16))
+  assert(x == 1)
+
+test:
+  let x = #'out:
+    break out: 8
+  assert(x == 8)
+
+test:
+  // A plain `break` gives `#void`.
+  let x = #'out:
+    break out
+  assert(type_of(x) == Void)
+
+test:
+  // `continue` on a plain labeled block starts the body over.
+  var n :: Int(32) = 0
+  #'again:
+    n := n + 1
+    when n < 10 | continue again
+  assert(n == 10)
+
+test:
+  // Label arguments start with their initial values and take new values
+  // from each `continue`.
+  let sum = #'loop(i = 0 :: Int(32), acc = 0 :: Int(32)):
+    if i < 5
+    | continue loop(i + 1, acc + i)
+    | acc
+  assert(sum == 10)
+
+test:
+  // A label argument without an initializer takes the value of the
+  // variable with the same name.
+  let n :: Int(32) = 5
+  let fact = #'loop(n, acc = 1 :: Int(32)):
+    if n == 0
+    | acc
+    | continue loop(n - 1, acc * n)
+  assert(fact == 120)
+
+test:
+  // `continue` arguments coerce to the types fixed by the initial values.
+  let r = #'loop(i = 0 :: Int(32)):
+    if i < 3
+    | continue loop(3)
+    | i
+  assert(type_of(r) == Int(32))
+  assert(r == 3)
+
+test:
+  ~expect_concr_fail
+  #'loop(i = 0 :: Int(8)):
+    if i < 3
+    | continue loop(i + (1 :: Int(16)))
+    | i
+
+test:
+  // Labels nest, and `break` can escape more than one level.
+  let x = #'outer:
+    #'inner:
+      break outer(1 :: Int(32))
+    2 :: Int(32)
+  assert(x == 1)
+
+//==============================================================================
+// `while` and `until`
+
+test:
+  var i :: Int(32) = 0
+  var sum :: Int(32) = 0
+  while i < 10:
+    sum := sum + i
+    i := i + 1
+  assert(sum == 45)
+
+test:
+  var i :: Int(32) = 0
+  until i == 10:
+    i := i + 1
+  assert(i == 10)
+
+test:
+  // The loop body doesn't run when the test starts out false.
+  var count :: Int(32) = 0
+  let no :: Boolean = #false
+  while no:
+    count := count + 1
+  until #true:
+    count := count + 1
+  assert(count == 0)
+
+test:
+  var i :: Int(32) = 0
+  #'lp while #true:
+    i := i + 1
+    when i == 7 | break lp
+  assert(i == 7)
+
+test:
+  // `continue` in a labeled `while` skips to the next test.
+  var i :: Int(32) = 0
+  var odd_sum :: Int(32) = 0
+  #'lp while i < 10:
+    i := i + 1
+    when i %← 2 == 0 | continue lp
+    odd_sum := odd_sum + i
+  assert(odd_sum == 25)
+
+test:
+  var i :: Int(32) = 0
+  #'lp until i ≥ 100:
+    i := i + 1
+    when i == 3 | break lp
+  assert(i == 3)
+
+//==============================================================================
+// `let`, `var`, and `block`
+
+test:
+  let x :: Int(16) = 3
+  assert(type_of(x) == Int(16))
+  let y:
+    let a :: Int(32) = 4
+    a * 2
+  assert(y == 8)
+  var z :: Int(32):
+    5
+  z := z + 1
+  assert(z == 6)
+
+test:
+  ~expect_concr_fail
+  let x :: Int(32) = 1
+  x := 2
+
+test:
+  let r = block:
+    let a :: Int(32) = 1
+    a + 1
+  assert(r == 2)
+
+//==============================================================================
+// Panics
+
+test:
+  ~expect_panic
+  panic("boom")
+  #void
+
+test:
+  ~expect_panic
+  assert(#false)
+  #void
+
+test:
+  ~expect_concr_fail
+  assert(1 :: Int(32))
