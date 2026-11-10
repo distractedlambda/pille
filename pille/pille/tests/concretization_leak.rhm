@@ -1,0 +1,52 @@
+#lang pille/testsuite
+
+// A test that fails concretization shouldn't affect the tests after it.
+//
+// Under the check policy, the third test fails because checked `Simd`
+// division doesn't concretize (simd.rhm has its own tests for that). The
+// last test passes when it runs alone, but here it fails with the third
+// test's error. The first two tests aren't needed to show this, but the
+// failure was first seen with all four.
+
+test:
+  // Scalars broadcast to every lane.
+  let v :: Simd(Int(32), 4) = 3 :: Int(32)
+  assert((v == 3).all())
+  let w :: Simd(Int(32), 4) = 5
+  assert((w == 5).all())
+
+test:
+  let v = Simd(UInt(8), 4).iota
+  assert(type_of(v) == Simd(UInt(8), 4))
+  // The lanes are 0, 1, 2, 3.
+  assert(v.reduce_or() == 3)
+  assert(v.reduce_and() == 0)
+  assert(v.reduce_xor() == 0)
+  assert((v < 4).all())
+  assert((v == 2).any())
+  assert(!(v == 7).any())
+  assert(!(v < 2).all())
+  assert(!(v < 2).parity())
+  assert((v < 3).parity())
+
+test:
+  let v = Simd(Int(16), 4).iota
+  let w = v + 1
+  // The lanes of w are 1, 2, 3, 4.
+  assert(w.reduce_or() == 7)
+  assert(w.reduce_xor() == 4)
+  assert(((v - w) == -1).all())
+  assert(((w * w) - (w + w) == (v * v) - 1).all())
+  assert((-v ≤ 0).all())
+  assert(((w * 6) /← w == 6).all())
+  assert(((w + 4) %← w == (4 %← w)).all())
+
+test:
+  // This is the test that the earlier failure breaks.
+  let v = Simd(UInt(8), 4).iota
+  let a :: Simd(UInt(16), 4) = v
+  let b :: Simd(Int(16), 4) = v
+  let c :: Simd(Int(32), 4) = b
+  assert((a == 3).any())
+  assert((b == 3).any())
+  assert((c == 3).any())
