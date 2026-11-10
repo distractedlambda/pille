@@ -67,3 +67,10 @@ check:
     rhombus :: UInt(8):
       256
   ~throws "argument does not satisfy annotation"
+
+check:
+  // With the default `Void` result type, the body's value is discarded.
+  pille:
+    rhombus:
+      42
+  ~is #void
