@@ -4,6 +4,7 @@
 // read as a lookup in the namespace and fails to expand. Writing
 // `(Double).byte_size` works. This file is separate from struct.rhm so
 // that the expansion error doesn't stop the tests there from running.
+// It runs from expansion.rhm.
 
 test:
   specl.assert(Double.byte_size == 8)

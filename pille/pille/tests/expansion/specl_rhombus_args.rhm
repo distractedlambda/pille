@@ -1,7 +1,8 @@
 #lang pille/testsuite
 
 // The other tests for `#%rhombus` are in specl.rhm. This one has its own
-// file so that a syntax error here doesn't keep those from running.
+// file so that a syntax error here doesn't keep those from running. It
+// runs from expansion.rhm.
 
 test:
   specl.let n:
