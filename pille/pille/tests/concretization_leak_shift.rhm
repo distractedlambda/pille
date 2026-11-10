@@ -1,0 +1,20 @@
+#lang pille/testsuite
+
+// A test that fails concretization shouldn't affect the tests after it.
+//
+// The first test fails under every policy, because `<<%` and `>>%` use
+// `%↓`, which `Int` doesn't define (integer.rhm has its own tests for
+// that). The second test passes when it runs alone, but here it fails
+// with the first test's `%↓` error under every policy.
+
+test:
+  let one :: Int(8) = 1
+  let nine :: Int(8) = 9
+  assert(one <<% nine == 2)
+  let neg :: Int(8) = -128
+  assert(neg >>% nine == -64)
+
+test:
+  let one :: UInt(8) = 1
+  assert(one << 7 == 128)
+  assert((-128 :: Int(8)) >> 7 == -1)
