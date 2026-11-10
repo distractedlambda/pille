@@ -12,6 +12,12 @@ pille.fun set_and_peek(inout x :: UInt(32), p :: PtrMut(UInt(32))) :: UInt(32):
 pille.fun bump(inout x :: UInt(32)) :: Void:
   x := x + 1
 
+// This isn't a slice, so it shouldn't be interoperable, even though it
+// has the same fields as one.
+pille.struct NotASlice:
+  ptr :: RawPtr
+  len :: USize
+
 // The JIT only sees overloads defined before this call.
 pille.configure_jit(~ub_policy: #'check)
 
@@ -375,3 +381,9 @@ check:
     let raw_ro :: RawSlice = (s :: Slice(UInt(32)))
     [raw.len, raw.ptr.load(UInt(32)), raw_ro.len]
   ~is [20, 0, 20]
+
+check:
+  let buf = make_buffer(5)
+  pille(p :: RawPtr = buf):
+    NotASlice{p, 5}
+  ~throws "Rhombus interop unsupported"
