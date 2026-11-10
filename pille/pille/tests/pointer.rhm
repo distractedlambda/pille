@@ -363,3 +363,15 @@ check:
       s[2..]
   [mem (cast (uint32_t*) p)[0], len]
   ~is [20, 3]
+
+//==============================================================================
+// Raw slices
+
+check:
+  // Any typed slice coerces to a `RawSlice` measured in bytes.
+  let buf = make_buffer(5)
+  pille(s :: SliceMut(UInt(32)) = [buf, 5]):
+    let raw :: RawSlice = s
+    let raw_ro :: RawSlice = (s :: Slice(UInt(32)))
+    [raw.len, raw.ptr.load(UInt(32)), raw_ro.len]
+  ~is [20, 0, 20]
