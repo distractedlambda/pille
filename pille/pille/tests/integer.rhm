@@ -447,3 +447,21 @@ test:
   assert(neg >> three == -16)
   let one :: Int(8) = 1
   assert(one << three == 8)
+
+//==============================================================================
+// Shifting signed integers by a non-constant amount
+
+test:
+  let neg :: Int(8) = -128
+  let three :: Int(8) = 3
+  assert(neg >> three == -16)
+  let one :: Int(8) = 1
+  assert(one << three == 8)
+
+test:
+  // Wrapping shifts take the shift amount modulo the bit width.
+  let one :: Int(8) = 1
+  let nine :: Int(8) = 9
+  assert(one <<% nine == 2)
+  let neg :: Int(8) = -128
+  assert(neg >>% nine == -64)
