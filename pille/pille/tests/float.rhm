@@ -1,0 +1,223 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Constants and coercions
+
+test:
+  let x :: Float = 1.5
+  let y :: Double = 0.25
+  assert(x == 1.5)
+  assert(y == 0.25)
+
+test:
+  // Exact constants coerce when the type can represent them exactly.
+  let x :: Float = 16777216
+  let y :: Double = 1/4
+  assert(x == 16777216.0)
+  assert(y == 0.25)
+
+test:
+  ~expect_concr_fail
+  16777217 :: Float
+
+test:
+  ~expect_concr_fail
+  1/3 :: Double
+
+test:
+  // Inexact constants always coerce, even when they lose precision.
+  let x :: Float = 0.1
+  #void
+
+test:
+  let i :: Int(24) = -8388608
+  let u :: UInt(24) = 16777215
+  let f :: Float = i
+  let g :: Float = u
+  assert(f == -8388608.0)
+  assert(g == 16777215.0)
+
+test:
+  ~expect_concr_fail
+  let i :: Int(25) = 0
+  i :: Float
+
+test:
+  ~expect_concr_fail
+  let u :: UInt(25) = 0
+  u :: Float
+
+test:
+  let i :: Int(53) = -1
+  let u :: UInt(53) = 9007199254740991
+  let f :: Double = i
+  let g :: Double = u
+  assert(f == -1.0)
+  assert(g == 9007199254740991.0)
+
+test:
+  ~expect_concr_fail
+  let i :: Int(54) = 0
+  i :: Double
+
+test:
+  let f :: Float = 1.5
+  let d :: Double = f
+  assert(d == 1.5)
+
+test:
+  ~expect_concr_fail
+  let d :: Double = 1.5
+  d :: Float
+
+test:
+  let c :: Boolean = #true
+  let i :: Int(8) = 1
+  let f :: Float = 2.0
+  let d :: Double = 3.0
+  assert(type_of(if c | i | f) == Float)
+  assert(type_of(if c | f | d) == Double)
+  assert(type_of(if c | 1.5 | f) == Float)
+  assert(type_of(if c | i | d) == Double)
+  assert(type_of(f + d) == Double)
+
+test:
+  ~expect_concr_fail
+  let c :: Boolean = #true
+  let i :: Int(32) = 1
+  let f :: Float = 2.0
+  if c | i | f
+
+//==============================================================================
+// Arithmetic
+
+test:
+  let a :: Double = 7.5
+  let b :: Double = 2.0
+  assert(a + b == 9.5)
+  assert(a - b == 5.5)
+  assert(a * b == 15.0)
+  assert(a / b == 3.75)
+  assert(-a == -7.5)
+  assert(a %← b == 1.5)
+  assert((-a) %← b == -1.5)
+  assert(b ** (10.0 :: Double) == 1024.0)
+
+test:
+  let a :: Float = 7.5
+  let b :: Float = 2.0
+  assert(a + b == 9.5)
+  assert(a / b == 3.75)
+  assert(a %← b == 1.5)
+
+test:
+  // Floating-point division by zero is not undefined behavior.
+  let one :: Double = 1.0
+  let zero :: Double = 0.0
+  assert(one / zero > 1.0e308)
+  assert(-one / zero < -1.0e308)
+
+//==============================================================================
+// Comparisons
+
+test:
+  let a :: Double = 1.0
+  let b :: Double = 2.0
+  assert(a < b)
+  assert(a <= b)
+  assert(b > a)
+  assert(b >= a)
+  assert(a != b)
+  assert(a == a)
+
+test:
+  // Every comparison involving NaN is false, including `!=`.
+  let zero :: Double = 0.0
+  let nan = zero / zero
+  assert(!(nan == nan))
+  assert(!(nan != nan))
+  assert(!(nan < zero))
+  assert(!(nan <= zero))
+  assert(!(nan > zero))
+  assert(!(nan >= zero))
+  assert(!(zero == nan))
+  assert(!(zero != nan))
+
+//==============================================================================
+// Math functions
+
+test:
+  let x :: Double = -2.5
+  assert(abs(x) == 2.5)
+  assert(floor(x) == -3.0)
+  assert(ceil(x) == -2.0)
+  assert(trunc(x) == -2.0)
+  assert(sqrt(16.0 :: Double) == 4.0)
+  assert(exp(0.0 :: Double) == 1.0)
+  assert(sin(0.0 :: Double) == 0.0)
+  assert(cos(0.0 :: Double) == 1.0)
+  assert(tan(0.0 :: Double) == 0.0)
+  assert(asin(0.0 :: Double) == 0.0)
+  assert(acos(1.0 :: Double) == 0.0)
+
+test:
+  let x :: Float = -2.5
+  assert(abs(x) == 2.5)
+  assert(floor(x) == -3.0)
+  assert(sqrt(16.0 :: Float) == 4.0)
+
+test:
+  // `round` at run time agrees with `round` in the specialization language.
+  let a :: Double = 2.5
+  let b :: Double = 3.5
+  let c :: Double = -2.5
+  assert(round(a) == round(2.5))
+  assert(round(b) == round(3.5))
+  assert(round(c) == round(-2.5))
+  assert(round(1.25 :: Double) == 1.0)
+
+test:
+  let pi :: Double = 3.141592653589793
+  assert(abs(asin(1.0 :: Double) * 2.0 - pi) < 1.0e-12)
+  assert(abs(sin(pi / 2.0) - 1.0) < 1.0e-12)
+
+test:
+  let a :: Double = 2.0
+  let b :: Double = 3.0
+  let c :: Double = 1.0
+  assert(mul_add(a, b, c) == 7.0)
+
+test:
+  // `mul_add` falls back to `*` and `+` for types without a fused version.
+  let a :: Int(32) = 2
+  assert(mul_add(a, 3, 4) == 10)
+
+//==============================================================================
+// Casts
+
+test:
+  let d :: Double = 1.5
+  assert(Float.cast(d) == 1.5)
+  assert(type_of(Float.cast(d)) == Float)
+  let f :: Float = 2.5
+  assert(Double.cast(f) == 2.5)
+  let i :: Int(64) = -123456789
+  assert(Double.cast(i) == -123456789.0)
+  let u :: UInt(64) = 18446744073709551615
+  assert(Double.cast(u) == 18446744073709551616.0)
+  assert(Float.cast(7) == 7.0)
+  assert(type_of(Float.cast(7)) == Float)
+
+test:
+  let pos :: Double = 2.7
+  let neg :: Double = -2.7
+  assert(Int(32).cast_sat(pos) == 2)
+  assert(Int(32).cast_sat(neg) == -2)
+  assert(Int(8).cast_sat(1000.0 :: Double) == 127)
+  assert(Int(8).cast_sat(-1000.0 :: Double) == -128)
+  assert(UInt(8).cast_sat(-5.0 :: Double) == 0)
+  assert(UInt(8).cast_sat(300.0 :: Float) == 255)
+  let zero :: Double = 0.0
+  let inf = 1.0 / zero
+  assert(Int(16).cast_sat(inf) == 32767)
+  assert(Int(16).cast_sat(-inf) == -32768)
