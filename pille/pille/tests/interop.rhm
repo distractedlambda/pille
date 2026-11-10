@@ -192,3 +192,18 @@ check:
 check:
   pille(c :: Celsius = 30): Celsius{c.degrees + 1}
   ~is 31
+
+//==============================================================================
+// Passing specialization values from Rhombus
+
+check:
+  pille(x :: Specl(5) = 5): x
+  ~is 5
+
+check:
+  pille(x :: Specl(5) = 5): 1 :: Int(8)
+  ~is 1
+
+check:
+  pille(x :: Specl(5) = 6): 1 :: Int(8)
+  ~throws "does not match Pille specialization value"
