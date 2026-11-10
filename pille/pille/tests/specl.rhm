@@ -1,0 +1,392 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Definitions
+
+specl.def answer = 42
+specl.def typed_answer :: nat = 42
+specl.def bad_def :: nat = -1
+
+specl.def answer_type:
+  Int(answer)
+
+// This is never used, so it is never evaluated.
+specl.def never_evaluated = specl.error("evaluated a delayed definition")
+
+test:
+  specl.assert(answer == 42)
+  specl.assert(typed_answer == 42)
+  specl.assert(answer_type == Int(42))
+  // A `specl.def` name with no expression binding works as an expression.
+  assert(answer == 42)
+  assert(type_of(answer) == Specl(42))
+
+test:
+  ~expect_concr_fail
+  specl.assert(bad_def == -1)
+
+test:
+  ~expect_concr_fail
+  specl.assert(never_evaluated == 0)
+
+specl.fun twice(x :: int) :: int:
+  x * 2
+
+specl.fun describe
+| (x :: int):
+    ~when x < 0
+    "negative"
+| (0):
+    "zero"
+| (x :: int):
+    "positive"
+| (_):
+    "other"
+
+specl.fun bad_result(x) :: nat:
+  x
+
+test:
+  specl.assert(twice(21) == 42)
+  specl.assert(describe(-1) == "negative")
+  specl.assert(describe(0) == "zero")
+  specl.assert(describe(5) == "positive")
+  specl.assert(describe(#true) == "other")
+  specl.assert(bad_result(3) == 3)
+
+test:
+  ~expect_concr_fail
+  specl.assert(twice(1.5) == 3)
+
+test:
+  ~expect_concr_fail
+  specl.assert(bad_result(-3) == -3)
+
+specl.operator a ⊕ b:
+  ~order: addition
+  (a * 10) + b
+
+specl.operator ⊝ a:
+  -a
+
+test:
+  specl.assert(1 ⊕ 2 == 12)
+  specl.assert((1 ⊕ 2) ⊕ 3 == 123)
+  specl.assert((⊝ 4) == -4)
+
+test:
+  specl.let x = 3
+  specl.let Int(w) = type_of(0 :: Int(17))
+  specl.let y :: int:
+    x + w
+  specl.assert(w == 17)
+  specl.assert(y == 20)
+  assert(y == 20)
+
+test:
+  ~expect_concr_fail
+  specl.let UInt(w) = Int(8)
+  #void
+
+//==============================================================================
+// Methods and properties
+
+struct Meters:
+  value :: Int(32)
+
+specl.method (n :: int).squared():
+  n * n
+
+specl.property (n :: int).is_even:
+  n %← 2 == 0
+
+specl.property (Meters).unit_name:
+  "meters"
+
+test:
+  specl.assert((7).squared() == 49)
+  specl.assert((4).is_even)
+  specl.assert(!(5).is_even)
+  specl.assert(Meters.unit_name == "meters")
+
+test:
+  // Calls on `Specl` values are evaluated in the specialization language,
+  // and the result is wrapped back up as `Specl`.
+  let x = specl(7)
+  assert(type_of(x.squared()) == Specl(49))
+  assert(type_of(specl(4).is_even) == Specl(#true))
+  assert(type_of(3 + 4) == Specl(7))
+  assert(type_of(-(3 :: Specl(3))) == Specl(-3))
+
+//==============================================================================
+// Expressions
+
+test:
+  specl.let a = if #true | 1 | specl.error("not taken")
+  specl.let b:
+    cond
+    | 1 > 2: #false
+    | 2 > 1: #true
+    | ~else: #false
+  specl.let c:
+    match Int(12)
+    | UInt(w): w
+    | Int(w): w + 1
+  specl.assert(a == 1)
+  specl.assert(b)
+  specl.assert(c == 13)
+
+test:
+  specl.assert(!#false)
+  specl.assert(#true && #true)
+  specl.assert(!(#true && #false))
+  specl.assert(#false || #true)
+  specl.assert(all(#true, #true, #true))
+  specl.assert(!all(#true, #false))
+  specl.assert(any(#false, #false, #true))
+  specl.assert(!any(#false, #false))
+  // `&&` and `||` short-circuit.
+  specl.assert(!(#false && specl.error("not evaluated")))
+  specl.assert(#true || specl.error("not evaluated"))
+
+test:
+  specl.assert(1 == 1)
+  specl.assert(1 != 2)
+  specl.assert(1 ≠ 2)
+  specl.assert("a" == "a")
+  specl.assert(Int(8) == Int(8))
+  specl.assert(Int(8) != UInt(8))
+  specl.assert(1 < 2)
+  specl.assert(1 <= 1)
+  specl.assert(1 ≤ 1)
+  specl.assert(2 > 1)
+  specl.assert(2 >= 2)
+  specl.assert(2 ≥ 2)
+  specl.assert("a" < "b")
+
+//==============================================================================
+// Numerics
+
+test:
+  specl.assert(1 + 2 == 3)
+  specl.assert(1 - 2 == -1)
+  specl.assert(-(3) == -3)
+  specl.assert(2 * 3 == 6)
+  specl.assert(1 / 3 == 1/3)
+  specl.assert(2 ** 10 == 1024)
+  specl.assert(min(3, -4) == -4)
+  specl.assert(max(3, -4) == 3)
+
+test:
+  specl.assert(7 /← 2 == 3)
+  specl.assert(-7 /← 2 == -3)
+  specl.assert(7 /↓ 2 == 3)
+  specl.assert(-7 /↓ 2 == -4)
+  specl.assert(7 /↑ 2 == 4)
+  specl.assert(-7 /↑ 2 == -3)
+  specl.assert(7 %← 2 == 1)
+  specl.assert(-7 %← 2 == -1)
+  specl.assert(7 %↓ 2 == 1)
+  specl.assert(-7 %↓ 2 == 1)
+  specl.assert(7 %↑ 2 == -1)
+  specl.assert(-7 %↑ 2 == -1)
+  specl.assert(7 % 2 == 1)
+
+test:
+  // `%` is only defined for non-negative operands.
+  ~expect_concr_fail
+  specl.assert(-7 % 2 == -1)
+
+test:
+  specl.assert(abs(-3) == 3)
+  specl.assert(floor(2.5) == 2.0)
+  specl.assert(ceil(2.5) == 3.0)
+  specl.assert(round(2.5) == 2.0)
+  specl.assert(trunc(-2.5) == -2.0)
+  specl.assert(sqrt(16) == 4)
+  specl.assert(exp(0) == 1)
+  specl.assert(sin(0) == 0)
+  specl.assert(cos(0) == 1)
+  specl.assert(tan(0) == 0)
+  specl.assert(asin(0) == 0)
+  specl.assert(acos(1) == 0)
+  specl.assert(mul_add(2, 3, 4) == 10)
+
+test:
+  specl.assert(5 is_a int)
+  specl.assert(5 is_a nat)
+  specl.assert(5 is_a pos_int)
+  specl.assert(0 is_a nat)
+  specl.assert(!(0 is_a pos_int))
+  specl.assert(-1 is_a neg_int)
+  specl.assert(!(-1 is_a nat))
+  specl.assert(1/2 is_a exact)
+  specl.assert(1/2 is_a rational)
+  specl.assert(!(1/2 is_a int))
+  specl.assert(2.0 is_a integral)
+  specl.assert(2.5 is_a inexact)
+  specl.assert(2.5 is_a flonum)
+  specl.assert(2.5 is_a real)
+  specl.assert(-2.5 is_a neg_real)
+  specl.assert(0 is_a nonneg_real)
+  specl.assert(2.5 is_a pos_real)
+  specl.assert(!(complex(1, 2) is_a real))
+  specl.assert(complex(1, 2) is_a number)
+
+//==============================================================================
+// Bit-level operations
+
+test:
+  specl.assert(¬0 == -1)
+  specl.assert((not 5) == -6)
+  specl.assert((12 ∧ 10) == 8)
+  specl.assert((12 and 10) == 8)
+  specl.assert((12 ∨ 10) == 14)
+  specl.assert((12 or 10) == 14)
+  specl.assert((12 ⊻ 10) == 6)
+  specl.assert((12 xor 10) == 6)
+  specl.assert((#true ⊻ #true) == #false)
+  specl.assert((#true ∧ #false) == #false)
+  specl.assert((#true ∨ #false) == #true)
+  specl.assert(¬#true == #false)
+  specl.assert(1 << 10 == 1024)
+  specl.assert(-16 >> 2 == -4)
+  specl.assert((0).bit_length == 0)
+  specl.assert((255).bit_length == 8)
+  specl.assert((256).bit_length == 9)
+  specl.assert((-128).bit_length == 7)
+  specl.assert((-129).bit_length == 8)
+
+//==============================================================================
+// Annotations
+
+test:
+  specl.assert(1 is_a any)
+  specl.assert(Int(8) is_a type)
+  specl.assert(!(1 is_a type))
+  specl.assert(#true is_a boolean)
+  specl.assert("s" is_a string)
+  specl.assert(1 is_a comparable)
+  specl.assert(1 is_a (string || int))
+  specl.assert(!(1 is_a (string && int)))
+  specl.assert(#false is_a maybe(int))
+  specl.assert(1 is_a maybe(int))
+  specl.assert(!("s" is_a maybe(int)))
+  specl.assert(Int(8) is_a matching(Int(_)))
+  specl.assert(!(UInt(8) is_a matching(Int(_))))
+  specl.assert(twice is_a function)
+
+test:
+  // The Rhombus code needs its own imports.
+  specl.let m:
+    #%rhombus:
+      import rhombus/static open
+      1 + 2
+  specl.let n:
+    #%rhombus(x: 20, y: 1):
+      import rhombus/static open
+      x * 2 + y
+  specl.assert(m == 3)
+  specl.assert(n == 41)
+
+test:
+  ~expect_concr_fail
+  specl.let x :: string = 1
+  #void
+
+//==============================================================================
+// Bindings
+
+test:
+  specl.assert(1 matches _)
+  specl.assert(1 matches 1)
+  specl.assert(!(1 matches 2))
+  specl.assert(answer matches equal_to(42))
+  // An identifier with a `specl_expr` binding is an equality constraint
+  // when used as a binding.
+  specl.assert(42 matches answer)
+  specl.assert(!(41 matches answer))
+  specl.assert(Int(8) matches (Int(_) && Int(8)))
+  specl.assert(UInt(8) matches (Int(_) || UInt(_)))
+  specl.assert(5 matches (n :: int))
+  specl.assert(!("s" matches (n :: int)))
+  specl.assert(5 matches (n when n > 4))
+  specl.assert(!(3 matches (n when n > 4)))
+  specl.assert(Int(8) matches (Int(w) where w2 = w * 2))
+  specl.assert(Int(8) matches (Int(w) where 16 = w * 2))
+  specl.assert(!(Int(8) matches (Int(w) where 15 = w * 2)))
+
+test:
+  specl.let (Int(w) as t) = Int(8)
+  specl.assert(t == Int(8))
+  specl.assert(w == 8)
+  specl.let Int(a) where b = a + 1 = Int(4)
+  specl.assert(b == 5)
+
+test:
+  // Repeated metavariables have to match equal values.
+  specl.assert(Simd(Int(8), 8) matches Simd(Int(n), n))
+  specl.assert(!(Simd(Int(8), 4) matches Simd(Int(n), n)))
+
+fun same_type(a :: α, b :: α): #true
+
+test:
+  assert(same_type(1 :: Int(8), 2 :: Int(8)))
+
+test:
+  ~expect_concr_fail
+  same_type(1 :: Int(8), 2 :: Int(16))
+
+//==============================================================================
+// Errors and assertions
+
+test:
+  ~expect_concr_fail
+  specl.error("deliberate error")
+
+test:
+  ~expect_concr_fail
+  specl.assert(1 == 2)
+
+test:
+  specl.assert(#true)
+  #void
+
+//==============================================================================
+// Concretization metaprogramming
+
+test:
+  var x :: Int(32) = 0
+  // `type_of` doesn't include its argument in the compiled program.
+  specl.let t:
+    type_of(block:
+              x := 1
+              x)
+  specl.assert(t == Int(32))
+  assert(x == 0)
+
+test:
+  // `faux` only works when it is never compiled, as inside `type_of`.
+  assert(type_of(faux(Int(8)) + faux(Int(16))) == Int(16))
+
+fun describe_type(x):
+  specl.match type_of(x)
+  | Int(w): w
+  | UInt(w): w + 100
+  | _: 0
+
+test:
+  assert(describe_type(1 :: Int(8)) == 8)
+  assert(describe_type(1 :: UInt(8)) == 108)
+  assert(describe_type(#true) == 0)
+
+test:
+  assert(specl(Int(8) coerces_to Int(16)))
+  assert(specl(!(Int(16) coerces_to Int(8))))
+  assert(type_of(Int(8) coerces_to Int(16)) == Specl(#true))
+  specl.assert(unify(Int(8), UInt(8)) == Int(9))
+  specl.assert(unify(Specl(3), Specl(300)) == UInt(9))
+  specl.assert(Int(16) matches CoercesFrom(Int(8)))
+  specl.assert(!(Int(4) matches CoercesFrom(Int(8))))
+  specl.assert(Int(8) matches CoercesTo(Int(16)))
+  specl.assert(!(Int(32) matches CoercesTo(Int(16))))
