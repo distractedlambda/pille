@@ -1,0 +1,70 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Tuples
+
+test:
+  let t = [1 :: Int(8), #true :: Boolean, 2.5 :: Double]
+  assert(type_of(t) == Tuple(Int(8), Boolean, Double))
+  specl.assert(type_of(t).length == 3)
+  specl.assert(type_of(t).ElementAt(1) == Boolean)
+  assert(t[0] == 1)
+  assert(t[1])
+  assert(t[2] == 2.5)
+
+test:
+  specl.assert(Tuple(Int(8), Int(16)) matches AnyTuple)
+  specl.assert(!(Int(8) matches AnyTuple))
+  specl.assert(Tuple() matches AnyTuple)
+  specl.assert(Tuple().length == 0)
+
+test:
+  var t = [1 :: Int(32), 2 :: Int(32)]
+  t[0] := 10
+  assert(t[0] == 10)
+  assert(t[1] == 2)
+
+test:
+  // Assigned elements are coerced to the element type.
+  var t = [0 :: Int(32), #false :: Boolean]
+  t[0] := (5 :: Int(8))
+  t[1] := #true
+  assert(t[0] == 5)
+  assert(t[1])
+
+test:
+  ~expect_concr_fail
+  var t = [0 :: Int(8)]
+  t[0] := (5 :: Int(32))
+
+test:
+  ~expect_concr_fail
+  let t = [0 :: Int(8)]
+  t[1]
+
+test:
+  // Indices must be specialization values.
+  ~expect_concr_fail
+  let t = [0 :: Int(8)]
+  let i :: UInt(8) = 0
+  t[i]
+
+test:
+  ~expect_concr_fail
+  let t = [0 :: Int(8)]
+  t[0] := 1
+
+test:
+  let t = [[1 :: Int(8), 2 :: Int(8)], 3 :: Int(8)]
+  assert(t[0][1] == 2)
+  var u = t
+  u[0][1] := 20
+  assert(u[0][1] == 20)
+  assert(t[0][1] == 2)
+
+test:
+  let a = [1 :: Int(8), 2 :: Int(16)]
+  let b = [1 :: Int(8), 2 :: Int(16)]
+  let c = [1 :: Int(8), 3 :: Int(16)]
+  assert(a === b)
+  assert(a !== c)

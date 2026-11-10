@@ -1,0 +1,100 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Complex numbers in the specialization language
+
+test:
+  specl.assert(complex(1, 2).real_part == 1)
+  specl.assert(complex(1, 2).imag_part == 2)
+  specl.assert((5).imag_part == 0)
+  specl.assert(complex.i * complex.i == -1)
+  specl.assert(complex(3, 4).magnitude == 5)
+  specl.assert(complex(3, 4).magnitude_squared == 25)
+
+test:
+  // With specialization arguments, `complex` produces a `Specl` value.
+  assert(type_of(complex(1, 2)) == Specl(complex(1, 2)))
+
+//==============================================================================
+// Complex numbers at run time
+
+test:
+  let re :: Int(32) = 3
+  let im :: Int(32) = 4
+  let z = complex(re, im)
+  assert(type_of(z) == Complex(Int(32), Int(32)))
+  assert(z.real_part == 3)
+  assert(z.imag_part == 4)
+  assert(z.magnitude_squared == 25)
+
+test:
+  let z = complex(3.0 :: Double, 4.0 :: Double)
+  assert(z.magnitude == 5.0)
+
+test:
+  let a = complex(1 :: Int(32), 2 :: Int(32))
+  let b = complex(3 :: Int(32), -1 :: Int(32))
+  let sum = a + b
+  let diff = a - b
+  let prod = a * b
+  let neg = -a
+  assert(sum.real_part == 4 ∧ sum.imag_part == 1)
+  assert(diff.real_part == -2 ∧ diff.imag_part == 3)
+  // (1 + 2i)(3 - i) = 3 - i + 6i - 2i² = 5 + 5i
+  assert(prod.real_part == 5 ∧ prod.imag_part == 5)
+  assert(neg.real_part == -1 ∧ neg.imag_part == -2)
+
+test:
+  let i = Complex(Int(32), Int(32)).i
+  assert(i.real_part == 0)
+  assert(i.imag_part == 1)
+  let sq = i * i
+  assert(sq.real_part == -1 ∧ sq.imag_part == 0)
+
+//==============================================================================
+// Coercions
+
+test:
+  // Complex types coerce part by part.
+  let z = complex(1 :: Int(8), 2 :: Int(8))
+  let w :: Complex(Int(32), Int(16)) = z
+  assert(w.real_part == 1 ∧ w.imag_part == 2)
+
+test:
+  ~expect_concr_fail
+  let z = complex(1 :: Int(32), 2 :: Int(32))
+  z :: Complex(Int(8), Int(8))
+
+test:
+  // Real values coerce to complex numbers with a zero imaginary part.
+  let x :: Int(16) = 7
+  let z :: Complex(Int(32), Int(32)) = x
+  assert(z.real_part == 7 ∧ z.imag_part == 0)
+
+test:
+  // So do specialization numbers, including complex ones.
+  let z :: Complex(Int(32), Int(32)) = complex(1, -2)
+  assert(z.real_part == 1 ∧ z.imag_part == -2)
+  let w :: Complex(Double, Double) = 0.5
+  assert(w.real_part == 0.5 ∧ w.imag_part == 0.0)
+
+test:
+  ~expect_concr_fail
+  let z :: Complex(UInt(8), UInt(8)) = complex(1, -2)
+  #void
+
+test:
+  // Unification lets mixed arithmetic work.
+  let z = complex(1 :: Int(32), 2 :: Int(32))
+  let x :: Int(32) = 10
+  let sum = z + x
+  assert(type_of(sum) == Complex(Int(32), Int(32)))
+  assert(sum.real_part == 11 ∧ sum.imag_part == 2)
+  let sum2 = z + complex(1, 1)
+  assert(sum2.real_part == 2 ∧ sum2.imag_part == 3)
+
+test:
+  let a = complex(1 :: Int(8), 0 :: Int(8))
+  let b = complex(0 :: Int(16), 1 :: Int(16))
+  let c :: Boolean = #true
+  assert(type_of(if c | a | b) == Complex(Int(16), Int(16)))
