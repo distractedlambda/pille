@@ -282,3 +282,20 @@ test:
   let s :: SparseSimd(UInt(8), 4) = v
   assert(on.sparse_refine_mask(on.sparse_eq(s, v)).all())
   assert(on.sparse_refine_mask(on.sparse_eq(on.sparse_add(s, v), v + v)).all())
+
+//==============================================================================
+// Floating-point vectors
+
+test:
+  let v :: Simd(Double, 2) = 2.25 :: Double
+  let w = v * 2.0
+  assert((w == 4.5).all())
+  assert((sqrt(v) == 1.5).all())
+  assert((abs(-v) == v).all())
+  assert((floor(v) == 2.0).all())
+  assert(((v - v) / v == 0.0).all())
+  assert((v %← 1.0 == 0.25).all())
+
+test:
+  let v :: Simd(Float, 4) = 1.0 :: Float
+  assert((mul_add(v, v, v) == 2.0).all())
