@@ -4,3 +4,4 @@ compiled/
 jit_dump/
 .vscode/
 .clangd
+CLAUDE.local.md
