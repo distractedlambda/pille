@@ -188,3 +188,7 @@ check:
         #true
   [caught, pille: 1 :: Int(8)]
   ~is [#true, 1]
+
+check:
+  pille(c :: Celsius = 30): Celsius{c.degrees + 1}
+  ~is 31
