@@ -36,3 +36,71 @@ test:
   ~expect_concr_fail
   using scale :: Int(32) = 4
   #void
+
+//==============================================================================
+// Implicits with indices
+
+implicit default_of(α :: type)
+
+fun get_default(specl α :: type, using default_of(α)):
+  default_of(α)
+
+test:
+  using default_of(Int(32)) = 5 :: Int(32)
+  using default_of(Boolean) = #true :: Boolean
+  assert(default_of(Int(32)) == 5)
+  assert(default_of(Boolean))
+  assert(get_default(Int(32)) == 5)
+
+test:
+  // Each set of indices is a separate key.
+  ~expect_concr_fail
+  using default_of(Int(32)) = 5 :: Int(32)
+  get_default(Int(16))
+
+test:
+  // An inner `using` shadows an outer one with the same key.
+  using default_of(Int(32)) = 5 :: Int(32)
+  let outer = get_default(Int(32))
+  let inner:
+    using default_of(Int(32)) = 7 :: Int(32)
+    get_default(Int(32))
+  assert(outer == 5)
+  assert(inner == 7)
+
+//==============================================================================
+// Implicit arguments with `~as`, and implicit values with a declared type
+
+implicit offset :: Int(32)
+
+fun add_offset(x :: Int(32), using offset ~as off) :: Int(32):
+  x + off
+
+test:
+  using offset = 10 :: Int(32)
+  assert(add_offset(1 :: Int(32)) == 11)
+
+test:
+  // The value's type has to match the implicit's declared type.
+  ~expect_concr_fail
+  using offset = 10 :: Int(16)
+  add_offset(1 :: Int(32))
+
+test:
+  // An implicit value can be computed by a body.
+  using offset:
+    let base :: Int(32) = 20
+    base + 1
+  assert(add_offset(0 :: Int(32)) == 21)
+
+method (x :: Int(32)).shifted(using offset) :: Int(32):
+  x + offset
+
+test:
+  using offset = 3 :: Int(32)
+  assert((1 :: Int(32)).shifted() == 4)
+
+test:
+  // Implicit arguments are never passed positionally.
+  ~expect_concr_fail
+  (1 :: Int(32)).shifted(3 :: Int(32))
