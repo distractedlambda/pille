@@ -1,0 +1,186 @@
+#lang pille/testsuite
+
+//==============================================================================
+// Structs without specialization arguments
+
+struct Point:
+  x :: Int(32)
+  y :: Int(32)
+
+struct Empty
+
+test:
+  let p = Point{1, 2}
+  assert(p.x == 1)
+  assert(p.y == 2)
+  assert(type_of(p) == Point)
+  specl.assert(Point is_a type)
+
+test:
+  let e = Empty{}
+  assert(type_of(e) == Empty)
+  specl.assert(Empty.byte_size == 0)
+
+test:
+  // Constructor arguments are coerced to the field types.
+  let p = Point{1 :: Int(8), 2 :: UInt(16)}
+  assert(p.x == 1)
+  assert(p.y == 2)
+
+test:
+  ~expect_concr_fail
+  Point{1 :: Int(64), 2}
+
+test:
+  ~expect_concr_fail
+  Point{1}
+
+test:
+  var p = Point{1, 2}
+  p.x := 10
+  assert(p.x == 10)
+  assert(p.y == 2)
+
+test:
+  // Fields of an immutable variable are not assignable.
+  ~expect_concr_fail
+  let p = Point{1, 2}
+  p.x := 10
+
+test:
+  var p = Point{1, 2}
+  p := Point{3, 4}
+  assert(p.x == 3)
+  assert(p.y == 4)
+
+test:
+  let p = Point{1, 2}
+  let q = Point{1, 2}
+  let r = Point{1, 3}
+  assert(p === q)
+  assert(p !== r)
+
+//==============================================================================
+// Structs with specialization arguments
+
+struct Pair(α, β):
+  first :: α
+  second :: β
+
+struct Line:
+  start :: Point
+  end :: Point
+
+struct Sized(α ~as Elem, n :: pos_int ~as count):
+  value :: α
+
+test:
+  specl.assert(Pair(Int(8), Int(16)) is_a type)
+  specl.assert(Pair(Int(8), Int(16)) == Pair(Int(8), Int(16)))
+  specl.assert(Pair(Int(8), Int(16)) != Pair(Int(16), Int(8)))
+  specl.assert(Pair(Int(8), Int(16)) matches Pair(Int(_), β))
+  specl.assert(Pair(Int(8), Int(16)) is_a Pair)
+  specl.assert(!(Point is_a Pair))
+
+test:
+  let p = Pair(Int(8), Boolean){-1, #true}
+  assert(p.first == -1)
+  assert(p.second)
+  specl.match type_of(p)
+  | Pair(α, β):
+      specl.assert(α == Int(8))
+      specl.assert(β == Boolean)
+
+test:
+  // `~as` arguments are available as specialization properties.
+  specl.assert(Sized(Int(8), 4).Elem == Int(8))
+  specl.assert(Sized(Int(8), 4).count == 4)
+  let s = Sized(Int(8), 4){7}
+  specl.assert(type_of(s).count == 4)
+  assert(s.value == 7)
+
+test:
+  ~expect_concr_fail
+  Sized(Int(8), 0){1}
+
+test:
+  var l = Line{Point{0, 0}, Point{1, 1}}
+  l.end.x := 5
+  assert(l.end.x == 5)
+  assert(l.end.y == 1)
+  assert(l.start.x == 0)
+
+//==============================================================================
+// Recursive references
+
+struct Node:
+  value :: Int(32)
+  next :: Ptr(Node)
+
+test:
+  specl.assert(Node is_a type)
+  specl.assert(Node.byte_size == Int(32).byte_stride + RawPtr.byte_size
+                 || Node.byte_size == 2 * RawPtr.byte_size)
+
+//==============================================================================
+// Memory layout
+
+test:
+  specl.assert(Int(8).byte_size == 1)
+  specl.assert(Int(32).byte_size == 4)
+  specl.assert(Int(32).byte_align == 4)
+  specl.assert(Int(32).byte_stride == 4)
+  specl.assert((Double).byte_size == 8)
+  specl.assert(Pair(Int(8), Int(32)).byte_size == 8)
+  specl.assert(Pair(Int(8), Int(32)).byte_align == 4)
+  specl.assert(Pair(Int(32), Int(8)).byte_stride == 8)
+  specl.assert(Void.byte_size == 0)
+
+//==============================================================================
+// `$assign`
+
+struct Counter:
+  value :: Int(32)
+
+struct Assigns:
+  value :: Int(32)
+
+// Count the number of assignments by bumping the destination's value.
+method (inout dst :: Assigns).$assign(src :: Assigns) :: Int(32):
+  dst.value := dst.value + 1
+  42
+
+test:
+  var a = Assigns{0}
+  a := Assigns{100}
+  a := Assigns{100}
+  assert(a.value == 2)
+
+test:
+  // `:=` always has type `Void`, even when `$assign` returns something
+  // else.
+  var a = Assigns{0}
+  assert(type_of(a := Assigns{0}) == Void)
+
+test:
+  // The default `$assign` for a struct copies field by field, so it uses
+  // the `$assign` method for each field.
+  var p = Pair(Assigns, Int(32)){Assigns{0}, 0}
+  p := Pair(Assigns, Int(32)){Assigns{0}, 5}
+  assert(p.first.value == 1)
+  assert(p.second == 5)
+
+coercion (n :: Int(32)) :: Counter:
+  Counter{n}
+
+test:
+  // The right side of `:=` is coerced to the struct type.
+  var c = Counter{0}
+  c := (7 :: Int(32))
+  assert(c.value == 7)
+
+test:
+  // Structs don't get coercions between instantiations automatically.
+  ~expect_concr_fail
+  var p = Pair(Int(32), Int(32)){0, 0}
+  p := Pair(Int(8), Int(8)){3, 4}
