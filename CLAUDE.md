@@ -58,6 +58,12 @@ The other packages:
 - `pille-spmd-lib` implements `#lang pille/spmd` and `pille/spmd/embedded`. They provide `spmd(width):` blocks, `par_for`, and `Varying` values that are lowered to SIMD with masks.
 - `pille` holds the tests and the Scribble manual. The docs use a custom set of doc forms in `scribblings/common/pille/`.
 
+## Documentation
+
+Don't edit the documentation. Everything under `pille/pille/scribblings/` and the README must stay entirely human-written. That includes small fixes, such as correcting a typo or updating a signature that your change made stale.
+
+Instead, when your work changes the public API in a way that the docs should reflect, say so when you report back. Name each affected binding and what changed about it, such as an added or removed form, a renamed operator, or a new option. If you can tell which `.scrbl` file covers it, point to that file too. Mention these changes in the commit message as well.
+
 ## Conventions
 
 - Files divide top-level sections with `//====...` comment lines.
