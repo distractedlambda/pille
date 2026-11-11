@@ -15,8 +15,16 @@ class Priority(
 
   equatable_by_identity
 
+  // `higher_than` holds every priority reachable by following
+  // `~higher_than` links down from this one, and `lower_than` does the same
+  // for `~lower_than` links going up. A chain can switch from one kind of
+  // link to the other, as in `high ~higher_than low` together with
+  // `lowest ~lower_than low`. So this priority is also higher when some
+  // priority is below it and above `other` at the same time.
   method is_higher_than(other :: _Priority) :~ Boolean:
-    other in higher_than || this in other.lower_than
+    (other in higher_than
+       || this in other.lower_than
+       || (for any (middle in higher_than): middle in other.lower_than))
 
 def Priority.fallback:
   Priority(
