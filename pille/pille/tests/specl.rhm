@@ -290,6 +290,13 @@ test:
   specl.assert(n == 41)
 
 test:
+  specl.let n:
+    #%rhombus(x = 20, y = 1):
+      import rhombus/static open
+      x * 2 + y
+  specl.assert(n == 41)
+
+test:
   ~expect_concr_fail
   specl.let x :: string = 1
   #void
