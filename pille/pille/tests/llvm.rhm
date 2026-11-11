@@ -1,0 +1,338 @@
+#lang rhombus/static
+
+// Tests for the checks in `pille/llvm`. Each bad call here would trip an
+// assertion in LLVM, or crash a build of LLVM without assertions, if the
+// library let it through.
+
+import:
+  pille/llvm
+
+def context = llvm.Context()
+def i1 = llvm.IntType(context, 1)
+def i8 = llvm.IntType(context, 8)
+def i32 = llvm.IntType(context, 32)
+def i64 = llvm.IntType(context, 64)
+def float = llvm.FloatType(context)
+def ptr = llvm.PointerType(context)
+def v4i32 = llvm.VectorType(i32, 4)
+def void = llvm.VoidType(context)
+def pair = llvm.StructType(context, [i32, i64])
+
+def module = llvm.Module(context, "test")
+
+def fn_type = llvm.FunctionType(i32, [i32, i64, ptr, float, v4i32, i1])
+def fn = module.functions.add("f", fn_type)
+def x32 = fn.arguments[0]
+def x64 = fn.arguments[1]
+def p = fn.arguments[2]
+def f = fn.arguments[3]
+def v = fn.arguments[4]
+def flag = fn.arguments[5]
+
+def entry = fn.basic_blocks.add("entry")
+def other = fn.basic_blocks.add("other")
+def b = llvm.Builder(context)
+b.position_at_end(entry)
+
+def void_fn = module.functions.add("g", llvm.FunctionType(void, [i32]))
+
+//==============================================================================
+// Types
+
+check:
+  llvm.IntType(context, 2 ** 23 + 1)
+  ~throws "IntType"
+
+check:
+  llvm.VectorType(pair, 4)
+  ~throws "VectorType"
+
+check:
+  llvm.FunctionType(i32, [void])
+  ~throws "FunctionType"
+
+check:
+  llvm.PointerType(context, ~address_space: 2 ** 24)
+  ~throws "PointerType"
+
+check:
+  x32.type == i32
+  ~is #true
+
+check:
+  x32.type == x64.type
+  ~is #false
+
+check:
+  b.int_type(32) == i32
+  ~is #true
+
+//==============================================================================
+// Constants
+
+check:
+  llvm.ConstantInt(i8, 255) is_a llvm.ConstantInt
+  ~is #true
+
+check:
+  llvm.ConstantInt(i8, -128) is_a llvm.Constant
+  ~is #true
+
+check:
+  llvm.ConstantInt(i8, 256)
+  ~throws "ConstantInt"
+
+check:
+  llvm.ConstantInt(i8, -129)
+  ~throws "ConstantInt"
+
+//==============================================================================
+// Arithmetic and comparisons
+
+check:
+  b.create_add(x32, x64)
+  ~throws "must have the same type"
+
+check:
+  b.create_fadd(x32, x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_fneg(x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_icmp_eq(f, f)
+  ~throws "has the wrong type"
+
+check:
+  b.create_fcmp_oeq(x32, x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_icmp_eq(p, p) is_a llvm.Value
+  ~is #true
+
+//==============================================================================
+// Casts
+
+check:
+  b.create_trunc(x32, i64)
+  ~throws "invalid cast"
+
+check:
+  b.create_zext(x64, i32)
+  ~throws "invalid cast"
+
+check:
+  b.create_zext(x32, v4i32)
+  ~throws "invalid cast"
+
+check:
+  b.create_bitcast(x64, float)
+  ~throws "invalid cast"
+
+check:
+  b.create_bitcast(p, i64)
+  ~throws "invalid cast"
+
+// IRBuilder returns the operand when it already has the destination type.
+check:
+  b.create_zext(x32, i32) == x32
+  ~is #true
+
+check:
+  b.create_bitcast(x32, float).type == float
+  ~is #true
+
+//==============================================================================
+// Memory
+
+check:
+  b.create_store(x32, x64)
+  ~throws "has the wrong type"
+
+check:
+  b.create_load(i32, x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_load(~alignment: 3, i32, p)
+  ~throws "Builder.create_load"
+
+check:
+  b.create_alloca(i32, f)
+  ~throws "has the wrong type"
+
+check:
+  b.create_gep(i32, p, [f])
+  ~throws "has the wrong type"
+
+check:
+  llvm.Builder(context).create_alloca(i32)
+  ~throws "no insertion point"
+
+check:
+  b.create_alloca(i32) is_a llvm.AllocaInst
+  ~is #true
+
+//==============================================================================
+// Selects, vectors and aggregates
+
+check:
+  b.create_select(x32, x32, x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_select(flag, x32, x64)
+  ~throws "must have the same type"
+
+check:
+  b.create_select(flag, v, v).type == v4i32
+  ~is #true
+
+check:
+  b.create_extract_element(x32, x32)
+  ~throws "has the wrong type"
+
+check:
+  b.create_insert_element(v, x64, x32)
+  ~throws "must have the same type"
+
+check:
+  b.create_shuffle_vector(v, v, v)
+  ~throws "mask is not a constant"
+
+check:
+  b.create_extract_value(x32, 0)
+  ~throws "has the wrong type"
+
+check:
+  b.create_extract_value(pair.null_value, 2)
+  ~throws "out of range"
+
+check:
+  b.create_insert_value(pair.null_value, x32, 1)
+  ~throws "must have the same type"
+
+check:
+  b.create_vector([x32, x64])
+  ~throws "must have the same type"
+
+check:
+  b.create_splat(x32, 4).type == v4i32
+  ~is #true
+
+//==============================================================================
+// Calls and intrinsics
+
+check:
+  b.create_direct_call(void_fn, [])
+  ~throws "wrong number of arguments"
+
+check:
+  b.create_direct_call(void_fn, [x64])
+  ~throws "must have the same type"
+
+check:
+  b.create_direct_call(~name: "r", void_fn, [x32])
+  ~throws "cannot give a name"
+
+check:
+  b.create_call(llvm.FunctionType(void, [i32]), x32, [x32])
+  ~throws "has the wrong type"
+
+check:
+  b.create_direct_call(void_fn, [x32]).name := "r"
+  ~throws "cannot give a name"
+
+check:
+  b.create_direct_call(void_fn, [x32]).set_argument_alignment(1, 8)
+  ~throws "out of range"
+
+check:
+  module.functions.get_intrinsic("llvm.no_such_intrinsic")
+  ~throws "does not exist"
+
+check:
+  module.functions.get_intrinsic("llvm.sqrt")
+  ~throws "needs type arguments"
+
+check:
+  module.functions.get_intrinsic("llvm.trap", [i32])
+  ~throws "not overloaded"
+
+check:
+  b.create_sqrt(f).type == float
+  ~is #true
+
+check:
+  void_fn.delete()
+  ~throws "still has uses"
+
+//==============================================================================
+// Control flow and phis
+
+check:
+  b.create_cond_br(x32, entry, other)
+  ~throws "has the wrong type"
+
+check:
+  b.create_ret(x64)
+  ~throws "must have the same type"
+
+check:
+  b.create_ret_void()
+  ~throws "has the wrong type"
+
+check:
+  b.create_cond_br(flag, other, other) is_a llvm.BranchInst
+  ~is #true
+
+// Both branch edges go to `other`, so its phi needs an entry for each.
+b.position_at_end(other)
+def phi = b.create_phi(i32)
+
+check:
+  phi.add_incoming(x64, entry)
+  ~throws "must have the same type"
+
+phi.add_incoming(x32, entry)
+phi.add_incoming(x32, entry)
+
+check:
+  b.create_ret(phi) is_a llvm.ReturnInst
+  ~is #true
+
+check:
+  module.verify()
+  ~is #void
+
+//==============================================================================
+// A value that comes back from LLVM without a specific tag still satisfies
+// the annotation for its class.
+
+// The checks above that succeeded added one alloca and three calls to
+// `entry`.
+check:
+  for values(insts = 0, allocas = 0, calls = 0) (inst in entry.instructions):
+    values(insts + (if inst is_a llvm.Instruction | 1 | 0),
+           allocas + (if inst is_a llvm.AllocaInst | 1 | 0),
+           calls + (if inst is_a llvm.CallInst | 1 | 0))
+  ~is values(10, 1, 3)
+
+check:
+  fn.arguments[6]
+  ~throws "out of range"
+
+check:
+  fn.arguments.first is_a llvm.Argument
+  ~is #true
+
+check:
+  fn.arguments.first is_a llvm.Constant
+  ~is #false
+
+check:
+  (fn :: llvm.Value) is_a llvm.Function
+  ~is #true
