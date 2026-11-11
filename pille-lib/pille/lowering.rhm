@@ -136,8 +136,18 @@ export fun create_internal_function(
         skip_when repr is_a Repr.Erased
         repr.llvm_type(ctx))
 
+  // Call sites that are already concretized refer to `native_symbol`, and
+  // they may be cached and reused. If concretizing the body fails, the
+  // function is never defined, so lowering any call to it raises the same
+  // failure instead.
+  let mutable body_failure :: maybe(Exn.Fail) = #false
+
   compiler.defer_concretization(_) <| fun():
-    let body_low = concretize_body()
+    let body_low = try:
+      concretize_body()
+      ~catch exn :: Exn.Fail:
+        body_failure := exn
+        throw exn
     compiler.define_function(
       native_symbol,
       llvm_fun_type,
@@ -197,6 +207,8 @@ export fun create_internal_function(
               body_low(env)))
 
   fun(arg_vals :~ List):
+    when body_failure | throw body_failure
+
     // We assume we'll never get here if one of the arguments is uninhabitable
 
     let builder = builder()

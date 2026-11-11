@@ -217,7 +217,20 @@ fun make_stub(
       let cache = linker.compiler.get_or_init_attr(cache_attr_key, MutableMap)
       cache.get(specl_args, _) <| fun():
         let callout = parameterize { Compiler.current: linker.compiler }:
-          let [dyn_arg_types, body] = concretize(specl_args)
+          let [dyn_arg_types :~ List, body :~ Expr]:
+            try:
+              concretize(specl_args)
+              ~catch exn :: Exn.Fail:
+                // Functions called from the part of the body that did
+                // concretize still have bodies waiting to be concretized.
+                // Do that now, so a later compilation doesn't do it and
+                // report their failures as its own. The functions keep
+                // any failure and raise it again wherever they're called.
+                try:
+                  linker.compiler.force_deferred_concretization()
+                  ~catch _ :: Exn.Fail:
+                    #void
+                throw exn
 
           let RhombusToPilleAdapter(make_callout, read_args, write_result):
             RhombusToPilleAdapter(
