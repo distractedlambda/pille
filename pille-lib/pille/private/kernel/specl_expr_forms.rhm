@@ -48,6 +48,9 @@ meta:
   syntax_class ArgToRhombus:
     kind: ~group
     fields: rhombus_binding value_expr
+  // Pille modules bind `=` only in Pille's spaces, and Rhombus modules
+  // bind it only in Rhombus's, so we accept either.
+  | '$(rhombus_binding :: NonemptySequence) $(_ :: specl_expr_meta.EqualsOp) $(value_expr :: specl_expr_meta.Parsed)'
   | '$(rhombus_binding :: NonemptySequence) $(bound_as expr_meta.space: '=') $(value_expr :: specl_expr_meta.Parsed)'
   | '$(rhombus_binding :: NonemptySequence): $(value_expr :: specl_expr_meta.Parsed)'
   | '$(id :: Identifier)':

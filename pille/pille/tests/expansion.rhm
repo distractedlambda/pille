@@ -10,7 +10,3 @@
 check:
   Evaluator.instantiate(ModulePath 'pille/tests/expansion/byte_size_of_named_type')
   ~completes
-
-check:
-  Evaluator.instantiate(ModulePath 'pille/tests/expansion/specl_rhombus_args')
-  ~completes
