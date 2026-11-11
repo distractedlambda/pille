@@ -30,6 +30,8 @@ coercion (src :: Simd(Int(ws), n)) :: δ && Simd(Int(wd), n):
 
 //==============================================================================
 unify(Simd(α, n), β):
+  ~when !(β matches Simd(_, _))
+  ~when !(β matches SparseSimd(_, _))
   Simd(unify(α, β), n)
 
 unify(Simd(α, n), Simd(β, n)):
