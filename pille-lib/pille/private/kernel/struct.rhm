@@ -160,11 +160,18 @@ class StructType(
   //============================================================================
   override compute_rhombus_interop():
     ImplicitKey.with_empty_env(_) <| fun():
-      let to_rhombus_concr:
-        resolve_overload(
-          this,
-          unique_member.symbol(to_rhombus),
-          [])
+      let to_rhombus_concr :~ Overload.Concretized:
+        try:
+          resolve_overload(
+            this,
+            unique_member.symbol(to_rhombus),
+            [])
+          ~catch exn :: Exn.Fail.Concretize.Recoverable:
+            error(
+              ~exn: Exn.Fail.Concretize.Recoverable,
+              "Rhombus interop unsupported",
+              error.val(~label: "type", this),
+              error.cause(exn))
 
       guard to_rhombus_concr.inout_mask == 0
       | error(
