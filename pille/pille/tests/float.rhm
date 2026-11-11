@@ -221,3 +221,14 @@ test:
   let inf = 1.0 / zero
   assert(Int(16).cast_sat(inf) == 32767)
   assert(Int(16).cast_sat(-inf) == -32768)
+
+//==============================================================================
+// Type properties through the `Float` and `Double` namespaces
+
+test:
+  // `Double` also names a namespace, so these are forwarded explicitly.
+  specl.assert(Double.byte_size == 8)
+  specl.assert(Float.byte_size == 4)
+  specl.assert(Double.byte_align == (Double).byte_align)
+  specl.assert(Float.byte_stride == 4)
+  assert(Double.byte_size == 8)

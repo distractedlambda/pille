@@ -157,9 +157,17 @@ method (specl FloatingPoint as δ).cast(specl src :: int) :: δ:
       import rhombus/static open
       math.inexact(src))
 
-// Workarounds for namespace punning
+// Workarounds for namespace punning. `Float` and `Double` are namespaces
+// too, so `Double.byte_size` looks for `byte_size` in the namespace
+// instead of accessing a property of the type.
 fun Float.cast(src): (Float).cast(src)
 fun Double.cast(src): (Double).cast(src)
+specl.def Float.byte_size: (Float).byte_size
+specl.def Double.byte_size: (Double).byte_size
+specl.def Float.byte_align: (Float).byte_align
+specl.def Double.byte_align: (Double).byte_align
+specl.def Float.byte_stride: (Float).byte_stride
+specl.def Double.byte_stride: (Double).byte_stride
 
 //==============================================================================
 method (specl Int(_) as δ).cast_sat(src :: FloatingPoint) :: δ:
