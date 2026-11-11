@@ -56,9 +56,10 @@ export veneer AllocaInst(this :: satisfying(is_AllocaInst)):
 
   constructor ~error
 
+  // LLVM always gives allocas, loads and stores an alignment.
   property
-  | alignment :~ maybe(PosInt):
-      alignment_or_false(LLVMGetAlignment(this))
+  | alignment :~ PosInt:
+      LLVMGetAlignment(this)
   | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
@@ -69,8 +70,8 @@ export veneer LoadInst(this :: satisfying(is_LoadInst)):
   constructor ~error
 
   property
-  | alignment :~ maybe(PosInt):
-      alignment_or_false(LLVMGetAlignment(this))
+  | alignment :~ PosInt:
+      LLVMGetAlignment(this)
   | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
@@ -87,8 +88,8 @@ export veneer StoreInst(this :: satisfying(is_StoreInst)):
   constructor ~error
 
   property
-  | alignment :~ maybe(PosInt):
-      alignment_or_false(LLVMGetAlignment(this))
+  | alignment :~ PosInt:
+      LLVMGetAlignment(this)
   | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
