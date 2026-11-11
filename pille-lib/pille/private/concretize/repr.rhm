@@ -63,7 +63,7 @@ class Repr.Bits(width :: PosInt):
     llvm.IntType(ctx, width)
 
 class Repr.FloatingPoint():
-  extends Repr.Sized
+  extends Repr.Scalar
   nonfinal
   constructor ~error
 
