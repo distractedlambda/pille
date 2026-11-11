@@ -163,7 +163,9 @@ fun concretize_repr_equivalent(fst :~ Expr, snd :~ Expr):
     | _ :: (Repr.Bits || Repr.Pointer):
         builder.create_icmp_eq(fst_val, snd_val)
 
-    | _ :: Repr.Simd:
+    | _ :: (Repr.Simd || Repr.FloatingPoint):
+        // Floating-point values are compared bit by bit, so NaN is
+        // equivalent to itself, and 0.0 is not equivalent to -0.0.
         let bits_type:
           builder.int_type(
             builder.data_layout!!.bit_size_of(
@@ -171,6 +173,15 @@ fun concretize_repr_equivalent(fst :~ Expr, snd :~ Expr):
         let fst_bits = builder.create_bitcast(fst_val, bits_type)
         let snd_bits = builder.create_bitcast(snd_val, bits_type)
         builder.create_icmp_eq(fst_bits, snd_bits)
+
+    | Repr.Array(elem_repr, length):
+        let [hd_equiv, &tl_equivs]:
+          for List (elem_idx in 0..length):
+            let fst_val_elem = builder.create_extract_value(fst_val, elem_idx)
+            let snd_val_elem = builder.create_extract_value(snd_val, elem_idx)
+            lower_equiv_check(elem_repr, fst_val_elem, snd_val_elem)
+        for fold(all_equiv = hd_equiv) (elem_equiv in tl_equivs):
+          builder.create_and(all_equiv, elem_equiv)
 
     | Repr.Tuple(elem_reprs):
         let [hd_equiv, &tl_equivs]:
