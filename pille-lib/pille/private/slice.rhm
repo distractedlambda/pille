@@ -45,7 +45,7 @@ coercion (src :: SliceMut(α)) :: Slice(α):
   .{src.ptr, src.len}
 
 coercion (src :: SliceOf(α)) :: RawSlice:
-  .{src.ptr, src.len * α.byte_stride}
+  .{src.ptr.raw, src.len * α.byte_stride}
 
 //==============================================================================
 method (s :: AnySplice).$to_rhombus():
