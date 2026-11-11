@@ -84,6 +84,13 @@ unify(Specl(v :: int), Int(w)):
   Int(max(v.bit_length + 1, w))
 
 //==============================================================================
+// A negative value needs a sign bit, and every value of `UInt(w)` fits in
+// `Int(w + 1)`.
+unify(Specl(v :: int), UInt(w)):
+  ~when v < 0
+  Int(max(v.bit_length + 1, w + 1))
+
+//==============================================================================
 method (lhs :: (BinaryInteger || Simd(BinaryInteger, _)) as α).$add_wrap(rhs :: α) :: α:
   prim.add(lhs, rhs)
 
