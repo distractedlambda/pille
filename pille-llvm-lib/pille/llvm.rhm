@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 
 import:
-  lib("pille/private/llvm/llvm_c.rkt") open
+  pille/private/llvm/llvm_c open
   pille/private/llvm/argument open
   pille/private/llvm/basic_block open
   pille/private/llvm/builder open

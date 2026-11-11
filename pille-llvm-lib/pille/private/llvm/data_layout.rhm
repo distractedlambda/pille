@@ -1,38 +1,40 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "context.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "type.rhm" open
+  "type_util.rhm" open
 
-export veneer DataLayout(this :: satisfying(#{LLVMTargetDataRef?})):
+export veneer DataLayout(this :: LLVMTargetData):
   constructor(string_rep :: ReadableString):
     LLVMCreateTargetData(string_rep)
 
   method dispose() :: Void:
     LLVMDisposeTargetData(this)
 
-  method to_string() :: String:
-    LLVMCopyStringRepOfTargetData(this) |> String.snapshot
+  method to_string() :~ String:
+    LLVMCopyStringRepOfTargetData(this)
 
   property byte_order :: ByteOrdering:
     LLVMByteOrder(this) |> decode_byte_ordering
 
-  method intptr_type(context :: Context, ~address_space: address_space :: NonnegInt = 0) :: IntType:
+  method intptr_type(context :: Context, ~address_space: address_space :: AddressSpace = 0) :~ IntType:
     LLVMIntPtrTypeForASInContext(context, this, address_space)
 
-  method bit_size_of(type :: SizedType) :: PosInt:
+  method bit_size_of(type :: SizedType) :~ NonnegInt:
     LLVMSizeOfTypeInBits(this, type)
 
-  method store_size_of(type :: SizedType) :: PosInt:
+  method store_size_of(type :: SizedType) :~ NonnegInt:
     LLVMStoreSizeOfType(this, type)
 
-  method abi_size_of(type :: SizedType) :: PosInt:
+  method abi_size_of(type :: SizedType) :~ NonnegInt:
     LLVMABISizeOfType(this, type)
 
-  method abi_alignment_of(type :: SizedType) :: PosInt:
+  method abi_alignment_of(type :: SizedType) :~ PosInt:
     LLVMABIAlignmentOfType(this, type)
 
-  method preferred_alignment_of(type :: SizedType) :: PosInt:
+  method preferred_alignment_of(type :: SizedType) :~ PosInt:
     LLVMPreferredAlignmentOfType(this, type)

@@ -1,39 +1,50 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "function.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
 
 export annot.delayed_declare _Instruction
 
-export veneer BasicBlock(this :: satisfying(#{LLVMBasicBlockRef?})):
+// The sequence form below calls LLVM directly on the block being iterated,
+// which a veneer method call would otherwise have checked.
+fun check_block(who, v):
+  unless v is_a LLVMBasicBlock
+  | error(~who: who,
+          error.annot_msg(),
+          error.annot("BasicBlock"),
+          error.val(v))
+  v
+
+export veneer BasicBlock(this :: LLVMBasicBlock):
   export:
     Instructions
 
-  property name :: String:
-    LLVMGetBasicBlockName(this) |> String.snapshot
+  property name :~ String:
+    String.snapshot(LLVMGetBasicBlockName(this))
 
-  property parent :: maybe(Function):
+  property parent :~ maybe(Function):
     LLVMGetBasicBlockParent(this)
 
-  property next :: maybe(BasicBlock):
+  property next :~ maybe(BasicBlock):
     LLVMGetNextBasicBlock(this)
 
-  property previous :: maybe(BasicBlock):
+  property previous :~ maybe(BasicBlock):
     LLVMGetPreviousBasicBlock(this)
 
-  veneer Instructions(this :: satisfying(#{LLVMBasicBlockRef?})):
+  veneer Instructions(this :: LLVMBasicBlock):
     constructor ~error
 
-    property first :: maybe(_Instruction):
+    property first :~ maybe(_Instruction):
       LLVMGetFirstInstruction(this)
 
-    property last :: maybe(_Instruction):
+    property last :~ maybe(_Instruction):
       LLVMGetLastInstruction(this)
 
     sequence '$inst: $self':
       '(~outer_binds:
-          self = $self,
+          self = check_block("BasicBlock.Instructions", $self),
         ~recur_binds:
           cur = LLVMGetFirstInstruction(self),
         ~head_guard:
@@ -47,7 +58,7 @@ export veneer BasicBlock(this :: satisfying(#{LLVMBasicBlockRef?})):
       '(($statinfo_meta.index_result_key,
          $(annot_meta.parse_to_packed_statinfo('_Instruction'))))'
 
-  property instructions :: Instructions:
+  property instructions :~ Instructions:
     this
 
 annot.delayed_complete _BasicBlock: BasicBlock

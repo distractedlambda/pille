@@ -1,10 +1,11 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "context.rhm" open
   "data_layout.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "target_machine.rhm" open
   "type.rhm" open
 
@@ -12,7 +13,36 @@ export annot.delayed_declare _Function
 export annot.delayed_declare _GlobalVariable
 annot.delayed_declare _Module
 
-export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
+export:
+  intrinsic_declaration
+
+// Looks up an intrinsic for a module that the caller has already checked.
+// An overloaded intrinsic needs type arguments to pick its signature, and
+// LLVM asserts that a non-overloaded one gets none.
+fun intrinsic_declaration(who, module, name, param_types :~ List):
+  let id = LLVMLookupIntrinsicID(to_string(name).utf8_bytes())
+  when id == 0
+  | error(~who: who, "intrinsic does not exist", error.val(~label: "name", name))
+  let overloaded = LLVMIntrinsicIsOverloaded(id)
+  when overloaded == param_types.is_empty()
+  | error(~who: who,
+          if overloaded
+          | "overloaded intrinsic needs type arguments"
+          | "intrinsic is not overloaded, so it takes no type arguments",
+          error.val(~label: "name", name))
+  LLVMGetIntrinsicDeclaration(module, id, param_types)
+
+// The sequence form below calls LLVM directly on the module being iterated,
+// which a veneer method call would otherwise have checked.
+fun check_module(who, v):
+  unless v is_a LLVMModule
+  | error(~who: who,
+          error.annot_msg(),
+          error.annot("Module"),
+          error.val(v))
+  v
+
+export veneer Module(this :: LLVMModule):
   export:
     Functions
     from_bitcode
@@ -23,7 +53,7 @@ export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
   method dispose() :: Void:
     LLVMDisposeModule(this)
 
-  method clone() :: Module:
+  method clone() :~ Module:
     LLVMCloneModule(this)
 
   method verify() :: Void:
@@ -33,17 +63,17 @@ export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
         "LLVM module verification failed",
         error.text(~label: "verifier message", message))
 
-  method to_ir() :: String:
-    LLVMPrintModuleToString(this) |> String.snapshot
+  method to_ir() :~ String:
+    LLVMPrintModuleToString(this)
 
-  method to_bitcode() :: ImmutableBytes:
-    LLVMWriteBitcodeToMemoryBuffer(this) |> Bytes.snapshot
+  method to_bitcode() :~ ImmutableBytes:
+    LLVMWriteBitcodeToMemoryBuffer(this)
 
-  property context :: Context:
+  property context :~ Context:
     LLVMGetModuleContext(this)
 
   property
-  | data_layout :: DataLayout:
+  | data_layout :~ DataLayout:
       LLVMGetModuleDataLayout(this)
   | data_layout := (value :: DataLayout):
       LLVMSetModuleDataLayout(this, value)
@@ -51,32 +81,30 @@ export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
   method set_data_layout_string(layout_string :: ReadableString) :: Void:
     LLVMSetDataLayout(this, layout_string)
 
-  veneer Functions(this :: satisfying(#{LLVMModuleRef?})):
+  veneer Functions(this :: LLVMModule):
     constructor ~error
 
-    property first :: maybe(_Function):
+    property first :~ maybe(_Function):
       LLVMGetFirstFunction(this)
 
-    property last :: maybe(_Function):
+    property last :~ maybe(_Function):
       LLVMGetLastFunction(this)
 
-    method add(name :: ReadableString || Symbol, type :: FunctionType) :: _Function:
+    method add(name :: ReadableString || Symbol, type :: FunctionType) :~ _Function:
       LLVMAddFunction(this, name, type)
 
-    method find(name :: ReadableString || Symbol) :: maybe(_Function):
+    method find(name :: ReadableString || Symbol) :~ maybe(_Function):
       LLVMGetNamedFunction(this, name)
 
     method get_intrinsic(
       name :: ReadableString || Symbol,
       param_types :: Listable.to_list && [Type, ...] = [],
-    ) :: _Function:
-      guard.let id!! = LLVMLookupIntrinsicID(name)
-      | error("intrinsic does not exist", error.val(~label: name, name))
-      LLVMGetIntrinsicDeclaration(this, id, param_types)
+    ) :~ _Function:
+      intrinsic_declaration("Module.Functions.get_intrinsic", this, name, param_types)
 
     sequence '$fn: $self':
       '(~outer_binds:
-          self = $self,
+          self = check_module("Module.Functions", $self),
         ~recur_binds:
           cur = LLVMGetFirstFunction(self),
         ~head_guard:
@@ -90,10 +118,13 @@ export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
       '(($statinfo_meta.index_result_key,
          $(annot_meta.parse_to_packed_statinfo('_Function'))))'
 
-  property functions :: Functions:
+  property functions :~ Functions:
     this
 
+  // Linking destroys `other`. Both modules must belong to the same context.
   method link_in(other :: Module) :: Void:
+    unless LLVMGetModuleContext(this) == LLVMGetModuleContext(other)
+    | error(~who: "Module.link_in", "modules belong to different contexts")
     LLVMLinkModules2(this, other)
 
   method run_passes(
@@ -112,23 +143,22 @@ export veneer Module(this :: satisfying(#{LLVMModuleRef?})):
       | elem:
           error("invalid pipeline element", error.val(elem))
 
+    let pipeline_str = pipeline_to_string(pipeline)
     let options = LLVMCreatePassBuilderOptions()
     try:
-      LLVMRunPasses(this, pipeline_to_string(pipeline), target_machine, options)
+      LLVMRunPasses(this, pipeline_str, target_machine, options)
       ~finally LLVMDisposePassBuilderOptions(options)
 
   method compile(
     target_machine :: TargetMachine,
     file_type :: CodegenFileType = CodegenFileType.obj,
-  ) :: ImmutableBytes:
-    Bytes.snapshot(
-      LLVMTargetMachineEmitToMemoryBuffer(
-        target_machine,
-        this,
-        encode_codegen_file_type(file_type)))
+  ) :~ ImmutableBytes:
+    LLVMTargetMachineEmitToMemoryBuffer(
+      target_machine,
+      this,
+      encode_codegen_file_type(file_type))
 
-  fun from_bitcode(context :: Context, bitcode :: Bytes) :: maybe(Module):
-    // LLVMGetBitcodeModuleInContext2(context, bitcode)
+  fun from_bitcode(context :: Context, bitcode :: Bytes) :~ maybe(Module):
     LLVMParseBitcodeInContext2(context, bitcode)
 
 annot.delayed_complete _Module: Module

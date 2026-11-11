@@ -1,16 +1,26 @@
 #lang rhombus/static/and_meta
 
 import:
+  "classes.rhm" open
   "enums.rhm" open
   "global_object.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "module.rhm" open
-  "value.rhm" open
 
 export annot.delayed_declare _Argument
 export annot.delayed_declare _BasicBlock
 
-export veneer Function(this :: satisfying(LLVMIsAFunction)):
+// The sequence forms below call LLVM directly on the value being iterated,
+// which a veneer method call would otherwise have checked.
+fun check_function(who, v):
+  unless is_Function(v)
+  | error(~who: who,
+          error.annot_msg(),
+          error.annot("Function"),
+          error.val(v))
+  v
+
+export veneer Function(this :: satisfying(is_Function)):
   export:
     Arguments
     BasicBlocks
@@ -19,13 +29,16 @@ export veneer Function(this :: satisfying(LLVMIsAFunction)):
 
   constructor ~error
 
+  // LLVM asserts that a deleted value has no remaining uses.
   method delete():
+    when LLVMGetFirstUse(this)
+    | error(~who: "Function.delete", "function still has uses")
     LLVMDeleteFunction(this)
 
-  property next :: maybe(Function):
+  property next :~ maybe(Function):
     LLVMGetNextFunction(this)
 
-  property previous :: maybe(Function):
+  property previous :~ maybe(Function):
     LLVMGetPreviousFunction(this)
 
   property
@@ -34,25 +47,31 @@ export veneer Function(this :: satisfying(LLVMIsAFunction)):
   | call_conv := (value :: CallConv):
       LLVMSetFunctionCallConv(this, encode_call_conv(value))
 
-  veneer Arguments(this :: Value && satisfying(LLVMIsAFunction)):
+  veneer Arguments(this :: satisfying(is_Function)):
     constructor ~error
 
-    property first :: maybe(_Argument):
+    property first :~ maybe(_Argument):
       LLVMGetFirstParam(this)
 
-    property last :: maybe(_Argument):
+    property last :~ maybe(_Argument):
       LLVMGetLastParam(this)
 
-    method length() :: Nat:
+    method length() :~ Nat:
       LLVMCountParams(this)
 
+    // `Function::getArg` asserts that the index is in range.
     private implements Indexable
-    private override get(index :: Nat) :: _Argument:
+    private override get(index :: Nat) :~ _Argument:
+      unless index < LLVMCountParams(this)
+      | error(~who: "Function.Arguments.get",
+              "index is out of range",
+              error.val(~label: "index", index),
+              error.val(~label: "length", LLVMCountParams(this)))
       LLVMGetParam(this, index)
 
     sequence '$arg: $self':
       '(~outer_binds:
-          self = $self,
+          self = check_function("Function.Arguments", $self),
         ~recur_binds:
           cur = LLVMGetFirstParam(self),
         ~head_guard:
@@ -62,24 +81,24 @@ export veneer Function(this :: satisfying(LLVMIsAFunction)):
         ~recur_args:
           (LLVMGetNextParam(cur)))'
 
-  property arguments :: Arguments:
+  property arguments :~ Arguments:
     this
 
-  veneer BasicBlocks(this :: Value && satisfying(LLVMIsAFunction)):
+  veneer BasicBlocks(this :: satisfying(is_Function)):
     constructor ~error
 
-    property first :: maybe(_BasicBlock):
+    property first :~ maybe(_BasicBlock):
       LLVMGetFirstBasicBlock(this)
 
-    property last :: maybe(_BasicBlock):
+    property last :~ maybe(_BasicBlock):
       LLVMGetLastBasicBlock(this)
 
-    method add(name :: ReadableString || Symbol) :: _BasicBlock:
-      LLVMAppendBasicBlockInContext(Function.parent(this)!!.context, this, name)
+    method add(name :: ReadableString || Symbol) :~ _BasicBlock:
+      LLVMAppendBasicBlockInContext(LLVMGetValueContext(this), this, name)
 
     sequence '$bb: $self':
       '(~outer_binds:
-          self = $self,
+          self = check_function("Function.BasicBlocks", $self),
         ~recur_binds:
           cur = LLVMGetFirstBasicBlock(self),
         ~head_guard:
@@ -93,7 +112,7 @@ export veneer Function(this :: satisfying(LLVMIsAFunction)):
       '(($statinfo_meta.index_result_key,
          $(annot_meta.parse_to_packed_statinfo('_BasicBlock'))))'
 
-  property basic_blocks :: BasicBlocks:
+  property basic_blocks :~ BasicBlocks:
     this
 
 annot.delayed_complete _Function: Function

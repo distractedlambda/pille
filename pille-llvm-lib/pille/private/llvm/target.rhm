@@ -1,12 +1,13 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
 
 export annot.delayed_declare _TargetMachine
 
-export veneer Target(this :: satisfying(#{LLVMTargetRef?})):
+export veneer Target(this :: LLVMTarget):
   export:
     first
     for_triple
@@ -18,22 +19,22 @@ export veneer Target(this :: satisfying(#{LLVMTargetRef?})):
 
   constructor ~error
 
-  method next() :: maybe(Target):
+  method next() :~ maybe(Target):
     LLVMGetNextTarget(this)
 
-  property name :: String:
-    LLVMGetTargetName(this) |> String.snapshot
+  property name :~ String:
+    String.snapshot(LLVMGetTargetName(this))
 
-  property description :: String:
-    LLVMGetTargetDescription(this) |> String.snapshot
+  property description :~ String:
+    String.snapshot(LLVMGetTargetDescription(this))
 
-  property has_jit :: Boolean:
+  property has_jit :~ Boolean:
     LLVMTargetHasJIT(this)
 
-  property has_target_machine :: Boolean:
+  property has_target_machine :~ Boolean:
     LLVMTargetHasTargetMachine(this)
 
-  property has_asm_backend :: Boolean:
+  property has_asm_backend :~ Boolean:
     LLVMTargetHasAsmBackend(this)
 
   method create_target_machine(
@@ -43,7 +44,7 @@ export veneer Target(this :: satisfying(#{LLVMTargetRef?})):
     ~code_gen_opt_level: code_gen_opt_level :: CodeGenOptLevel = CodeGenOptLevel.default,
     ~reloc_mode: reloc_mode :: RelocMode = RelocMode.default,
     ~code_model: code_model :: CodeModel = CodeModel.default,
-  ) :: maybe(_TargetMachine):
+  ) :~ maybe(_TargetMachine):
     LLVMCreateTargetMachine(
       this,
       triple,
@@ -53,23 +54,23 @@ export veneer Target(this :: satisfying(#{LLVMTargetRef?})):
       encode_reloc_mode(reloc_mode),
       encode_code_model(code_model))
 
-  fun first() :: maybe(Target):
+  fun first() :~ maybe(Target):
     LLVMGetFirstTarget()
 
-  fun named(name :: ReadableString || Symbol) :: maybe(Target):
+  fun named(name :: ReadableString || Symbol) :~ maybe(Target):
     LLVMGetTargetFromName(name)
 
-  fun for_triple(triple :: ReadableString || Symbol) :: maybe(Target):
+  fun for_triple(triple :: ReadableString || Symbol) :~ maybe(Target):
     LLVMGetTargetFromTriple(triple)
 
-  fun normalize_triple(triple :: ReadableString || Symbol) :: String:
-    LLVMNormalizeTargetTriple(triple) |> String.snapshot
+  fun normalize_triple(triple :: ReadableString || Symbol) :~ String:
+    LLVMNormalizeTargetTriple(triple)
 
-  def host_triple :: String:
-    LLVMGetDefaultTargetTriple() |> String.snapshot
+  def host_triple :~ String:
+    LLVMGetDefaultTargetTriple()
 
-  def host_cpu :: String:
-    LLVMGetHostCPUName() |> String.snapshot
+  def host_cpu :~ String:
+    LLVMGetHostCPUName()
 
-  def host_features :: [String, ...]:
-    LLVMGetHostCPUFeatures() |> String.split(_, ",")
+  def host_features :~ List.of(String):
+    String.split(LLVMGetHostCPUFeatures(), ",")

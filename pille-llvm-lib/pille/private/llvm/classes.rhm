@@ -1,0 +1,52 @@
+#lang rhombus/static/and_meta
+
+// Predicates for LLVM's value classes. A value's tags say what its producer
+// knew about its class, which is often enough. Otherwise we ask LLVM.
+//
+// Each predicate checks for the `LLVMValue` tag before it asks LLVM, because
+// the `LLVMIsA...` functions don't check their argument.
+
+import:
+  "c_types.rhm" open
+  "llvm_c.rhm" open
+
+export:
+  all_defined
+
+defn.macro 'value_classes:
+              $(name :: Identifier)
+              ...':
+  ~op_stx: self
+  let [pred_id, ...] = [Syntax.make_id("is_" +& name.unwrap(), self), ...]
+  let [tag_id, ...] = [Syntax.make_id("LLVM" +& name.unwrap(), self), ...]
+  let [c_id, ...] = [Syntax.make_id("LLVMIsA" +& name.unwrap(), self), ...]
+  'fun $pred_id(v):
+     v is_a $tag_id || (v is_a LLVMValue && $c_id(v))
+   ...'
+
+value_classes:
+  AllocaInst
+  Argument
+  BranchInst
+  CallInst
+  CastInst
+  Constant
+  ConstantFP
+  ConstantInt
+  ConstantPointerNull
+  Function
+  GlobalObject
+  GlobalValue
+  GlobalVariable
+  Instruction
+  LoadInst
+  PHINode
+  PoisonValue
+  ReturnInst
+  StoreInst
+  TruncInst
+  UnaryInstruction
+  UndefValue
+  UnreachableInst
+  User
+  ZExtInst

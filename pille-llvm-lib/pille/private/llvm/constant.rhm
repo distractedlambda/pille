@@ -1,43 +1,60 @@
 #lang rhombus/static/and_meta
 
 import:
-  "llvm_c.rkt" open
+  "c_types.rhm" open
+  "classes.rhm" open
+  "llvm_c.rhm" open
   "type.rhm" open
-  "value.rhm" open
+  "user.rhm" open
 
 //==============================================================================
-export veneer Constant(this :: satisfying(LLVMIsAConstant)):
-  extends Value
+export veneer Constant(this :: satisfying(is_Constant)):
+  extends User
   constructor ~error
 
 annot.delayed_complete _Constant: Constant
 
 //==============================================================================
-export veneer UndefValue(this :: satisfying(LLVMIsAUndefValue)):
+export veneer UndefValue(this :: satisfying(is_UndefValue)):
   extends Constant
   constructor(type :: Type):
     LLVMGetUndef(type)
 
 //==============================================================================
-export veneer PoisonValue(this :: satisfying(LLVMIsAPoisonValue)):
+export veneer PoisonValue(this :: satisfying(is_PoisonValue)):
   extends UndefValue
   constructor(type :: Type):
     LLVMGetPoison(type)
 
 //==============================================================================
-export veneer ConstantPointerNull(this :: satisfying(LLVMIsAConstantPointerNull)):
+export veneer ConstantPointerNull(this :: satisfying(is_ConstantPointerNull)):
   extends Constant
   constructor(type :: PointerType):
     LLVMConstPointerNull(type)
 
 //==============================================================================
-export veneer ConstantInt(this :: satisfying(LLVMIsAConstantInt)):
+// The value must fit in the type's width, as either a signed or an unsigned
+// number. LLVM's own `ConstantInt::get` asserts the same thing. We pass the
+// value to LLVM as 64-bit words in two's complement.
+fun int_words(who, type, value :~ Int) :~ List:
+  let width = LLVMGetIntTypeWidth(type)
+  unless bits.length(value) <= (if value >= 0 | width | width - 1)
+  | error(~who: who,
+          "value does not fit in the integer type",
+          error.val(~label: "value", value),
+          error.text(~label: "type", LLVMPrintTypeToString(type)))
+  let n_words = (width + 63) div 64
+  for List (i in 0..n_words):
+    (value bits.(>>) (64 * i)) bits.and (2 ** 64 - 1)
+
+export veneer ConstantInt(this :: satisfying(is_ConstantInt)):
   extends Constant
   constructor(type :: IntType, value :: Int):
-    LLVMConstIntOfArbitraryPrecision(type, value)
+    let words = int_words("ConstantInt", type, value)
+    LLVMConstIntOfArbitraryPrecision(type, words.length(), words)
 
 //==============================================================================
-export veneer ConstantFp(this :: satisfying(LLVMIsAConstantFP)):
+export veneer ConstantFp(this :: satisfying(is_ConstantFP)):
   extends Constant
   constructor(type :: HalfType || FloatType || DoubleType, value :: Real):
     LLVMConstReal(type, value)

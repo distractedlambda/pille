@@ -1,24 +1,34 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "context.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "type.rhm" open
 
-export veneer Value(this :: satisfying(#{LLVMValueRef?})):
+fun name_bytes(name) :~ Bytes:
+  to_string(name).utf8_bytes()
+
+export veneer Value(this :: LLVMValue):
   constructor ~error
 
-  property type :: Type:
+  property type :~ Type:
     LLVMTypeOf(this)
 
-  property context :: Context:
+  property context :~ Context:
     LLVMGetValueContext(this)
 
+  // LLVM asserts that void values have no name.
   property
-  | name :: String:
-      LLVMGetValueName2(this) |> String.snapshot
+  | name :~ String:
+      LLVMGetValueName2(this)
   | name := (value :: ReadableString || Symbol):
-      LLVMSetValueName2(this, value)
+      let bstr = name_bytes(value)
+      when bstr.length() > 0 && LLVMTypeOf(this) is_a LLVMVoidTy
+      | error(~who: "Value.name",
+              "cannot give a name to a void value",
+              error.val(~label: "name", value))
+      LLVMSetValueName2(this, bstr)
 
-  method to_string() :: String:
-    LLVMPrintValueToString(this) |> String.snapshot
+  method to_string() :~ String:
+    LLVMPrintValueToString(this)

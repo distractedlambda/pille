@@ -1,9 +1,10 @@
 #lang rhombus/static/and_meta
 
 import:
-  "llvm_c.rkt" open
+  "c_types.rhm" open
+  "llvm_c.rhm" open
 
-export veneer Context(this :: satisfying(#{LLVMContextRef?})):
+export veneer Context(this :: LLVMContext):
   constructor():
     LLVMContextCreate()
 

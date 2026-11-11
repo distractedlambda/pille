@@ -5,4 +5,4 @@
 (define deps
   '("base"
     "rhombus-lib"
-    "threading-lib"))
+    "rhombus-ffi-lib"))

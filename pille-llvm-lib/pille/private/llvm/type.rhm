@@ -1,142 +1,132 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "context.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
+  "type_util.rhm" open
 
 //==============================================================================
 export annot.delayed_declare _Constant
 
 //==============================================================================
-export veneer Type(this :: satisfying(#{LLVMTypeRef?})):
+// Every type reaches Rhombus tagged with its most specific class, so each
+// of these veneers checks only a tag.
+
+export veneer Type(this :: LLVMType):
   constructor ~error
 
   export alias 'Kind': 'TypeKind'
 
-  property kind :: Kind:
+  property kind :~ Kind:
     LLVMGetTypeKind(this) |> decode_type_kind
 
-  property context :: Context:
+  property context :~ Context:
     LLVMGetTypeContext(this)
 
-  method to_string() :: String:
-    LLVMPrintTypeToString(this) |> String.snapshot
+  method to_string() :~ String:
+    LLVMPrintTypeToString(this)
 
 //==============================================================================
-fun is_void_type(type :: Type):
-  type.kind matches Type.Kind.void
-
-export veneer VoidType(this :: satisfying(is_void_type)):
+export veneer VoidType(this :: LLVMVoidTy):
   extends Type
   constructor(context :: Context):
     LLVMVoidTypeInContext(context)
 
 //==============================================================================
-fun is_label_type(type :: Type):
-  type.kind matches Type.Kind.label
-
-export veneer LabelType(this :: satisfying(is_label_type)):
+export veneer LabelType(this :: LLVMLabelTy):
   extends Type
   constructor(context :: Context):
     LLVMLabelTypeInContext(context)
 
 //==============================================================================
-fun is_token_type(type :: Type):
-  type.kind matches Type.Kind.token
-
-export veneer TokenType(this :: satisfying(is_token_type)):
+export veneer TokenType(this :: LLVMTokenTy):
   extends Type
   constructor(context :: Context):
     LLVMTokenTypeInContext(context)
 
 //==============================================================================
-fun is_metadata_type(type :: Type):
-  type.kind matches Type.Kind.metadata
-
-export veneer MetadataType(this :: satisfying(is_metadata_type)):
+export veneer MetadataType(this :: LLVMMetadataTy):
   extends Type
   constructor(context :: Context):
     LLVMMetadataTypeInContext(context)
 
 //==============================================================================
-export veneer SizedType(this :: satisfying(LLVMTypeIsSized)):
+export veneer SizedType(this :: LLVMSizedTy):
   extends Type
 
   constructor ~error
 
-  property null_value :: _Constant:
+  // `x86_amx` has no null value.
+  property null_value :~ _Constant:
+    when this is_a LLVMX86AMXTy
+    | bad_type("SizedType.null_value", "type", "a type with a null value", this)
     LLVMConstNull(this)
 
 //==============================================================================
-fun is_int_type(type :: Type):
-  type.kind matches Type.Kind.integer
-
-export veneer IntType(this :: satisfying(is_int_type)):
+export veneer IntType(this :: LLVMIntTy):
   extends SizedType
 
-  constructor(context :: Context, width :: PosInt):
+  constructor(context :: Context, width :: Int.in(1, max_int_bits)):
     LLVMIntTypeInContext(context, width)
 
-  property width :: PosInt:
+  property width :~ PosInt:
     LLVMGetIntTypeWidth(this)
 
 //==============================================================================
-fun is_half_type(type :: Type):
-  type.kind matches Type.Kind.half
-
-export veneer HalfType(this :: satisfying(is_half_type)):
+export veneer HalfType(this :: LLVMHalfTy):
   extends SizedType
 
   constructor(context :: Context):
     LLVMHalfTypeInContext(context)
 
 //==============================================================================
-fun is_float_type(type :: Type):
-  type.kind matches Type.Kind.float
-
-export veneer FloatType(this :: satisfying(is_float_type)):
+export veneer FloatType(this :: LLVMFloatTy):
   extends SizedType
 
   constructor(context :: Context):
     LLVMFloatTypeInContext(context)
 
 //==============================================================================
-fun is_double_type(type :: Type):
-  type.kind matches Type.Kind.double
-
-export veneer DoubleType(this :: satisfying(is_double_type)):
+export veneer DoubleType(this :: LLVMDoubleTy):
   extends SizedType
 
   constructor(context :: Context):
     LLVMDoubleTypeInContext(context)
 
 //==============================================================================
-fun is_function_type(type :: Type):
-  type.kind matches Type.Kind.function
+fun is_return_type(t):
+  !(t is_a LLVMFunctionTy || t is_a LLVMLabelTy || t is_a LLVMMetadataTy)
 
-export veneer FunctionType(this :: satisfying(is_function_type)):
+fun is_param_type(t):
+  !(t is_a LLVMVoidTy || t is_a LLVMFunctionTy)
+
+annot.macro 'ReturnType':
+  'Type && satisfying(is_return_type)'
+
+annot.macro 'ParamType':
+  'Type && satisfying(is_param_type)'
+
+export veneer FunctionType(this :: LLVMFunctionTy):
   extends Type
 
-  constructor(return_type :: Type,
-              param_types :: Listable.to_list && [Type, ...],
+  constructor(return_type :: ReturnType,
+              param_types :: Listable.to_list && [ParamType, ...],
               ~is_var_arg: is_var_arg :: Any = #false):
     LLVMFunctionType(return_type, param_types, is_var_arg)
 
-  property is_var_arg :: Boolean:
+  property is_var_arg :~ Boolean:
     LLVMIsFunctionVarArg(this)
 
-  property return_type :: Type:
+  property return_type :~ Type:
     LLVMGetReturnType(this)
 
-  property param_types :: [Type, ...]:
+  property param_types :~ List.of(Type):
     LLVMGetParamTypes(this)
 
 //==============================================================================
-fun is_struct_type(type :: Type):
-  type.kind matches Type.Kind.struct
-
-export veneer StructType(this :: satisfying(is_struct_type)):
+export veneer StructType(this :: LLVMStructTy):
   extends SizedType
 
   constructor(
@@ -146,53 +136,56 @@ export veneer StructType(this :: satisfying(is_struct_type)):
   ):
     LLVMStructTypeInContext(context, element_types, packed)
 
-  property is_packed :: Boolean:
+  property is_packed :~ Boolean:
     LLVMIsPackedStruct(this)
 
-  property element_types :: [SizedType, ...]:
+  // The elements of a sized struct are sized.
+  property element_types :~ List.of(SizedType):
     LLVMGetStructElementTypes(this)
 
 //==============================================================================
-fun is_array_type(type :: Type):
-  type.kind matches Type.Kind.array
+fun is_array_element_type(t):
+  !(t is_a LLVMX86AMXTy || t is_a LLVMScalableVectorTy)
 
-export veneer ArrayType(this :: satisfying(is_array_type)):
+annot.macro 'ArrayElementType':
+  'SizedType && satisfying(is_array_element_type)'
+
+export veneer ArrayType(this :: LLVMArrayTy):
   extends SizedType
 
-  constructor(element_type :: SizedType, length :: NonnegInt):
+  constructor(element_type :: ArrayElementType, length :: Int.in(0, 2 ** 64 - 1)):
     LLVMArrayType2(element_type, length)
 
-  property element_type :: SizedType:
+  // The element of a sized array is sized.
+  property element_type :~ SizedType:
     LLVMGetElementType(this)
 
-  property length :: NonnegInt:
+  property length :~ NonnegInt:
     LLVMGetArrayLength2(this)
 
 //==============================================================================
-fun is_pointer_type(type :: Type):
-  type.kind matches Type.Kind.pointer
-
-export veneer PointerType(this :: satisfying(is_pointer_type)):
+export veneer PointerType(this :: LLVMPointerTy):
   extends SizedType
 
-  constructor(context :: Context, ~address_space: address_space :: NonnegInt = 0):
+  constructor(context :: Context, ~address_space: address_space :: AddressSpace = 0):
     LLVMPointerTypeInContext(context, address_space)
 
-  property address_space :: NonnegInt:
+  property address_space :~ NonnegInt:
     LLVMGetPointerAddressSpace(this)
 
 //==============================================================================
-fun is_vector_type(type :: Type):
-  type.kind matches Type.Kind.vector
+annot.macro 'VectorElementType':
+  'Type && satisfying(is_vector_element_type)'
 
-export veneer VectorType(this :: satisfying(is_vector_type)):
+export veneer VectorType(this :: LLVMVectorTy):
   extends SizedType
 
-  constructor(element_type :: Type, length :: PosInt):
+  constructor(element_type :: VectorElementType, length :: Int.in(1, 2 ** 32 - 1)):
     LLVMVectorType(element_type, length)
 
-  property element_type :: SizedType:
+  // Vector elements are ints, floats or pointers, which are all sized.
+  property element_type :~ SizedType:
     LLVMGetElementType(this)
 
-  property length :: PosInt:
+  property length :~ PosInt:
     LLVMGetVectorSize(this)

@@ -2,54 +2,56 @@
 
 import:
   "basic_block.rhm" open
+  "classes.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
+  "type_util.rhm" open
   "user.rhm" open
   "value.rhm" open
 
 //==============================================================================
-export veneer Instruction(this :: satisfying(LLVMIsAInstruction)):
+export veneer Instruction(this :: satisfying(is_Instruction)):
   extends User
 
   constructor ~error
 
-  property parent :: maybe(BasicBlock):
+  property parent :~ maybe(BasicBlock):
     LLVMGetInstructionParent(this)
 
-  property next :: maybe(Instruction):
+  property next :~ maybe(Instruction):
     LLVMGetNextInstruction(this)
 
-  property previous :: maybe(Instruction):
+  property previous :~ maybe(Instruction):
     LLVMGetPreviousInstruction(this)
 
 annot.delayed_complete _Instruction: Instruction
 
 //==============================================================================
-export veneer ReturnInst(this :: satisfying(LLVMIsAReturnInst)):
+export veneer ReturnInst(this :: satisfying(is_ReturnInst)):
   extends Instruction
 
   constructor ~error
 
 //==============================================================================
-export veneer BranchInst(this :: satisfying(LLVMIsABranchInst)):
+export veneer BranchInst(this :: satisfying(is_BranchInst)):
   extends Instruction
 
   constructor ~error
 
 //==============================================================================
-export veneer UnreachableInst(this :: satisfying(LLVMIsAUnreachableInst)):
+export veneer UnreachableInst(this :: satisfying(is_UnreachableInst)):
   extends Instruction
 
   constructor ~error
 
 //==============================================================================
-export veneer UnaryInstruction(this :: satisfying(LLVMIsAUnaryInstruction)):
+export veneer UnaryInstruction(this :: satisfying(is_UnaryInstruction)):
   extends Instruction
 
   constructor ~error
 
 //==============================================================================
-export veneer AllocaInst(this :: satisfying(LLVMIsAAllocaInst)):
+export veneer AllocaInst(this :: satisfying(is_AllocaInst)):
   extends UnaryInstruction
 
   constructor ~error
@@ -57,11 +59,11 @@ export veneer AllocaInst(this :: satisfying(LLVMIsAAllocaInst)):
   property
   | alignment :: PosInt:
       LLVMGetAlignment(this)
-  | alignment := (value :: PosInt):
+  | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
 //==============================================================================
-export veneer LoadInst(this :: satisfying(LLVMIsALoadInst)):
+export veneer LoadInst(this :: satisfying(is_LoadInst)):
   extends UnaryInstruction
 
   constructor ~error
@@ -69,17 +71,17 @@ export veneer LoadInst(this :: satisfying(LLVMIsALoadInst)):
   property
   | alignment :: PosInt:
       LLVMGetAlignment(this)
-  | alignment := (value :: PosInt):
+  | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
   property
-  | is_volatile :: Boolean:
+  | is_volatile :~ Boolean:
       LLVMGetVolatile(this)
   | is_volatile := (value :: Any):
       LLVMSetVolatile(this, value)
 
 //==============================================================================
-export veneer StoreInst(this :: satisfying(LLVMIsAStoreInst)):
+export veneer StoreInst(this :: satisfying(is_StoreInst)):
   extends Instruction
 
   constructor ~error
@@ -87,26 +89,34 @@ export veneer StoreInst(this :: satisfying(LLVMIsAStoreInst)):
   property
   | alignment :: PosInt:
       LLVMGetAlignment(this)
-  | alignment := (value :: PosInt):
+  | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
   property
-  | is_volatile :: Boolean:
+  | is_volatile :~ Boolean:
       LLVMGetVolatile(this)
   | is_volatile := (value :: Any):
       LLVMSetVolatile(this, value)
 
 //==============================================================================
-export veneer PhiNode(this :: satisfying(LLVMIsAPHINode)):
+export veneer PhiNode(this :: satisfying(is_PHINode)):
   extends Instruction
 
   constructor ~error
 
+  // LLVM asserts that every incoming value has the phi's type.
   method add_incoming(value :: Value, predecessor :: BasicBlock) :: Void:
-    LLVMAddIncoming(this, value, predecessor)
+    let phi_type = LLVMTypeOf(this)
+    let value_type = LLVMTypeOf(value)
+    unless phi_type == value_type
+    | types_differ("PhiNode.add_incoming",
+                   "an incoming value and the phi node",
+                   "value type", value_type,
+                   "phi type", phi_type)
+    LLVMAddIncoming(this, [value], [predecessor])
 
 //==============================================================================
-export veneer CallInst(this :: satisfying(LLVMIsACallInst)):
+export veneer CallInst(this :: satisfying(is_CallInst)):
   extends Instruction
 
   constructor ~error
@@ -117,41 +127,46 @@ export veneer CallInst(this :: satisfying(LLVMIsACallInst)):
   | call_conv := (value :: CallConv):
       LLVMSetInstructionCallConv(this, encode_call_conv(value))
 
-  method set_argument_alignment(idx :: Nat, alignment :: PosInt) :: Void:
+  method set_argument_alignment(idx :: Nat, alignment :: Alignment) :: Void:
+    unless idx < LLVMGetNumArgOperands(this)
+    | error(~who: "CallInst.set_argument_alignment",
+            "argument index is out of range",
+            error.val(~label: "index", idx),
+            error.val(~label: "argument count", LLVMGetNumArgOperands(this)))
     LLVMSetInstrParamAlignment(this, idx + 1, alignment)
 
 //==============================================================================
-export veneer CastInst(this :: satisfying(LLVMIsACastInst)):
+export veneer CastInst(this :: satisfying(is_CastInst)):
   extends UnaryInstruction
 
   constructor ~error
 
 //==============================================================================
-export veneer TruncInst(this :: satisfying(LLVMIsATruncInst)):
+export veneer TruncInst(this :: satisfying(is_TruncInst)):
   extends CastInst
 
   constructor ~error
 
   property
-  | nuw_flag :: Boolean:
+  | nuw_flag :~ Boolean:
       LLVMGetNUW(this)
   | nuw_flag := (value :: Boolean):
       LLVMSetNUW(this, value)
 
   property
-  | nsw_flag :: Boolean:
+  | nsw_flag :~ Boolean:
       LLVMGetNSW(this)
   | nsw_flag := (value :: Boolean):
       LLVMSetNSW(this, value)
 
 //==============================================================================
-export veneer ZExtInst(this :: satisfying(LLVMIsAZExtInst)):
+export veneer ZExtInst(this :: satisfying(is_ZExtInst)):
   extends CastInst
 
   constructor ~error
 
   property
-  | nneg_flag :: Boolean:
+  | nneg_flag :~ Boolean:
       LLVMGetNNeg(this)
   | nneg_flag := (value :: Boolean):
       LLVMSetNNeg(this, value)

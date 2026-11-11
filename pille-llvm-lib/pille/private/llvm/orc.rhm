@@ -1,15 +1,16 @@
 #lang rhombus/static/and_meta
 
 import:
+  "c_types.rhm" open
   "context.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "module.rhm" open
   "target_machine.rhm" open
-  lib("ffi/unsafe.rkt") as ffi
+  ffi open
 
 export namespace orc:
   //============================================================================
-  export veneer JitTargetMachineBuilder(this :: satisfying(#{LLVMOrcJITTargetMachineBuilderRef?})):
+  export veneer JitTargetMachineBuilder(this :: LLVMOrcJITTargetMachineBuilder):
     constructor(target_machine :: TargetMachine):
       LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(target_machine)
 
@@ -17,7 +18,7 @@ export namespace orc:
       LLVMOrcDisposeJITTargetMachineBuilder(this)
 
   //============================================================================
-  export veneer LljitBuilder(this :: satisfying(#{LLVMOrcLLJITBuilderRef?})):
+  export veneer LljitBuilder(this :: LLVMOrcLLJITBuilder):
     constructor():
       LLVMOrcCreateLLJITBuilder()
 
@@ -28,7 +29,7 @@ export namespace orc:
       LLVMOrcDisposeLLJITBuilder(this)
 
   //============================================================================
-  export veneer ThreadSafeContext(this :: satisfying(#{LLVMOrcThreadSafeContextRef?})):
+  export veneer ThreadSafeContext(this :: LLVMOrcThreadSafeContext):
     constructor(context :: Context):
       LLVMOrcCreateNewThreadSafeContextFromLLVMContext(context)
 
@@ -36,7 +37,7 @@ export namespace orc:
       LLVMOrcDisposeThreadSafeContext(this)
 
   //============================================================================
-  export veneer ThreadSafeModule(this :: satisfying(#{LLVMOrcThreadSafeModuleRef?})):
+  export veneer ThreadSafeModule(this :: LLVMOrcThreadSafeModule):
     constructor(module :: Module, tsc :: ThreadSafeContext):
       LLVMOrcCreateNewThreadSafeModule(module, tsc)
 
@@ -44,38 +45,38 @@ export namespace orc:
       LLVMOrcDisposeThreadSafeModule(this)
 
   //============================================================================
-  export veneer ExecutionSession(this :: satisfying(#{LLVMOrcExecutionSessionRef?})):
+  export veneer ExecutionSession(this :: LLVMOrcExecutionSession):
     constructor ~error
 
   //============================================================================
-  export veneer JitDylib(this :: satisfying(#{LLVMOrcJITDylibRef?})):
+  export veneer JitDylib(this :: LLVMOrcJITDylib):
     constructor ~error
 
   //============================================================================
-  export veneer Lljit(this :: satisfying(#{LLVMOrcLLJITRef?})):
+  export veneer Lljit(this :: LLVMOrcLLJIT):
     constructor(builder :: maybe(LljitBuilder) = #false):
       LLVMOrcCreateLLJIT(builder)
 
     method dispose():
       LLVMOrcDisposeLLJIT(this)
 
-    property execution_session :: ExecutionSession:
+    property execution_session :~ ExecutionSession:
       LLVMOrcLLJITGetExecutionSession(this)
 
-    property main_jit_dylib :: JitDylib:
+    property main_jit_dylib :~ JitDylib:
       LLVMOrcLLJITGetMainJITDylib(this)
 
     method add_object_file :: Void
     | add_object_file(jit_dylib :: JitDylib, contents :: Bytes):
         LLVMOrcLLJITAddObjectFile(this, jit_dylib, contents)
     | add_object_file(contents :: Bytes):
-        add_object_file(main_jit_dylib, contents)
+        LLVMOrcLLJITAddObjectFile(this, LLVMOrcLLJITGetMainJITDylib(this), contents)
 
     method add_llvm_ir_module :: Void
     | add_llvm_ir_module(jit_dylib :: JitDylib, module :: ThreadSafeModule):
         LLVMOrcLLJITAddLLVMIRModule(this, jit_dylib, module)
     | add_llvm_ir_module(module :: ThreadSafeModule):
-        add_llvm_ir_module(main_jit_dylib, module)
+        LLVMOrcLLJITAddLLVMIRModule(this, LLVMOrcLLJITGetMainJITDylib(this), module)
 
-    method lookup(symbol :: ReadableString || Symbol) :: satisfying(ffi.#{cpointer?}):
+    method lookup(symbol :: ReadableString || Symbol) :~ ptr_t:
       LLVMOrcLLJITLookup(this, symbol)

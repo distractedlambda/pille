@@ -102,6 +102,7 @@ export foreign_enum TypeKind encode_type_kind decode_type_kind
 | bfloat = 18
 | x86_amx = 19
 | target_ext = 20
+| byte = 21
 
 export foreign_enum CodegenFileType encode_codegen_file_type decode_codegen_file_type
 | asm = 0

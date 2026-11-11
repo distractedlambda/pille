@@ -1,9 +1,9 @@
 #lang rhombus/static/and_meta
 
 import:
+  "classes.rhm" open
   "global_value.rhm" open
-  "llvm_c.rkt" open
 
-export veneer GlobalObject(this :: satisfying(LLVMIsAGlobalObject)):
+export veneer GlobalObject(this :: satisfying(is_GlobalObject)):
   extends GlobalValue
   constructor ~error

@@ -41,4 +41,4 @@ class JitLinker(
 
   method function_pointer(sym :: Symbol) :: ptr_t:
     link_function(sym)
-    llvm_jit.lookup(sym) |> cpointer_to_ptr
+    llvm_jit.lookup(sym)

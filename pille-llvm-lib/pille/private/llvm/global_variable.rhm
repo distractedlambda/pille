@@ -1,12 +1,14 @@
 #lang rhombus/static/and_meta
 
 import:
+  "classes.rhm" open
   "constant.rhm" open
   "global_object.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "module.rhm" open
+  "type_util.rhm" open
 
-export veneer GlobalVariable(this :: satisfying(LLVMIsAGlobalVariable)):
+export veneer GlobalVariable(this :: satisfying(is_GlobalVariable)):
   extends GlobalObject
 
   constructor ~error
@@ -14,34 +16,45 @@ export veneer GlobalVariable(this :: satisfying(LLVMIsAGlobalVariable)):
   property
   | alignment :: PosInt:
       LLVMGetAlignment(this)
-  | alignment := (value :: PosInt):
+  | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
-  property next :: maybe(GlobalVariable):
+  property next :~ maybe(GlobalVariable):
     LLVMGetNextGlobal(this)
 
-  property previous :: maybe(GlobalVariable):
+  property previous :~ maybe(GlobalVariable):
     LLVMGetPreviousGlobal(this)
 
   property
-  | initializer :: maybe(Constant):
+  | initializer :~ maybe(Constant):
       LLVMGetInitializer(this)
   | initializer := (value :: maybe(Constant)):
+      when value
+      | let type = LLVMTypeOf(value)
+        let value_type = LLVMGlobalGetValueType(this)
+        unless type == value_type
+        | types_differ("GlobalVariable.initializer",
+                       "the initializer and the global variable's value",
+                       "initializer type", type,
+                       "value type", value_type)
       LLVMSetInitializer(this, value)
 
   property
-  | is_constant :: Boolean:
+  | is_constant :~ Boolean:
       LLVMIsGlobalConstant(this)
   | is_constant := (value :: Any):
       LLVMSetGlobalConstant(this, value)
 
   property
-  | is_externally_initialized :: Boolean:
+  | is_externally_initialized :~ Boolean:
       LLVMIsExternallyInitialized(this)
   | is_externally_initialized := (value :: Any):
       LLVMSetExternallyInitialized(this, value)
 
+  // LLVM asserts that a deleted value has no remaining uses.
   method delete():
+    when LLVMGetFirstUse(this)
+    | error(~who: "GlobalVariable.delete", "global variable still has uses")
     LLVMDeleteGlobal(this)
 
 annot.delayed_complete _GlobalVariable: GlobalVariable

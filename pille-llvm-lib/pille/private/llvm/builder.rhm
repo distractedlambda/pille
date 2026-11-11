@@ -2,154 +2,348 @@
 
 import:
   "basic_block.rhm" open
+  "c_types.rhm" open
+  "classes.rhm" open
   "constant.rhm" open
   "context.rhm" open
   "data_layout.rhm" open
   "enums.rhm" open
   "function.rhm" open
   "instruction.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "module.rhm" open
   "type.rhm" open
+  "type_util.rhm" open
   "value.rhm" open
 
-export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
+//==============================================================================
+// The helpers in this section take arguments that a `Builder` method has
+// already checked against its annotations. They check how the arguments
+// relate to each other, which LLVM would otherwise only assert.
+
+fun insertion_function(b):
+  let block = LLVMGetInsertBlock(b)
+  block && LLVMGetBasicBlockParent(block)
+
+fun insertion_module(b):
+  let fn = insertion_function(b)
+  fn && LLVMGetGlobalParent(fn)
+
+// IRBuilder looks up the DataLayout through the insertion block when it
+// creates allocas, loads and stores, so it needs one.
+fun check_insertion_block(who, b):
+  unless LLVMGetInsertBlock(b)
+  | error(~who: who, "builder has no insertion point")
+
+fun module_for(who, b):
+  insertion_module(b)
+    || error(~who: who, "builder's insertion point is not inside a module")
+
+fun is_empty_name(name):
+  to_string(name) == ""
+
+fun i32_constant(b, n):
+  LLVMConstIntOfArbitraryPrecision(LLVMIntTypeInContext(LLVMGetBuilderContext(b), 32),
+                                   1,
+                                   [n])
+
+//==============================================================================
+fun check_operand(who, what, v, ok, expected):
+  let t = LLVMTypeOf(v)
+  unless ok(t)
+  | bad_type(who, what, expected, t)
+  t
+
+fun check_binop(who, lhs, rhs, ok, expected):
+  let lhs_type = LLVMTypeOf(lhs)
+  let rhs_type = LLVMTypeOf(rhs)
+  unless lhs_type == rhs_type
+  | types_differ(who, "operands", "left operand type", lhs_type, "right operand type", rhs_type)
+  unless ok(lhs_type)
+  | bad_type(who, "operand", expected, lhs_type)
+
+fun check_cast(who, src, dst_type, ok, expected):
+  let src_type = LLVMTypeOf(src)
+  unless src_type == dst_type || ok(src_type, dst_type)
+  | error(~who: who,
+          "invalid cast",
+          error.text(~label: "source type", LLVMPrintTypeToString(src_type)),
+          error.text(~label: "destination type", LLVMPrintTypeToString(dst_type)),
+          error.text(~label: "expected", expected))
+
+fun int_width_of(t) :~ Int: LLVMGetIntTypeWidth(scalar_of(t))
+fun fp_width_of(t) :~ Int: fp_bits(scalar_of(t))
+
+fun is_int_to_int(s, d):
+  is_int_or_int_vector(s) && is_int_or_int_vector(d) && same_shape(s, d)
+
+fun is_fp_to_fp(s, d):
+  is_fp_or_fp_vector(s) && is_fp_or_fp_vector(d) && same_shape(s, d)
+
+fun is_int_narrowing(s, d): is_int_to_int(s, d) && int_width_of(s) > int_width_of(d)
+fun is_int_widening(s, d): is_int_to_int(s, d) && int_width_of(s) < int_width_of(d)
+fun is_fp_narrowing(s, d): is_fp_to_fp(s, d) && fp_width_of(s) > fp_width_of(d)
+fun is_fp_widening(s, d): is_fp_to_fp(s, d) && fp_width_of(s) < fp_width_of(d)
+
+fun is_fp_to_int(s, d):
+  is_fp_or_fp_vector(s) && is_int_or_int_vector(d) && same_shape(s, d)
+
+fun is_int_to_fp(s, d):
+  is_int_or_int_vector(s) && is_fp_or_fp_vector(d) && same_shape(s, d)
+
+fun is_ptr_to_int(s, d):
+  is_ptr_or_ptr_vector(s) && is_int_or_int_vector(d) && same_shape(s, d)
+
+fun is_int_to_ptr(s, d):
+  is_int_or_int_vector(s) && is_ptr_or_ptr_vector(d) && same_shape(s, d)
+
+fun is_ptr_to_ptr(s, d):
+  is_ptr_or_ptr_vector(s) && is_ptr_or_ptr_vector(d) && same_shape(s, d)
+
+// A bitcast between different types must keep the number of bits, and it
+// can't involve pointers, since pointers of the same address space all have
+// the same type.
+fun is_bit_preserving(s, d):
+  let size = bit_size(s)
+  size && size == bit_size(d)
+
+fun check_compare(who, lhs, rhs, ok, expected):
+  check_binop(who, lhs, rhs, ok, expected)
+
+fun is_icmp_operand_type(t):
+  is_int_or_int_vector(t) || is_ptr_or_ptr_vector(t)
+
+fun build_icmp(who, b, name, op, lhs, rhs):
+  check_compare(who, lhs, rhs, is_icmp_operand_type,
+                "an integer or pointer type, or a vector of them")
+  LLVMBuildICmp(b, encode_int_predicate(op), lhs, rhs, name)
+
+fun build_fcmp(who, b, name, op, lhs, rhs):
+  check_compare(who, lhs, rhs, is_fp_or_fp_vector,
+                "a floating-point type or a vector of them")
+  LLVMBuildFCmp(b, encode_real_predicate(op), lhs, rhs, name)
+
+//==============================================================================
+// `CallInst::init` asserts that the arguments match the function type.
+fun check_call(who, name, callee_type, callee, args :~ List):
+  let callee_value_type = LLVMTypeOf(callee)
+  unless is_ptr(callee_value_type)
+  | bad_type(who, "callee", "a pointer type", callee_value_type)
+  let param_types :~ List = LLVMGetParamTypes(callee_type)
+  let n_params = param_types.length()
+  let n_args = args.length()
+  unless n_args == n_params || (n_args > n_params && LLVMIsFunctionVarArg(callee_type))
+  | error(~who: who,
+          "wrong number of arguments for the function type",
+          error.val(~label: "arguments", n_args),
+          error.text(~label: "function type", LLVMPrintTypeToString(callee_type)))
+  for (param_type in param_types, arg in args, i in 0..):
+    let arg_type = LLVMTypeOf(arg)
+    unless arg_type == param_type
+    | types_differ(who, @str{argument @i and its parameter},
+                   "argument type", arg_type,
+                   "parameter type", param_type)
+  when LLVMGetReturnType(callee_type) is_a LLVMVoidTy && !is_empty_name(name)
+  | error(~who: who,
+          "cannot give a name to a call that returns void",
+          error.val(~label: "name", name))
+
+fun build_direct_call(who, b, name, callee, args):
+  let callee_type = LLVMGlobalGetValueType(callee)
+  check_call(who, name, callee_type, callee, args)
+  let inst = LLVMBuildCall2(b, callee_type, callee, args, name)
+  LLVMSetInstructionCallConv(inst, LLVMGetFunctionCallConv(callee))
+  inst
+
+fun build_intrinsic_call(who, b, name, intrinsic_name, type_args, args):
+  let callee = intrinsic_declaration(who, module_for(who, b), intrinsic_name, type_args)
+  build_direct_call(who, b, name, callee, args)
+
+//==============================================================================
+fun check_vector_index(who, idx):
+  check_operand(who, "index", idx, is_int, "an integer type")
+
+fun check_aggregate_index(who, agg_type, idx):
+  unless is_first_class_aggregate(agg_type)
+  | bad_type(who, "aggregate", "a struct or array type", agg_type)
+  unless idx < aggregate_length(agg_type)
+  | error(~who: who,
+          "index is out of range for the aggregate type",
+          error.val(~label: "index", idx),
+          error.text(~label: "aggregate type", LLVMPrintTypeToString(agg_type)))
+
+fun check_vector_element(who, elem_type):
+  unless is_vector_element_type(elem_type)
+  | bad_type(who, "vector element", "an integer, floating-point or pointer type", elem_type)
+
+//==============================================================================
+export veneer Builder(this :: LLVMBuilder):
   constructor(context :: Context):
     LLVMCreateBuilderInContext(context)
 
   method dispose() :: Void:
     LLVMDisposeBuilder(this)
 
+  // IRBuilder takes the insertion block from the instruction.
   method position_before(instruction :: Instruction) :: Void:
+    unless LLVMGetInstructionParent(instruction)
+    | error(~who: "Builder.position_before",
+            "instruction is not in a basic block",
+            error.val(~label: "instruction", instruction))
     LLVMPositionBuilderBefore(this, instruction)
 
   method position_at_end(block :: BasicBlock) :: Void:
     LLVMPositionBuilderAtEnd(this, block)
 
   method position_at_start(block :: BasicBlock) :: Void:
-    match block.instructions.first
-    | instr!!:
-        position_before(instr)
-    | _:
-        position_at_end(block)
+    match LLVMGetFirstInstruction(block)
+    | #false:
+        LLVMPositionBuilderAtEnd(this, block)
+    | instr:
+        LLVMPositionBuilderBefore(this, instr)
 
-  property insertion_block :: maybe(BasicBlock):
+  property insertion_block :~ maybe(BasicBlock):
     LLVMGetInsertBlock(this)
 
   method clear_insertion_position() :: Void:
     LLVMClearInsertionPosition(this)
 
-  property context :: Context:
+  property context :~ Context:
     LLVMGetBuilderContext(this)
 
   //============================================================================
-  property function :: maybe(Function):
-    insertion_block?.parent
+  property function :~ maybe(Function):
+    insertion_function(this)
 
-  property module :: maybe(Module):
-    function?.parent
+  property module :~ maybe(Module):
+    insertion_module(this)
 
-  property data_layout :: maybe(DataLayout):
-    module?.data_layout
+  property data_layout :~ maybe(DataLayout):
+    let m = insertion_module(this)
+    m && LLVMGetModuleDataLayout(m)
 
   //============================================================================
   veneer_clause.macro 'singleton_type_properties:
-                         $prop_name :: $type_veneer_name
+                         $prop_name :: $type_veneer_name: $cfun_name
                          ...':
-    'property $prop_name :: $type_veneer_name:
-       $type_veneer_name(context)
+    'property $prop_name :~ $type_veneer_name:
+       $cfun_name(LLVMGetBuilderContext(this))
      ...'
 
   singleton_type_properties:
-    void_type :: VoidType
-    label_type :: LabelType
-    token_type :: TokenType
-    metadata_type :: MetadataType
-    half_type :: HalfType
-    float_type :: FloatType
-    double_type :: DoubleType
+    void_type :: VoidType: LLVMVoidTypeInContext
+    label_type :: LabelType: LLVMLabelTypeInContext
+    token_type :: TokenType: LLVMTokenTypeInContext
+    metadata_type :: MetadataType: LLVMMetadataTypeInContext
+    half_type :: HalfType: LLVMHalfTypeInContext
+    float_type :: FloatType: LLVMFloatTypeInContext
+    double_type :: DoubleType: LLVMDoubleTypeInContext
 
   //============================================================================
-  method int_type(width :: PosInt) :: IntType:
-    IntType(context, width)
+  method int_type(width :: Int.in(1, max_int_bits)) :~ IntType:
+    LLVMIntTypeInContext(LLVMGetBuilderContext(this), width)
 
-  method struct_type(~packed = #false, element_types) :: StructType:
-    StructType(context, element_types, ~packed)
+  method struct_type(~packed = #false, element_types) :~ StructType:
+    StructType(LLVMGetBuilderContext(this), element_types, ~packed)
 
-  method ptr_type(~address_space = 0) :: PointerType:
-    PointerType(context, ~address_space)
+  method ptr_type(~address_space: address_space :: AddressSpace = 0) :~ PointerType:
+    LLVMPointerTypeInContext(LLVMGetBuilderContext(this), address_space)
 
-  method intptr_type(~address_space = 0) :: IntType:
-    data_layout!!.intptr_type(context, ~address_space)
+  method intptr_type(~address_space: address_space :: AddressSpace = 0) :~ IntType:
+    let m = module_for("Builder.intptr_type", this)
+    LLVMIntPtrTypeForASInContext(LLVMGetBuilderContext(this),
+                                 LLVMGetModuleDataLayout(m),
+                                 address_space)
 
   //============================================================================
-  method create_ret_void() :: ReturnInst:
+  // LLVM's verifier requires a `ret` to match the function's return type.
+  method create_ret_void() :~ ReturnInst:
+    let fn = insertion_function(this)
+    when fn
+    | let ret_type = LLVMGetReturnType(LLVMGlobalGetValueType(fn))
+      unless ret_type is_a LLVMVoidTy
+      | bad_type("Builder.create_ret_void", "function's return", "void", ret_type)
     LLVMBuildRetVoid(this)
 
-  method create_ret(value :: Value) :: ReturnInst:
+  method create_ret(value :: Value) :~ ReturnInst:
+    let fn = insertion_function(this)
+    when fn
+    | let ret_type = LLVMGetReturnType(LLVMGlobalGetValueType(fn))
+      let value_type = LLVMTypeOf(value)
+      unless ret_type == value_type
+      | types_differ("Builder.create_ret", "the returned value and the function's result",
+                     "value type", value_type,
+                     "return type", ret_type)
     LLVMBuildRet(this, value)
 
-  method create_br(dest :: BasicBlock) :: BranchInst:
+  method create_br(dest :: BasicBlock) :~ BranchInst:
     LLVMBuildBr(this, dest)
 
+  // `BranchInst` asserts that the condition is an `i1`.
   method create_cond_br(
     test :: Value,
     then :: BasicBlock,
     else :: BasicBlock,
-  ) :: BranchInst:
+  ) :~ BranchInst:
+    check_operand("Builder.create_cond_br", "condition", test,
+                  fun (t): is_int_width(t, 1), "i1")
     LLVMBuildCondBr(this, test, then, else)
 
-  method create_unreachable() :: UnreachableInst:
+  method create_unreachable() :~ UnreachableInst:
     LLVMBuildUnreachable(this)
 
-  veneer_clause.macro 'unop_creators:
+  //============================================================================
+  veneer_clause.macro 'unop_creators ($ok, $expected):
                          $method_name: $cfun_name
                          ...':
+    let [who, ...] = ["Builder." +& method_name.unwrap(), ...]
     'method $method_name(
        ~name: name :: ReadableString || Symbol = "",
        operand :: Value,
-     ) :: Value:
+     ) :~ Value:
+       check_operand($who, "operand", operand, $ok, $expected)
        $cfun_name(this, operand, name)
      ...'
 
-  unop_creators:
+  unop_creators (is_int_or_int_vector, "an integer type or a vector of them"):
     create_neg: LLVMBuildNeg
     create_neg_nsw: LLVMBuildNSWNeg
-    create_fneg: LLVMBuildFNeg
     create_not: LLVMBuildNot
 
-  veneer_clause.macro 'binop_creators:
+  unop_creators (is_fp_or_fp_vector, "a floating-point type or a vector of them"):
+    create_fneg: LLVMBuildFNeg
+
+  // `BinaryOperator` asserts that both operands have the same type, and
+  // that the type suits the operation.
+  veneer_clause.macro 'binop_creators ($ok, $expected):
                          $method_name: $cfun_name
                          ...':
+    let [who, ...] = ["Builder." +& method_name.unwrap(), ...]
     'method $method_name(
        ~name: name :: ReadableString || Symbol = "",
        lhs :: Value,
        rhs :: Value,
-     ) :: Value:
+     ) :~ Value:
+       check_binop($who, lhs, rhs, $ok, $expected)
        $cfun_name(this, lhs, rhs, name)
      ...'
 
-  binop_creators:
+  binop_creators (is_int_or_int_vector, "an integer type or a vector of them"):
     create_add: LLVMBuildAdd
     create_add_nsw: LLVMBuildNSWAdd
     create_add_nuw: LLVMBuildNUWAdd
-    create_fadd: LLVMBuildFAdd
     create_sub: LLVMBuildSub
     create_sub_nsw: LLVMBuildNSWSub
     create_sub_nuw: LLVMBuildNUWSub
-    create_fsub: LLVMBuildFSub
     create_mul: LLVMBuildMul
     create_mul_nsw: LLVMBuildNSWMul
     create_mul_nuw: LLVMBuildNUWMul
-    create_fmul: LLVMBuildFMul
     create_udiv: LLVMBuildUDiv
     create_udiv_exact: LLVMBuildExactUDiv
     create_sdiv: LLVMBuildSDiv
     create_sdiv_exact: LLVMBuildExactSDiv
-    create_fdiv: LLVMBuildFDiv
     create_urem: LLVMBuildURem
     create_srem: LLVMBuildSRem
-    create_frem: LLVMBuildFRem
     create_shl: LLVMBuildShl
     create_lshr: LLVMBuildLShr
     create_ashr: LLVMBuildAShr
@@ -157,15 +351,24 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     create_or: LLVMBuildOr
     create_xor: LLVMBuildXor
 
-  method create_shl_nuw(~name, lhs, rhs) :~ Value:
-    let result = create_shl(~name, lhs, rhs)
-    when result is_a Instruction // FIXME: this really should be an opcode check
+  binop_creators (is_fp_or_fp_vector, "a floating-point type or a vector of them"):
+    create_fadd: LLVMBuildFAdd
+    create_fsub: LLVMBuildFSub
+    create_fmul: LLVMBuildFMul
+    create_fdiv: LLVMBuildFDiv
+    create_frem: LLVMBuildFRem
+
+  // The builder may fold constants, so the result isn't always an
+  // instruction that can carry the flag.
+  method create_shl_nuw(~name = "", lhs, rhs) :~ Value:
+    let result = create_shl(~name: name, lhs, rhs)
+    when is_Instruction(result)
     | LLVMSetNUW(result, #true)
     result
 
-  method create_shl_nsw(~name, lhs, rhs) :~ Value:
-    let result = create_shl(~name, lhs, rhs)
-    when result is_a Instruction // FIXME: this really should be an opcode check
+  method create_shl_nsw(~name = "", lhs, rhs) :~ Value:
+    let result = create_shl(~name: name, lhs, rhs)
+    when is_Instruction(result)
     | LLVMSetNSW(result, #true)
     result
 
@@ -173,26 +376,33 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     ~name: name :: ReadableString || Symbol = "",
     type :: SizedType,
     array_size :: maybe(Value) = #false,
-  ) :: AllocaInst:
+  ) :~ AllocaInst:
+    check_insertion_block("Builder.create_alloca", this)
+    when array_size
+    | check_operand("Builder.create_alloca", "array size", array_size, is_int, "an integer type")
     LLVMBuildArrayAlloca(this, type, array_size, name)
 
   method create_load(
     ~name: name :: ReadableString || Symbol = "",
-    ~alignment: alignment :: maybe(PosInt) = #false,
+    ~alignment: alignment :: maybe(Alignment) = #false,
     type :: SizedType,
     pointer :: Value,
-  ) :: LoadInst:
-    let inst :: LoadInst = LLVMBuildLoad2(this, type, pointer, name)
-    when alignment | inst.alignment := alignment
+  ) :~ LoadInst:
+    check_insertion_block("Builder.create_load", this)
+    check_operand("Builder.create_load", "pointer", pointer, is_ptr, "a pointer type")
+    let inst = LLVMBuildLoad2(this, type, pointer, name)
+    when alignment | LLVMSetAlignment(inst, alignment)
     inst
 
   method create_store(
-    ~alignment: alignment :: maybe(PosInt) = #false,
+    ~alignment: alignment :: maybe(Alignment) = #false,
     value :: Value,
     pointer :: Value,
-  ) :: StoreInst:
-    let inst :: StoreInst = LLVMBuildStore(this, value, pointer)
-    when alignment | inst.alignment := alignment
+  ) :~ StoreInst:
+    check_insertion_block("Builder.create_store", this)
+    check_operand("Builder.create_store", "pointer", pointer, is_ptr, "a pointer type")
+    let inst = LLVMBuildStore(this, value, pointer)
+    when alignment | LLVMSetAlignment(inst, alignment)
     inst
 
   method create_gep(
@@ -203,7 +413,12 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     type :: SizedType,
     pointer :: Value,
     indices :: Listable.to_list && [Value, ...],
-  ) :: Value:
+  ) :~ Value:
+    check_operand("Builder.create_gep", "pointer", pointer, is_ptr_or_ptr_vector,
+                  "a pointer type or a vector of them")
+    for (index in indices):
+      check_operand("Builder.create_gep", "index", index, is_int_or_int_vector,
+                    "an integer type or a vector of them")
     LLVMBuildGEPWithNoWrapFlags(
       this,
       type,
@@ -212,89 +427,100 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
       name,
       (if inbounds | 1 | 0) bits.or (if nusw | 2 | 0) bits.or (if nuw | 4 | 0))
 
+  // `CastInst::castIsValid` is asserted for every cast. IRBuilder returns
+  // the operand itself when it already has the destination type.
   veneer_clause.macro 'cast_creators:
-                         $method_name: $cfun_name
+                         $method_name: $cfun_name ($ok, $expected)
                          ...':
+    let [who, ...] = ["Builder." +& method_name.unwrap(), ...]
     'method $method_name(
        ~name: name :: ReadableString || Symbol = "",
        src :: Value,
        dst_type :: Type,
-     ) :: Value:
+     ) :~ Value:
+       check_cast($who, src, dst_type, $ok, $expected)
        $cfun_name(this, src, dst_type, name)
      ...'
 
   cast_creators:
-    create_trunc: LLVMBuildTrunc
-    create_zext: LLVMBuildZExt
-    create_sext: LLVMBuildSExt
-    create_fp2ui: LLVMBuildFPToUI
-    create_fp2si: LLVMBuildFPToSI
-    create_ui2fp: LLVMBuildUIToFP
-    create_si2fp: LLVMBuildSIToFP
-    create_fptrunc: LLVMBuildFPTrunc
-    create_fpext: LLVMBuildFPExt
-    create_ptrtoint: LLVMBuildPtrToInt
-    create_inttoptr: LLVMBuildIntToPtr
-    create_bitcast: LLVMBuildBitCast
-    create_addrspace_cast: LLVMBuildAddrSpaceCast
+    create_trunc: LLVMBuildTrunc (is_int_narrowing,
+                                  "a narrower integer type of the same shape")
+    create_zext: LLVMBuildZExt (is_int_widening,
+                                "a wider integer type of the same shape")
+    create_sext: LLVMBuildSExt (is_int_widening,
+                                "a wider integer type of the same shape")
+    create_fp2ui: LLVMBuildFPToUI (is_fp_to_int,
+                                   "floating point to integer, with the same shape")
+    create_fp2si: LLVMBuildFPToSI (is_fp_to_int,
+                                   "floating point to integer, with the same shape")
+    create_ui2fp: LLVMBuildUIToFP (is_int_to_fp,
+                                   "integer to floating point, with the same shape")
+    create_si2fp: LLVMBuildSIToFP (is_int_to_fp,
+                                   "integer to floating point, with the same shape")
+    create_fptrunc: LLVMBuildFPTrunc (is_fp_narrowing,
+                                      "a narrower floating-point type of the same shape")
+    create_fpext: LLVMBuildFPExt (is_fp_widening,
+                                  "a wider floating-point type of the same shape")
+    create_ptrtoint: LLVMBuildPtrToInt (is_ptr_to_int,
+                                        "pointer to integer, with the same shape")
+    create_inttoptr: LLVMBuildIntToPtr (is_int_to_ptr,
+                                        "integer to pointer, with the same shape")
+    create_bitcast: LLVMBuildBitCast (is_bit_preserving,
+                                      "non-pointer types with the same number of bits")
+    create_addrspace_cast: LLVMBuildAddrSpaceCast (is_ptr_to_ptr,
+                                                   "pointer to pointer, with the same shape")
 
   method create_trunc_nuw(~name = "", src, dst_type) :~ Value:
-    match create_trunc(~name, src, dst_type)
-    | inst :: TruncInst:
-        inst.nuw_flag := #true
-        inst
-    | val:
-        val
+    let result = create_trunc(~name: name, src, dst_type)
+    when is_TruncInst(result)
+    | LLVMSetNUW(result, #true)
+    result
 
   method create_trunc_nsw(~name = "", src, dst_type) :~ Value:
-    match create_trunc(~name, src, dst_type)
-    | inst :: TruncInst:
-        inst.nsw_flag := #true
-        inst
-    | val:
-        val
+    let result = create_trunc(~name: name, src, dst_type)
+    when is_TruncInst(result)
+    | LLVMSetNSW(result, #true)
+    result
 
   method create_trunc_nuw_nsw(~name = "", src, dst_type) :~ Value:
-    match create_trunc(~name, src, dst_type)
-    | inst :: TruncInst:
-        inst.nuw_flag := #true
-        inst.nsw_flag := #true
-        inst
-    | val:
-        val
+    let result = create_trunc(~name: name, src, dst_type)
+    when is_TruncInst(result)
+    | LLVMSetNUW(result, #true)
+      LLVMSetNSW(result, #true)
+    result
 
   method create_zext_nneg(~name = "", src, dst_type) :~ Value:
-    match create_zext(~name, src, dst_type)
-    | inst :: ZExtInst:
-        inst.nneg_flag := #true
-        inst
-    | val:
-        val
+    let result = create_zext(~name: name, src, dst_type)
+    when is_ZExtInst(result)
+    | LLVMSetNNeg(result, #true)
+    result
 
-  method create_fp2ui_sat(~name = "", src :~ Value, dst_type) :~ Value:
-    create_intrinsic_call(
-      ~name,
-      "llvm.fptoui.sat",
-      [dst_type, src.type],
-      [src])
+  method create_fp2ui_sat(
+    ~name: name :: ReadableString || Symbol = "",
+    src :: Value,
+    dst_type :: Type,
+  ) :~ Value:
+    build_intrinsic_call("Builder.create_fp2ui_sat", this, name,
+                         "llvm.fptoui.sat", [dst_type, LLVMTypeOf(src)], [src])
 
-  method create_fp2si_sat(~name = "", src :~ Value, dst_type) :~ Value:
-    create_intrinsic_call(
-      ~name,
-      "llvm.fptosi.sat",
-      [dst_type, src.type],
-      [src])
+  method create_fp2si_sat(
+    ~name: name :: ReadableString || Symbol = "",
+    src :: Value,
+    dst_type :: Type,
+  ) :~ Value:
+    build_intrinsic_call("Builder.create_fp2si_sat", this, name,
+                         "llvm.fptosi.sat", [dst_type, LLVMTypeOf(src)], [src])
 
   veneer_clause.macro 'intrinsic_unop_creators:
                          $id; ...':
     let [id_str, ...] = [to_string(id.unwrap()), ...]
     let [create_id, ...] = [Syntax.make(Symbol.from_string("create_" ++ id_str), id), ...]
-    'method $create_id(~name = "", src :~ Value) :~ Value:
-       create_intrinsic_call(
-         ~name,
-         $("llvm." ++ id_str),
-         [src.type],
-         [src])
+    'method $create_id(
+       ~name: name :: ReadableString || Symbol = "",
+       src :: Value,
+     ) :~ Value:
+       build_intrinsic_call($("Builder.create_" ++ id_str), this, name,
+                            $("llvm." ++ id_str), [LLVMTypeOf(src)], [src])
      ...'
 
   intrinsic_unop_creators:
@@ -328,31 +554,34 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     tan
     tanh
 
-  method create_ftrunc(~name = "", src :~ Value) :~ Value:
-    create_intrinsic_call(
-      ~name,
-      "llvm.trunc",
-      [src.type],
-      [src])
+  method create_ftrunc(
+    ~name: name :: ReadableString || Symbol = "",
+    src :: Value,
+  ) :~ Value:
+    build_intrinsic_call("Builder.create_ftrunc", this, name,
+                         "llvm.trunc", [LLVMTypeOf(src)], [src])
 
-  method create_pow(~name = "", base :~ Value, exp :~ Value) :~ Value:
-    create_intrinsic_call(
-      ~name,
-      "llvm.pow",
-      [base.type],
-      [base, exp])
+  method create_pow(
+    ~name: name :: ReadableString || Symbol = "",
+    base :: Value,
+    exp :: Value,
+  ) :~ Value:
+    build_intrinsic_call("Builder.create_pow", this, name,
+                         "llvm.pow", [LLVMTypeOf(base)], [base, exp])
 
-  method create_fma(~name = "", a :~ Value, b :~ Value, c :~ Value) :~ Value:
-    create_intrinsic_call(
-      ~name,
-      "llvm.fma",
-      [a.type],
-      [a, b, c])
+  method create_fma(
+    ~name: name :: ReadableString || Symbol = "",
+    a :: Value,
+    b :: Value,
+    c :: Value,
+  ) :~ Value:
+    build_intrinsic_call("Builder.create_fma", this, name,
+                         "llvm.fma", [LLVMTypeOf(a)], [a, b, c])
 
   method create_phi(
     ~name: name :: ReadableString || Symbol = "",
     type :: Type,
-  ) :: PhiNode:
+  ) :~ PhiNode:
     LLVMBuildPhi(this, type, name)
 
   method create_call(
@@ -360,42 +589,56 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     callee_type :: FunctionType,
     callee :: Value,
     args :: Listable.to_list && [Value, ...],
-  ) :: CallInst:
+  ) :~ CallInst:
+    check_call("Builder.create_call", name, callee_type, callee, args)
     LLVMBuildCall2(this, callee_type, callee, args, name)
 
   method create_direct_call(
     ~name: name :: ReadableString || Symbol = "",
     callee :: _Function,
     args :: Listable.to_list && [Value, ...],
-  ) :: CallInst:
-    let inst = create_call(~name, callee.value_type, callee, args)
-    inst.call_conv := callee.call_conv
-    inst
+  ) :~ CallInst:
+    build_direct_call("Builder.create_direct_call", this, name, callee, args)
 
   method create_intrinsic_call(
     ~name: name :: ReadableString || Symbol = "",
     intrinsic_name :: ReadableString || Symbol,
     type_args :: Listable.to_list && [Type, ...],
     args :: Listable.to_list && [Value, ...],
-  ) :: CallInst:
-    create_direct_call(
-      ~name,
-      module!!.functions.get_intrinsic(intrinsic_name, type_args),
-      args)
+  ) :~ CallInst:
+    build_intrinsic_call("Builder.create_intrinsic_call", this, name,
+                         intrinsic_name, type_args, args)
 
+  // `SelectInst::areInvalidOperands`: the choices have the same type, and
+  // the condition is an `i1` or an `i1` vector with the choices' length.
   method create_select(
     ~name: name :: ReadableString || Symbol = "",
     test :: Value,
     thn :: Value,
     els :: Value,
-  ) :: Value:
+  ) :~ Value:
+    let test_type = LLVMTypeOf(test)
+    let thn_type = LLVMTypeOf(thn)
+    let els_type = LLVMTypeOf(els)
+    unless thn_type == els_type
+    | types_differ("Builder.create_select", "the two choices",
+                   "first choice type", thn_type,
+                   "second choice type", els_type)
+    unless is_int_width(test_type, 1)
+             || (is_bool_type(test_type)
+                   && vector_length(test_type) == vector_length(thn_type))
+    | bad_type("Builder.create_select", "condition",
+               "i1, or a vector of i1 with the same length as the choices",
+               test_type)
     LLVMBuildSelect(this, test, thn, els, name)
 
   method create_extract_element(
     ~name: name :: ReadableString || Symbol = "",
     vec :: Value,
     idx :: Value,
-  ) :: Value:
+  ) :~ Value:
+    check_operand("Builder.create_extract_element", "vector", vec, is_vector, "a vector type")
+    check_vector_index("Builder.create_extract_element", idx)
     LLVMBuildExtractElement(this, vec, idx, name)
 
   method create_insert_element(
@@ -403,43 +646,75 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     vec :: Value,
     val :: Value,
     idx :: Value,
-  ) :: Value:
+  ) :~ Value:
+    let vec_type = check_operand("Builder.create_insert_element", "vector", vec,
+                                 is_vector, "a vector type")
+    let elem_type = LLVMGetElementType(vec_type)
+    let val_type = LLVMTypeOf(val)
+    unless val_type == elem_type
+    | types_differ("Builder.create_insert_element", "the inserted value and the vector element",
+                   "value type", val_type,
+                   "element type", elem_type)
+    check_vector_index("Builder.create_insert_element", idx)
     LLVMBuildInsertElement(this, vec, val, idx, name)
 
+  // IRBuilder casts the mask to `Constant`, and LLVM requires a vector of
+  // `i32`s.
   method create_shuffle_vector(
     ~name: name :: ReadableString || Symbol = "",
     v1 :: Value,
     v2 :: Value,
     mask :: Value,
-  ) :: Value:
+  ) :~ Value:
+    let v1_type = check_operand("Builder.create_shuffle_vector", "first vector", v1,
+                                is_vector, "a vector type")
+    let v2_type = LLVMTypeOf(v2)
+    unless v1_type == v2_type
+    | types_differ("Builder.create_shuffle_vector", "the two vectors",
+                   "first vector type", v1_type,
+                   "second vector type", v2_type)
+    unless is_Constant(mask)
+    | bad_value("Builder.create_shuffle_vector", "mask is not a constant", mask)
+    check_operand("Builder.create_shuffle_vector", "mask", mask,
+                  fun (t): is_vector(t) && is_int_width(LLVMGetElementType(t), 32),
+                  "a vector of i32")
     LLVMBuildShuffleVector(this, v1, v2, mask, name)
 
   method create_splat(
     ~name: name :: ReadableString || Symbol = "",
     val :: Value,
-    length :: PosInt,
-  ) :: Value:
-    let vec_type = VectorType(val.type, length)
-    let poison_vec = PoisonValue(vec_type)
-    let val_in_0 = create_insert_element(poison_vec, val, ConstantInt(int_type(32), 0))
-    create_shuffle_vector(
-      ~name,
-      val_in_0,
-      poison_vec,
-      VectorType(int_type(32), length).null_value)
+    length :: Int.in(1, 2 ** 32 - 1),
+  ) :~ Value:
+    let elem_type = LLVMTypeOf(val)
+    check_vector_element("Builder.create_splat", elem_type)
+    let poison_vec = LLVMGetPoison(LLVMVectorType(elem_type, length))
+    let zero = i32_constant(this, 0)
+    let val_in_0 = LLVMBuildInsertElement(this, poison_vec, val, zero, "")
+    let mask_type = LLVMVectorType(LLVMIntTypeInContext(LLVMGetBuilderContext(this), 32), length)
+    LLVMBuildShuffleVector(this, val_in_0, poison_vec, LLVMConstNull(mask_type), name)
 
-  method create_vector(elements :: Listable.to_list && [Value, Value, ...]) :: Value:
-    let idx_type = int_type(32)
-    let elem_type = elements[0].type
-    let res_type = VectorType(elem_type, elements.length())
-    for fold(res = PoisonValue(res_type)) (elem in elements, idx in 0..):
-      create_insert_element(res, elem, ConstantInt(idx_type, idx))
+  method create_vector(elements :: Listable.to_list && [Value, Value, ...]) :~ Value:
+    let elem_type = LLVMTypeOf(elements[0])
+    check_vector_element("Builder.create_vector", elem_type)
+    for (elem in elements):
+      let t = LLVMTypeOf(elem)
+      unless t == elem_type
+      | types_differ("Builder.create_vector", "vector elements",
+                     "first element type", elem_type,
+                     "other element type", t)
+    let res_type = LLVMVectorType(elem_type, elements.length())
+    for values(res = LLVMGetPoison(res_type)) (elem in elements, idx in 0..):
+      LLVMBuildInsertElement(this, res, elem, i32_constant(this, idx), "")
 
+  // `ExtractValueInst` and `InsertValueInst` assert that the index is valid
+  // for the aggregate type, and insertion also asserts that the value has
+  // the element's type.
   method create_extract_value(
     ~name: name :: ReadableString || Symbol = "",
     agg :: Value,
     idx :: Nat,
-  ) :: Value:
+  ) :~ Value:
+    check_aggregate_index("Builder.create_extract_value", LLVMTypeOf(agg), idx)
     LLVMBuildExtractValue(this, agg, idx, name)
 
   method create_insert_value(
@@ -447,31 +722,49 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     agg :: Value,
     val :: Value,
     idx :: Nat,
-  ) :: Value:
+  ) :~ Value:
+    let agg_type = LLVMTypeOf(agg)
+    check_aggregate_index("Builder.create_insert_value", agg_type, idx)
+    let elem_type = aggregate_element_type(agg_type, idx)
+    let val_type = LLVMTypeOf(val)
+    unless val_type == elem_type
+    | types_differ("Builder.create_insert_value", "the inserted value and the aggregate element",
+                   "value type", val_type,
+                   "element type", elem_type)
     LLVMBuildInsertValue(this, agg, val, idx, name)
 
-  method create_struct(elements :: Listable.to_list && [Value, Value, ...]) :: Value:
-    let res_ty = StructType(context, [(each elements).type, ...])
-    for fold(res = PoisonValue(res_ty)) (elem in elements, idx in 0..):
-      create_insert_value(res, elem, idx)
+  method create_struct(elements :: Listable.to_list && [Value, Value, ...]) :~ Value:
+    let types:
+      for List (elem in elements):
+        let t = LLVMTypeOf(elem)
+        unless t is_a LLVMSizedTy
+        | bad_type("Builder.create_struct", "struct element", "a sized type", t)
+        t
+    let res_type = LLVMStructTypeInContext(LLVMGetBuilderContext(this), types, #false)
+    for values(res = LLVMGetPoison(res_type)) (elem in elements, idx in 0..):
+      LLVMBuildInsertValue(this, res, elem, idx, "")
 
+  //============================================================================
+  // `ICmpInst` and `FCmpInst` assert that the operands have the same type,
+  // and that the type suits the comparison.
   method create_icmp(
     ~name: name :: ReadableString || Symbol = "",
     op :: IntPredicate,
     lhs :: Value,
     rhs :: Value,
-  ) :: Value:
-    LLVMBuildICmp(this, encode_int_predicate(op), lhs, rhs, name)
+  ) :~ Value:
+    build_icmp("Builder.create_icmp", this, name, op, lhs, rhs)
 
   veneer_clause.macro 'icmp_creators:
                          $method_name: $op
                          ...':
+    let [who, ...] = ["Builder." +& method_name.unwrap(), ...]
     'method $method_name(
        ~name: name :: ReadableString || Symbol = "",
        lhs :: Value,
        rhs :: Value,
-     ) :: Value:
-       create_icmp(~name, IntPredicate. $op, lhs, rhs)
+     ) :~ Value:
+       build_icmp($who, this, name, IntPredicate. $op, lhs, rhs)
      ...'
 
   icmp_creators:
@@ -491,14 +784,19 @@ export veneer Builder(this :: satisfying(#{LLVMBuilderRef?})):
     op :: RealPredicate,
     lhs :: Value,
     rhs :: Value,
-  ) :: Value:
-    LLVMBuildFCmp(this, encode_real_predicate(op), lhs, rhs, name)
+  ) :~ Value:
+    build_fcmp("Builder.create_fcmp", this, name, op, lhs, rhs)
 
   veneer_clause.macro 'fcmp_creators:
                          $method_name: $op
                          ...':
-    'method $method_name(~name = "", lhs, rhs) :~ Value:
-       create_fcmp(~name, RealPredicate. $op, lhs, rhs)
+    let [who, ...] = ["Builder." +& method_name.unwrap(), ...]
+    'method $method_name(
+       ~name: name :: ReadableString || Symbol = "",
+       lhs :: Value,
+       rhs :: Value,
+     ) :~ Value:
+       build_fcmp($who, this, name, RealPredicate. $op, lhs, rhs)
      ...'
 
   fcmp_creators:

@@ -1,0 +1,136 @@
+#lang rhombus/static/and_meta
+
+// Helpers that the veneers use to check LLVM's invariants. They take raw
+// pointers that a veneer has already checked, and most of them only look at
+// tags. See "c_types.rhm" for the tags.
+
+import:
+  "c_types.rhm" open
+  "llvm_c.rhm" open
+
+export:
+  Alignment
+  AddressSpace
+  max_int_bits
+  is_int
+  is_int_width
+  is_fp
+  is_ptr
+  is_vector
+  is_first_class_aggregate
+  scalar_of
+  vector_length
+  same_shape
+  fp_bits
+  bit_size
+  is_int_or_int_vector
+  is_fp_or_fp_vector
+  is_ptr_or_ptr_vector
+  is_bool_type
+  is_vector_element_type
+  aggregate_length
+  aggregate_element_type
+  bad_type
+  bad_value
+  types_differ
+
+//==============================================================================
+// Integer types can have at most 2**23 bits (`IntegerType::MAX_INT_BITS`).
+def max_int_bits = 2 ** 23
+
+// `LLVMSetAlignment` takes an `unsigned`, so the largest alignment we can
+// pass is 2**31, even though LLVM itself allows 2**32.
+fun is_alignment(n):
+  n is_a PosInt && n <= 2 ** 31 && (n bits.and (n - 1)) == 0
+
+annot.macro 'Alignment':
+  'satisfying(is_alignment)'
+
+// Address spaces are stored in 24 bits.
+annot.macro 'AddressSpace':
+  'Int.in(0, 2 ** 24 - 1)'
+
+//==============================================================================
+fun is_int(t): t is_a LLVMIntTy
+fun is_fp(t): t is_a LLVMFPTy
+fun is_ptr(t): t is_a LLVMPointerTy
+fun is_vector(t): t is_a LLVMVectorTy
+
+fun is_int_width(t, w):
+  is_int(t) && LLVMGetIntTypeWidth(t) == w
+
+fun scalar_of(t):
+  if is_vector(t) | LLVMGetElementType(t) | t
+
+// A vector's length, or `#false` for a scalar.
+fun vector_length(t):
+  is_vector(t) && LLVMGetVectorSize(t)
+
+fun same_shape(t1, t2):
+  vector_length(t1) == vector_length(t2)
+
+fun fp_bits(t) :~ Int:
+  cond
+  | t is_a LLVMHalfTy: 16
+  | t is_a LLVMFloatTy: 32
+  | t is_a LLVMDoubleTy: 64
+  | ~else:
+      match LLVMGetTypeKind(t)
+      | 4: 80
+      | 5 || 6: 128
+      | 18: 16
+
+// The number of bits in an int, FP, or vector-of-those type, or `#false`
+// for any other type. This is what `bitcast` preserves.
+fun bit_size(t):
+  let s = scalar_of(t)
+  let n = vector_length(t) || 1
+  cond
+  | is_int(s): n * LLVMGetIntTypeWidth(s)
+  | is_fp(s): n * fp_bits(s)
+  | ~else: #false
+
+fun is_int_or_int_vector(t): is_int(scalar_of(t))
+fun is_fp_or_fp_vector(t): is_fp(scalar_of(t))
+fun is_ptr_or_ptr_vector(t): is_ptr(scalar_of(t))
+
+// `i1`, or a vector of `i1`.
+fun is_bool_type(t):
+  is_int_width(scalar_of(t), 1)
+
+fun is_vector_element_type(t):
+  is_int(t) || is_fp(t) || is_ptr(t)
+
+fun is_first_class_aggregate(t):
+  t is_a LLVMStructTy || t is_a LLVMArrayTy
+
+fun aggregate_length(t) :~ Int:
+  if t is_a LLVMStructTy
+  | LLVMCountStructElementTypes(t)
+  | LLVMGetArrayLength2(t)
+
+fun aggregate_element_type(t, idx):
+  if t is_a LLVMStructTy
+  | LLVMStructGetTypeAtIndex(t, idx)
+  | LLVMGetElementType(t)
+
+//==============================================================================
+// Errors. These report the same kind of problem as a failed annotation,
+// but they can describe how arguments relate to each other.
+
+fun bad_type(who, what, expected, type):
+  error(~who: who,
+        what +& " has the wrong type",
+        error.text(~label: "expected", expected),
+        error.text(~label: "given type", LLVMPrintTypeToString(type)))
+
+fun bad_value(who, message, ~label: label = "given", value):
+  error(~who: who,
+        message,
+        error.val(~label: label, value))
+
+fun types_differ(who, what, label1, type1, label2, type2):
+  error(~who: who,
+        what +& " must have the same type",
+        error.text(~label: label1, LLVMPrintTypeToString(type1)),
+        error.text(~label: label2, LLVMPrintTypeToString(type2)))

@@ -1,24 +1,34 @@
 #lang rhombus/static/and_meta
 
 import:
+  "classes.rhm" open
   "constant.rhm" open
   "enums.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "module.rhm" open
   "type.rhm" open
 
-export veneer GlobalValue(this :: satisfying(LLVMIsAGlobalValue)):
+// LLVM asserts that values with local linkage keep the default visibility
+// and DLL storage class.
+fun check_not_local(who, gv, what, value):
+  let linkage = LLVMGetLinkage(gv)
+  when linkage == encode_linkage(#'internal) || linkage == encode_linkage(#'private)
+  | error(~who: who,
+          "a value with local linkage must have the default " +& what,
+          error.val(~label: what, value))
+
+export veneer GlobalValue(this :: satisfying(is_GlobalValue)):
   extends Constant
 
   constructor ~error
 
-  property parent :: maybe(Module):
+  property parent :~ maybe(Module):
     LLVMGetGlobalParent(this)
 
-  property is_declaration :: Boolean:
+  property is_declaration :~ Boolean:
     LLVMIsDeclaration(this)
 
-  property value_type :: Type:
+  property value_type :~ Type:
     LLVMGlobalGetValueType(this)
 
   property
@@ -27,22 +37,31 @@ export veneer GlobalValue(this :: satisfying(LLVMIsAGlobalValue)):
   | linkage := (value :: Linkage):
       LLVMSetLinkage(this, encode_linkage(value))
 
+  // Only global objects have sections of their own.
   property
-  | section :: maybe(String):
-      LLVMGetSection(this) ?> String.snapshot
+  | section :~ maybe(String):
+      let s = LLVMGetSection(this)
+      s && String.snapshot(s)
   | section := (value :: maybe(ReadableString || Symbol)):
-      LLVMSetSection(this, value)
+      unless is_GlobalObject(this)
+      | error(~who: "GlobalValue.section",
+              "only a function or global variable can have a section")
+      LLVMSetSection(this, value || "")
 
   property
   | visibility :: Visibility:
       LLVMGetVisibility(this) |> decode_visibility
   | visibility := (value :: Visibility):
+      unless value == #'default
+      | check_not_local("GlobalValue.visibility", this, "visibility", value)
       LLVMSetVisibility(this, encode_visibility(value))
 
   property
   | dll_storage_class :: DllStorageClass:
       LLVMGetDLLStorageClass(this) |> decode_dll_storage_class
   | dll_storage_class := (value :: DllStorageClass):
+      unless value == #'default
+      | check_not_local("GlobalValue.dll_storage_class", this, "DLL storage class", value)
       LLVMSetDLLStorageClass(this, encode_dll_storage_class(value))
 
   property

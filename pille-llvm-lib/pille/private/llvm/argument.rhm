@@ -1,22 +1,23 @@
 #lang rhombus/static/and_meta
 
 import:
+  "classes.rhm" open
   "function.rhm" open
-  "llvm_c.rkt" open
+  "llvm_c.rhm" open
   "value.rhm" open
 
-export veneer Argument(this :: satisfying(LLVMIsAArgument)):
+export veneer Argument(this :: satisfying(is_Argument)):
   extends Value
 
   constructor ~error
 
-  property parent :: Function:
+  property parent :~ Function:
     LLVMGetParamParent(this)
 
-  property next :: maybe(Argument):
+  property next :~ maybe(Argument):
     LLVMGetNextParam(this)
 
-  property previous :: maybe(Argument):
+  property previous :~ maybe(Argument):
     LLVMGetPreviousParam(this)
 
 annot.delayed_complete _Argument: Argument
