@@ -302,12 +302,23 @@ export class Compiler(
   method defer_concretization(thunk :: () -> ~any):
     deferred_concretizations.add(thunk)
 
+  // This runs every deferred thunk, even after one of them fails, and then
+  // raises the first failure. A thunk left in the list would run during
+  // some later, unrelated compilation and fail that one instead.
   method force_deferred_concretization():
-    guard deferred_concretizations.length() != 0 | #void
-    let first = deferred_concretizations[0]
-    deferred_concretizations.drop(1)
-    first()
-    force_deferred_concretization()
+    let mutable first_exn :: maybe(Exn.Fail) = #false
+    recur loop():
+      guard deferred_concretizations.length() != 0 | #void
+      let first = deferred_concretizations[0]
+      deferred_concretizations.drop(1)
+      try:
+        first()
+        ~catch exn :: Exn.Fail:
+          unless first_exn | first_exn := exn
+      loop()
+    match first_exn
+    | exn!!: throw exn
+    | #false: #void
 
   //============================================================================
   Parameter.def current :: maybe(Compiler):
