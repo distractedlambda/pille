@@ -262,7 +262,7 @@ export class SpeclType(value :: Any):
               error.val(~label: "expected value", value),
               error.val(~label: "actual value", rhombus_value)),
       ~read_from_pille:
-        fun(_): #void,
+        fun(_): #false,
       ~write_from_pille:
         fun(_, _): #void,
       ~read_from_rhombus:
