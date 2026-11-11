@@ -206,7 +206,7 @@ class StructType(
           let to_rhombus_low = to_rhombus_concr.lower_call
           let carrier_write_low = carrier_interop.write_from_pille
           fun(slot, this_val):
-            let [carrier_val] = to_rhombus_low([], [this_val])
+            let [carrier_val] = to_rhombus_low({}, [this_val])
             carrier_write_low(slot, carrier_val),
         ~read_from_rhombus:
           carrier_interop.read_from_rhombus)
