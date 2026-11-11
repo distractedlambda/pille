@@ -1,0 +1,726 @@
+#lang rhombus/static/and_meta
+
+// Declarations of the LLVM C functions that `pille/llvm` uses.
+//
+// This module is unsafe, so the FFI does not check arguments against their
+// foreign types. The veneers check every argument before they get here, and
+// checking again would only repeat that work. Anything else that calls these
+// functions must check its arguments first.
+
+import:
+  rhombus/unsafe open
+  ffi open
+  "c_types.rhm" open
+  "paths.rhm" open
+
+use_unsafe
+
+export:
+  all_defined
+
+foreign.linker c:
+  ~lib: Lib.load(llvm_lib_path(), [])
+
+//==============================================================================
+c.fun LLVMGetVersion(
+  major :: (uint_t*) = new uint_t,
+  minor :: (uint_t*) = new uint_t,
+  patch :: (uint_t*) = new uint_t,
+) :: void_t:
+  values(major[0], minor[0], patch[0])
+
+block:
+  let (major, minor, _) = LLVMGetVersion()
+  unless major == 23 && minor >= 1
+  | error("unsupported LLVM version",
+          error.val(~label: "version", @str{@major.@minor}))
+
+//==============================================================================
+// Strings that LLVM allocates and that we must free after copying.
+
+c.fun LLVMDisposeMessage(ptr_t) :: void_t
+
+foreign.type message_t:
+  ~extends ptr_t
+  ~c_to_rhombus: fun (p):
+                   if ptr_to_uintptr(p) == 0
+                   | ""
+                   | let s = cast ~to (string_t) p
+                     LLVMDisposeMessage(p)
+                     s
+
+//==============================================================================
+c.fun LLVMCreateMemoryBufferWithMemoryRangeCopy(
+  bs :: bytes_ptr_t,
+  size_t = (bs :~ Bytes).length(),
+  name_t = #false,
+) :: LLVMMemoryBuffer*
+
+c.fun LLVMGetBufferStart(LLVMMemoryBuffer*) :: ptr_t
+c.fun LLVMGetBufferSize(LLVMMemoryBuffer*) :: size_t
+c.fun LLVMDisposeMemoryBuffer(LLVMMemoryBuffer*) :: void_t
+
+fun take_buffer_bytes(buf) :~ ImmutableBytes:
+  let n = LLVMGetBufferSize(buf)
+  let bs = Bytes.make(n)
+  memcpy(cast ~from (bytes_ptr_t) ~to (ptr_t) bs, LLVMGetBufferStart(buf), n)
+  LLVMDisposeMemoryBuffer(buf)
+  bs.snapshot()
+
+//==============================================================================
+// An `error_t` result is `#false` for success, or else the error's message.
+
+c.fun LLVMGetErrorMessage(LLVMError*) :: ptr_t
+c.fun LLVMDisposeErrorMessage(ptr_t) :: void_t
+
+foreign.type error_t:
+  ~extends ptr_t
+  ~c_to_rhombus: fun (p):
+                   if ptr_to_uintptr(p) == 0
+                   | #false
+                   | let msg_p = LLVMGetErrorMessage(cast (LLVMError*) p)
+                     let msg = cast ~to (string_t) msg_p
+                     LLVMDisposeErrorMessage(msg_p)
+                     msg
+
+fun check_error(who, msg) :: Void:
+  when msg
+  | error(~who: who, msg)
+
+//==============================================================================
+c.fun LLVMContextCreate() :: LLVMContext*
+c.fun LLVMContextDispose(LLVMContext*) :: void_t
+
+//==============================================================================
+c.fun LLVMModuleCreateWithNameInContext(name_t, LLVMContext*) :: LLVMModule*
+c.fun LLVMGetModuleContext(LLVMModule*) :: LLVMContext*
+c.fun LLVMCloneModule(LLVMModule*) :: LLVMModule*
+c.fun LLVMDisposeModule(LLVMModule*) :: void_t
+c.fun LLVMPrintModuleToString(LLVMModule*) :: message_t
+
+//==============================================================================
+// Types. Functions whose result could be any kind of type return a
+// `classified_type_t`, which tags the type by its kind. That costs one or two
+// foreign calls, but afterward every check on the type is a tag check.
+
+c.fun LLVMGetTypeKind(LLVMType*) :: int_t
+c.fun LLVMTypeIsSized(LLVMType*) :: boolint_t
+
+fun classify_type(p):
+  fun sized(): cast (LLVMSizedTy*) p
+  fun sized_or_not(): if LLVMTypeIsSized(p) | sized() | p
+  match LLVMGetTypeKind(p)
+  | 0: cast (LLVMVoidTy*) p
+  | 1: cast (LLVMHalfTy*) p
+  | 2: cast (LLVMFloatTy*) p
+  | 3: cast (LLVMDoubleTy*) p
+  | 7: cast (LLVMLabelTy*) p
+  | 8: cast (LLVMIntTy*) p
+  | 9: cast (LLVMFunctionTy*) p
+  | 10:
+      if LLVMTypeIsSized(p) | cast (LLVMStructTy*) p | p
+  | 11:
+      if LLVMTypeIsSized(p) | cast (LLVMArrayTy*) p | p
+  | 12: cast (LLVMPointerTy*) p
+  | 13: cast (LLVMVectorTy*) p
+  | 14: cast (LLVMMetadataTy*) p
+  | 16: cast (LLVMTokenTy*) p
+  | 4 || 5 || 6 || 18: cast (LLVMFPTy*) p
+  | 17: cast (LLVMScalableVectorTy*) p
+  | 19: cast (LLVMX86AMXTy*) p
+  | 20: sized_or_not()
+  | 21: sized()
+  | ~else: p
+
+foreign.type classified_type_t:
+  ~extends LLVMType*
+  ~c_to_rhombus: classify_type
+
+c.fun LLVMGetTypeContext(LLVMType*) :: LLVMContext*
+c.fun LLVMPrintTypeToString(LLVMType*) :: message_t
+
+c.fun LLVMVoidTypeInContext(LLVMContext*) :: LLVMVoidTy*
+c.fun LLVMLabelTypeInContext(LLVMContext*) :: LLVMLabelTy*
+c.fun LLVMTokenTypeInContext(LLVMContext*) :: LLVMTokenTy*
+c.fun LLVMMetadataTypeInContext(LLVMContext*) :: LLVMMetadataTy*
+c.fun LLVMHalfTypeInContext(LLVMContext*) :: LLVMHalfTy*
+c.fun LLVMFloatTypeInContext(LLVMContext*) :: LLVMFloatTy*
+c.fun LLVMDoubleTypeInContext(LLVMContext*) :: LLVMDoubleTy*
+
+c.fun LLVMIntTypeInContext(LLVMContext*, uint_t) :: LLVMIntTy*
+c.fun LLVMGetIntTypeWidth(LLVMType*) :: uint_t
+
+c.fun LLVMFunctionType(
+  LLVMType*,
+  params :: list_t(LLVMType*),
+  uint_t = (params :~ List).length(),
+  boolint_t,
+) :: LLVMFunctionTy*
+c.fun LLVMIsFunctionVarArg(LLVMType*) :: boolint_t
+c.fun LLVMGetReturnType(LLVMType*) :: classified_type_t
+c.fun LLVMCountParamTypes(LLVMType*) :: uint_t
+c.fun _LLVMGetParamTypes(LLVMType*, ptr_t) :: void_t:
+  ~c_id: LLVMGetParamTypes
+
+fun LLVMGetParamTypes(type) :~ List:
+  let n = LLVMCountParamTypes(type)
+  let dest = new ptr_t[n]
+  _LLVMGetParamTypes(type, dest)
+  for List (i in 0..n):
+    classify_type(dest[i])
+
+c.fun LLVMStructTypeInContext(
+  LLVMContext*,
+  elems :: list_t(LLVMType*),
+  uint_t = (elems :~ List).length(),
+  boolint_t,
+) :: LLVMStructTy*
+c.fun LLVMIsPackedStruct(LLVMType*) :: boolint_t
+c.fun LLVMStructGetTypeAtIndex(LLVMType*, uint_t) :: classified_type_t
+c.fun LLVMCountStructElementTypes(LLVMType*) :: uint_t
+c.fun _LLVMGetStructElementTypes(LLVMType*, ptr_t) :: void_t:
+  ~c_id: LLVMGetStructElementTypes
+
+fun LLVMGetStructElementTypes(type) :~ List:
+  let n = LLVMCountStructElementTypes(type)
+  let dest = new ptr_t[n]
+  _LLVMGetStructElementTypes(type, dest)
+  for List (i in 0..n):
+    classify_type(dest[i])
+
+c.fun LLVMArrayType2(LLVMType*, uint64_t) :: LLVMArrayTy*
+c.fun LLVMGetArrayLength2(LLVMType*) :: uint64_t
+c.fun LLVMGetElementType(LLVMType*) :: classified_type_t
+
+c.fun LLVMPointerTypeInContext(LLVMContext*, uint_t) :: LLVMPointerTy*
+c.fun LLVMGetPointerAddressSpace(LLVMType*) :: uint_t
+
+c.fun LLVMVectorType(LLVMType*, uint_t) :: LLVMVectorTy*
+c.fun LLVMGetVectorSize(LLVMType*) :: uint_t
+
+//==============================================================================
+// Values
+
+c.fun LLVMTypeOf(LLVMValue*) :: classified_type_t
+c.fun LLVMGetValueContext(LLVMValue*) :: LLVMContext*
+c.fun LLVMPrintValueToString(LLVMValue*) :: message_t
+c.fun LLVMGetFirstUse(LLVMValue*) :: LLVMUse_or_null
+
+c.fun LLVMGetValueName2(LLVMValue*, len :: (size_t*) = new size_t) :: (p :: ptr_t):
+  let n = len[0]
+  let bs = Bytes.make(n)
+  memcpy(cast ~from (bytes_ptr_t) ~to (ptr_t) bs, p, n)
+  bs.utf8_string()
+
+c.fun LLVMSetValueName2(
+  LLVMValue*,
+  name :: bytes_ptr_t,
+  size_t = (name :~ Bytes).length(),
+) :: void_t
+
+// The `LLVMIsA...` functions return their argument or NULL. We only need to
+// know which, so we read the result as an integer and avoid allocating.
+defn.macro 'value_class_predicates:
+              $(name :: Identifier)
+              ...':
+  let [c_name, ...] = [Syntax.make_id("LLVMIsA" +& name.unwrap(), name), ...]
+  'c.fun $c_name(LLVMValue*) :: (r :: uintptr_t):
+     r != 0
+   ...'
+
+value_class_predicates:
+  AllocaInst
+  Argument
+  BranchInst
+  CallInst
+  CastInst
+  Constant
+  ConstantFP
+  ConstantInt
+  ConstantPointerNull
+  Function
+  GlobalObject
+  GlobalValue
+  GlobalVariable
+  Instruction
+  LoadInst
+  PHINode
+  PoisonValue
+  ReturnInst
+  StoreInst
+  TruncInst
+  UnaryInstruction
+  UndefValue
+  UnreachableInst
+  User
+  ZExtInst
+
+//==============================================================================
+// Constants
+
+c.fun LLVMGetUndef(LLVMType*) :: LLVMUndefValue*
+c.fun LLVMGetPoison(LLVMType*) :: LLVMPoisonValue*
+c.fun LLVMConstNull(LLVMType*) :: LLVMConstant*
+c.fun LLVMConstPointerNull(LLVMType*) :: LLVMConstantPointerNull*
+c.fun LLVMConstIntOfArbitraryPrecision(
+  LLVMType*,
+  uint_t,
+  list_t(uint64_t),
+) :: LLVMConstantInt*
+c.fun LLVMConstReal(LLVMType*, real_t) :: LLVMConstantFP*
+
+//==============================================================================
+// Global values
+
+c.fun LLVMGetGlobalParent(LLVMValue*) :: LLVMModule_or_null
+c.fun LLVMIsDeclaration(LLVMValue*) :: boolint_t
+c.fun LLVMGlobalGetValueType(LLVMValue*) :: classified_type_t
+c.fun LLVMGetLinkage(LLVMValue*) :: int_t
+c.fun LLVMSetLinkage(LLVMValue*, int_t) :: void_t
+c.fun LLVMGetSection(LLVMValue*) :: string_t
+c.fun LLVMSetSection(LLVMValue*, name_t) :: void_t
+c.fun LLVMGetVisibility(LLVMValue*) :: int_t
+c.fun LLVMSetVisibility(LLVMValue*, int_t) :: void_t
+c.fun LLVMGetDLLStorageClass(LLVMValue*) :: int_t
+c.fun LLVMSetDLLStorageClass(LLVMValue*, int_t) :: void_t
+c.fun LLVMGetUnnamedAddress(LLVMValue*) :: int_t
+c.fun LLVMSetUnnamedAddress(LLVMValue*, int_t) :: void_t
+
+c.fun LLVMGetAlignment(LLVMValue*) :: uint_t
+c.fun LLVMSetAlignment(LLVMValue*, uint_t) :: void_t
+c.fun LLVMGetVolatile(LLVMValue*) :: boolint_t
+c.fun LLVMSetVolatile(LLVMValue*, boolint_t) :: void_t
+
+c.fun LLVMGetNextGlobal(LLVMValue*) :: LLVMGlobalVariable_or_null
+c.fun LLVMGetPreviousGlobal(LLVMValue*) :: LLVMGlobalVariable_or_null
+c.fun LLVMDeleteGlobal(LLVMValue*) :: void_t
+c.fun LLVMGetInitializer(LLVMValue*) :: LLVMConstant_or_null
+c.fun LLVMSetInitializer(LLVMValue*, LLVMConstant_or_null) :: void_t
+c.fun LLVMIsGlobalConstant(LLVMValue*) :: boolint_t
+c.fun LLVMSetGlobalConstant(LLVMValue*, boolint_t) :: void_t
+c.fun LLVMIsExternallyInitialized(LLVMValue*) :: boolint_t
+c.fun LLVMSetExternallyInitialized(LLVMValue*, boolint_t) :: void_t
+
+//==============================================================================
+// Functions, arguments, basic blocks and instructions
+
+c.fun LLVMAddFunction(LLVMModule*, name_t, LLVMType*) :: LLVMFunction*
+c.fun LLVMGetNamedFunction(LLVMModule*, name_t) :: LLVMFunction_or_null
+c.fun LLVMGetFirstFunction(LLVMModule*) :: LLVMFunction_or_null
+c.fun LLVMGetLastFunction(LLVMModule*) :: LLVMFunction_or_null
+c.fun LLVMGetNextFunction(LLVMValue*) :: LLVMFunction_or_null
+c.fun LLVMGetPreviousFunction(LLVMValue*) :: LLVMFunction_or_null
+c.fun LLVMDeleteFunction(LLVMValue*) :: void_t
+c.fun LLVMGetFunctionCallConv(LLVMValue*) :: uint_t
+c.fun LLVMSetFunctionCallConv(LLVMValue*, uint_t) :: void_t
+
+c.fun LLVMGetParamParent(LLVMValue*) :: LLVMFunction*
+c.fun LLVMCountParams(LLVMValue*) :: uint_t
+c.fun LLVMGetParam(LLVMValue*, uint_t) :: LLVMArgument*
+c.fun LLVMGetFirstParam(LLVMValue*) :: LLVMArgument_or_null
+c.fun LLVMGetLastParam(LLVMValue*) :: LLVMArgument_or_null
+c.fun LLVMGetNextParam(LLVMValue*) :: LLVMArgument_or_null
+c.fun LLVMGetPreviousParam(LLVMValue*) :: LLVMArgument_or_null
+
+c.fun LLVMGetBasicBlockName(LLVMBasicBlock*) :: string_t
+c.fun LLVMGetBasicBlockParent(LLVMBasicBlock*) :: LLVMFunction_or_null
+c.fun LLVMGetFirstBasicBlock(LLVMValue*) :: LLVMBasicBlock_or_null
+c.fun LLVMGetLastBasicBlock(LLVMValue*) :: LLVMBasicBlock_or_null
+c.fun LLVMGetNextBasicBlock(LLVMBasicBlock*) :: LLVMBasicBlock_or_null
+c.fun LLVMGetPreviousBasicBlock(LLVMBasicBlock*) :: LLVMBasicBlock_or_null
+c.fun LLVMAppendBasicBlockInContext(LLVMContext*, LLVMValue*, name_t) :: LLVMBasicBlock*
+c.fun LLVMGetFirstInstruction(LLVMBasicBlock*) :: LLVMInstruction_or_null
+c.fun LLVMGetLastInstruction(LLVMBasicBlock*) :: LLVMInstruction_or_null
+
+c.fun LLVMGetInstructionParent(LLVMValue*) :: LLVMBasicBlock_or_null
+c.fun LLVMGetNextInstruction(LLVMValue*) :: LLVMInstruction_or_null
+c.fun LLVMGetPreviousInstruction(LLVMValue*) :: LLVMInstruction_or_null
+
+c.fun LLVMAddIncoming(
+  LLVMValue*,
+  list_t(LLVMValue*),
+  list_t(LLVMBasicBlock*),
+  uint_t = 1,
+) :: void_t
+
+c.fun LLVMGetNumArgOperands(LLVMValue*) :: uint_t
+c.fun LLVMSetInstrParamAlignment(LLVMValue*, uint_t, uint_t) :: void_t
+c.fun LLVMGetInstructionCallConv(LLVMValue*) :: uint_t
+c.fun LLVMSetInstructionCallConv(LLVMValue*, uint_t) :: void_t
+
+c.fun LLVMGetNUW(LLVMValue*) :: boolint_t
+c.fun LLVMSetNUW(LLVMValue*, boolint_t) :: void_t
+c.fun LLVMGetNSW(LLVMValue*) :: boolint_t
+c.fun LLVMSetNSW(LLVMValue*, boolint_t) :: void_t
+c.fun LLVMGetNNeg(LLVMValue*) :: boolint_t
+c.fun LLVMSetNNeg(LLVMValue*, boolint_t) :: void_t
+
+//==============================================================================
+// Intrinsics
+
+c.fun LLVMLookupIntrinsicID(
+  name :: bytes_ptr_t,
+  size_t = (name :~ Bytes).length(),
+) :: uint_t
+c.fun LLVMIntrinsicIsOverloaded(uint_t) :: boolint_t
+c.fun LLVMGetIntrinsicDeclaration(
+  LLVMModule*,
+  uint_t,
+  types :: list_t(LLVMType*),
+  size_t = (types :~ List).length(),
+) :: LLVMFunction*
+
+//==============================================================================
+// Builder
+
+c.fun LLVMCreateBuilderInContext(LLVMContext*) :: LLVMBuilder*
+c.fun LLVMDisposeBuilder(LLVMBuilder*) :: void_t
+c.fun LLVMPositionBuilderBefore(LLVMBuilder*, LLVMValue*) :: void_t
+c.fun LLVMPositionBuilderAtEnd(LLVMBuilder*, LLVMBasicBlock*) :: void_t
+c.fun LLVMGetInsertBlock(LLVMBuilder*) :: LLVMBasicBlock_or_null
+c.fun LLVMClearInsertionPosition(LLVMBuilder*) :: void_t
+c.fun LLVMGetBuilderContext(LLVMBuilder*) :: LLVMContext*
+
+c.fun LLVMBuildRetVoid(LLVMBuilder*) :: LLVMReturnInst*
+c.fun LLVMBuildRet(LLVMBuilder*, LLVMValue*) :: LLVMReturnInst*
+c.fun LLVMBuildBr(LLVMBuilder*, LLVMBasicBlock*) :: LLVMBranchInst*
+c.fun LLVMBuildCondBr(
+  LLVMBuilder*,
+  LLVMValue*,
+  LLVMBasicBlock*,
+  LLVMBasicBlock*,
+) :: LLVMBranchInst*
+c.fun LLVMBuildUnreachable(LLVMBuilder*) :: LLVMUnreachableInst*
+
+defn.macro 'builders ($arg_t, ...):
+              $(name :: Identifier)
+              ...':
+  let [defn, ...]:
+    for List (n in [name, ...]):
+      'c.fun $n(LLVMBuilder*, $arg_t, ..., name_t) :: LLVMValue*'
+  '$defn
+   ...'
+
+builders (LLVMValue*):
+  LLVMBuildNeg
+  LLVMBuildNSWNeg
+  LLVMBuildFNeg
+  LLVMBuildNot
+
+builders (LLVMValue*, LLVMValue*):
+  LLVMBuildAdd
+  LLVMBuildNSWAdd
+  LLVMBuildNUWAdd
+  LLVMBuildFAdd
+  LLVMBuildSub
+  LLVMBuildNSWSub
+  LLVMBuildNUWSub
+  LLVMBuildFSub
+  LLVMBuildMul
+  LLVMBuildNSWMul
+  LLVMBuildNUWMul
+  LLVMBuildFMul
+  LLVMBuildUDiv
+  LLVMBuildExactUDiv
+  LLVMBuildSDiv
+  LLVMBuildExactSDiv
+  LLVMBuildFDiv
+  LLVMBuildURem
+  LLVMBuildSRem
+  LLVMBuildFRem
+  LLVMBuildShl
+  LLVMBuildLShr
+  LLVMBuildAShr
+  LLVMBuildAnd
+  LLVMBuildOr
+  LLVMBuildXor
+
+builders (LLVMValue*, LLVMType*):
+  LLVMBuildTrunc
+  LLVMBuildZExt
+  LLVMBuildSExt
+  LLVMBuildFPToUI
+  LLVMBuildFPToSI
+  LLVMBuildUIToFP
+  LLVMBuildSIToFP
+  LLVMBuildFPTrunc
+  LLVMBuildFPExt
+  LLVMBuildPtrToInt
+  LLVMBuildIntToPtr
+  LLVMBuildBitCast
+  LLVMBuildAddrSpaceCast
+
+builders (LLVMValue*, LLVMValue*, LLVMValue*):
+  LLVMBuildSelect
+  LLVMBuildInsertElement
+  LLVMBuildShuffleVector
+
+builders (LLVMValue*, LLVMValue*):
+  LLVMBuildExtractElement
+
+builders (LLVMValue*, uint_t):
+  LLVMBuildExtractValue
+
+builders (LLVMValue*, LLVMValue*, uint_t):
+  LLVMBuildInsertValue
+
+builders (int_t, LLVMValue*, LLVMValue*):
+  LLVMBuildICmp
+  LLVMBuildFCmp
+
+c.fun LLVMBuildArrayAlloca(
+  LLVMBuilder*,
+  LLVMType*,
+  LLVMValue_or_null,
+  name_t,
+) :: LLVMAllocaInst*
+
+c.fun LLVMBuildLoad2(LLVMBuilder*, LLVMType*, LLVMValue*, name_t) :: LLVMLoadInst*
+c.fun LLVMBuildStore(LLVMBuilder*, LLVMValue*, LLVMValue*) :: LLVMStoreInst*
+
+c.fun LLVMBuildGEPWithNoWrapFlags(
+  LLVMBuilder*,
+  LLVMType*,
+  LLVMValue*,
+  indices :: list_t(LLVMValue*),
+  uint_t = (indices :~ List).length(),
+  name_t,
+  uint_t,
+) :: LLVMValue*
+
+c.fun LLVMBuildPhi(LLVMBuilder*, LLVMType*, name_t) :: LLVMPHINode*
+
+c.fun LLVMBuildCall2(
+  LLVMBuilder*,
+  LLVMType*,
+  LLVMValue*,
+  args :: list_t(LLVMValue*),
+  uint_t = (args :~ List).length(),
+  name_t,
+) :: LLVMCallInst*
+
+//==============================================================================
+// Target initialization. A target that this LLVM was built without has no
+// initialization functions, so we skip it.
+
+defn.macro 'target_initializers:
+              $(target :: Identifier)
+              ...':
+  ~op_stx: self
+  fun ids(fmt_pre, fmt_post):
+    [Syntax.make_id(fmt_pre +& target.unwrap() +& fmt_post, target), ...]
+  fun group(all_name, [id, ...]):
+    let all_id = Syntax.make_id(all_name, self)
+    'c.fun $id() :: void_t:
+       ~fail: fun (_): #false
+     ...
+     fun $all_id() :: Void:
+       for (f in [$id, ...]):
+         when f
+         | (f :~ Function)()'
+  '$(group("LLVMInitializeAllTargetInfos", ids("LLVMInitialize", "TargetInfo")))
+   $(group("LLVMInitializeAllTargets", ids("LLVMInitialize", "Target")))
+   $(group("LLVMInitializeAllTargetMCs", ids("LLVMInitialize", "TargetMC")))
+   $(group("LLVMInitializeAllAsmPrinters", ids("LLVMInitialize", "AsmPrinter")))
+   $(group("LLVMInitializeAllAsmParsers", ids("LLVMInitialize", "AsmParser")))
+   $(group("LLVMInitializeAllDisassemblers", ids("LLVMInitialize", "Disassembler")))'
+
+target_initializers:
+  AArch64
+  AMDGPU
+  ARM
+  AVR
+  BPF
+  Hexagon
+  Lanai
+  LoongArch
+  Mips
+  MSP430
+  NVPTX
+  PowerPC
+  RISCV
+  Sparc
+  SPIRV
+  SystemZ
+  VE
+  WebAssembly
+  X86
+  XCore
+
+//==============================================================================
+// Targets and target machines
+
+c.fun LLVMGetFirstTarget() :: LLVMTarget_or_null
+c.fun LLVMGetNextTarget(LLVMTarget*) :: LLVMTarget_or_null
+c.fun LLVMGetTargetFromName(name_t) :: LLVMTarget_or_null
+c.fun LLVMGetTargetFromTriple(
+  name_t,
+  target :: (ptr_t*) = new ptr_t,
+  msg :: (ptr_t*) = new ptr_t,
+) :: (failed :: boolint_t):
+  if failed
+  | LLVMDisposeMessage(msg[0])
+    #false
+  | cast (LLVMTarget*) target[0]
+c.fun LLVMNormalizeTargetTriple(name_t) :: message_t
+c.fun LLVMGetTargetName(LLVMTarget*) :: string_t
+c.fun LLVMGetTargetDescription(LLVMTarget*) :: string_t
+c.fun LLVMTargetHasJIT(LLVMTarget*) :: boolint_t
+c.fun LLVMTargetHasTargetMachine(LLVMTarget*) :: boolint_t
+c.fun LLVMTargetHasAsmBackend(LLVMTarget*) :: boolint_t
+
+c.fun LLVMCreateTargetMachine(
+  LLVMTarget*,
+  name_t,
+  name_t,
+  name_t,
+  int_t,
+  int_t,
+  int_t,
+) :: LLVMTargetMachine_or_null
+c.fun LLVMDisposeTargetMachine(LLVMTargetMachine*) :: void_t
+c.fun LLVMCreateTargetDataLayout(LLVMTargetMachine*) :: LLVMTargetData*
+
+c.fun LLVMTargetMachineEmitToMemoryBuffer(
+  LLVMTargetMachine*,
+  LLVMModule*,
+  int_t,
+  msg :: (ptr_t*) = new ptr_t,
+  buf :: (ptr_t*) = new ptr_t,
+) :: (failed :: boolint_t):
+  if failed
+  | let message = cast ~to (message_t) msg[0]
+    error(~who: "LLVMTargetMachineEmitToMemoryBuffer", message)
+  | take_buffer_bytes(cast (LLVMMemoryBuffer*) buf[0])
+
+c.fun LLVMGetDefaultTargetTriple() :: message_t
+c.fun LLVMGetHostCPUName() :: message_t
+c.fun LLVMGetHostCPUFeatures() :: message_t
+
+//==============================================================================
+// Data layouts
+
+c.fun LLVMGetModuleDataLayout(LLVMModule*) :: LLVMTargetData*
+c.fun LLVMSetModuleDataLayout(LLVMModule*, LLVMTargetData*) :: void_t
+c.fun LLVMSetDataLayout(LLVMModule*, name_t) :: void_t
+c.fun LLVMCreateTargetData(name_t) :: LLVMTargetData*
+c.fun LLVMDisposeTargetData(LLVMTargetData*) :: void_t
+c.fun LLVMCopyStringRepOfTargetData(LLVMTargetData*) :: message_t
+c.fun LLVMByteOrder(LLVMTargetData*) :: int_t
+c.fun LLVMIntPtrTypeForASInContext(LLVMContext*, LLVMTargetData*, uint_t) :: LLVMIntTy*
+c.fun LLVMSizeOfTypeInBits(LLVMTargetData*, LLVMType*) :: uint64_t
+c.fun LLVMStoreSizeOfType(LLVMTargetData*, LLVMType*) :: uint64_t
+c.fun LLVMABISizeOfType(LLVMTargetData*, LLVMType*) :: uint64_t
+c.fun LLVMABIAlignmentOfType(LLVMTargetData*, LLVMType*) :: uint_t
+c.fun LLVMPreferredAlignmentOfType(LLVMTargetData*, LLVMType*) :: uint_t
+
+//==============================================================================
+// Whole modules
+
+c.fun _LLVMParseBitcodeInContext2(
+  LLVMContext*,
+  LLVMMemoryBuffer*,
+  mod :: (ptr_t*) = new ptr_t,
+) :: (failed :: boolint_t):
+  ~c_id: LLVMParseBitcodeInContext2
+  !failed && cast (LLVMModule*) mod[0]
+
+fun LLVMParseBitcodeInContext2(context, bitcode :~ Bytes):
+  let buf = LLVMCreateMemoryBufferWithMemoryRangeCopy(bitcode)
+  try:
+    _LLVMParseBitcodeInContext2(context, buf)
+    ~finally:
+      LLVMDisposeMemoryBuffer(buf)
+
+c.fun LLVMWriteBitcodeToMemoryBuffer(LLVMModule*) :: (buf :: LLVMMemoryBuffer*):
+  take_buffer_bytes(buf)
+
+// With `LLVMReturnStatusAction`, LLVM always allocates a message, even when
+// verification succeeds.
+c.fun LLVMVerifyModule(
+  LLVMModule*,
+  int_t = 2,
+  msg :: (ptr_t*) = new ptr_t,
+) :: (failed :: boolint_t):
+  let message = cast ~to (message_t) msg[0]
+  failed && (if message == "" | "verification failed" | message)
+
+c.fun LLVMCreatePassBuilderOptions() :: LLVMPassBuilderOptions*
+c.fun LLVMDisposePassBuilderOptions(LLVMPassBuilderOptions*) :: void_t
+c.fun LLVMRunPasses(
+  LLVMModule*,
+  name_t,
+  LLVMTargetMachine_or_null,
+  LLVMPassBuilderOptions*,
+) :: (msg :: error_t):
+  check_error("LLVMRunPasses", msg)
+
+// The source module is destroyed.
+c.fun LLVMLinkModules2(LLVMModule*, LLVMModule*) :: (failed :: boolint_t):
+  when failed
+  | error("failed to link modules")
+
+//==============================================================================
+// ORC
+
+c.fun LLVMOrcCreateNewThreadSafeContextFromLLVMContext(
+  LLVMContext*,
+) :: LLVMOrcThreadSafeContext*
+c.fun LLVMOrcDisposeThreadSafeContext(LLVMOrcThreadSafeContext*) :: void_t
+c.fun LLVMOrcCreateNewThreadSafeModule(
+  LLVMModule*,
+  LLVMOrcThreadSafeContext*,
+) :: LLVMOrcThreadSafeModule*
+c.fun LLVMOrcDisposeThreadSafeModule(LLVMOrcThreadSafeModule*) :: void_t
+
+c.fun LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(
+  LLVMTargetMachine*,
+) :: LLVMOrcJITTargetMachineBuilder*
+c.fun LLVMOrcDisposeJITTargetMachineBuilder(LLVMOrcJITTargetMachineBuilder*) :: void_t
+
+c.fun LLVMOrcCreateLLJITBuilder() :: LLVMOrcLLJITBuilder*
+c.fun LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(
+  LLVMOrcLLJITBuilder*,
+  LLVMOrcJITTargetMachineBuilder*,
+) :: void_t
+c.fun LLVMOrcDisposeLLJITBuilder(LLVMOrcLLJITBuilder*) :: void_t
+
+c.fun LLVMOrcCreateLLJIT(
+  jit :: (ptr_t*) = new ptr_t,
+  LLVMOrcLLJITBuilder_or_null,
+) :: (msg :: error_t):
+  check_error("LLVMOrcCreateLLJIT", msg)
+  cast (LLVMOrcLLJIT*) jit[0]
+c.fun LLVMOrcDisposeLLJIT(LLVMOrcLLJIT*) :: (msg :: error_t):
+  check_error("LLVMOrcDisposeLLJIT", msg)
+c.fun LLVMOrcLLJITGetExecutionSession(LLVMOrcLLJIT*) :: LLVMOrcExecutionSession*
+c.fun LLVMOrcLLJITGetMainJITDylib(LLVMOrcLLJIT*) :: LLVMOrcJITDylib*
+
+// The JIT takes ownership of the memory buffer.
+c.fun _LLVMOrcLLJITAddObjectFile(
+  LLVMOrcLLJIT*,
+  LLVMOrcJITDylib*,
+  LLVMMemoryBuffer*,
+) :: (msg :: error_t):
+  ~c_id: LLVMOrcLLJITAddObjectFile
+  check_error("LLVMOrcLLJITAddObjectFile", msg)
+
+fun LLVMOrcLLJITAddObjectFile(jit, jit_dylib, contents :~ Bytes) :: Void:
+  _LLVMOrcLLJITAddObjectFile(jit,
+                             jit_dylib,
+                             LLVMCreateMemoryBufferWithMemoryRangeCopy(contents))
+
+c.fun LLVMOrcLLJITAddLLVMIRModule(
+  LLVMOrcLLJIT*,
+  LLVMOrcJITDylib*,
+  LLVMOrcThreadSafeModule*,
+) :: (msg :: error_t):
+  check_error("LLVMOrcLLJITAddLLVMIRModule", msg)
+
+c.fun LLVMOrcLLJITLookup(
+  LLVMOrcLLJIT*,
+  addr :: (uint64_t*) = new uint64_t,
+  name_t,
+) :: (msg :: error_t):
+  check_error("LLVMOrcLLJITLookup", msg)
+  uintptr_to_ptr(addr[0])

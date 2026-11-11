@@ -1,0 +1,155 @@
+#lang rhombus/static/and_meta
+
+// Foreign types for the LLVM C API. Every LLVM object is a pointer object
+// from the Rhombus FFI. Its tags record what we know about its class, so a
+// class check is usually a tag check instead of a foreign call.
+
+import:
+  ffi open
+  lib("racket/base.rkt"):
+    expose:
+      #{real->double-flonum} as real_to_flonum
+
+export:
+  all_defined
+
+//==============================================================================
+// The `_or_null` types map NULL to `#false` and back. A NULL from C would
+// otherwise arrive as a pointer object with address 0, which is truthy.
+
+defn.macro 'nullable_type $(name :: Identifier): $(base :: Identifier)':
+  'def null_ptr = cast ($base *) uintptr_to_ptr(0)
+   foreign.type $name:
+     ~extends $base *
+     ~predicate: fun (v): !v || v is_a $base
+     ~rhombus_to_c: fun (v): v || null_ptr
+     ~c_to_rhombus: fun (p): if ptr_to_uintptr(p) == 0 | #false | p'
+
+defn.macro 'handle_types:
+              $(name :: Identifier)
+              ...':
+  let [null_name, ...] = [Syntax.make_id(name.unwrap() +& "_or_null", name), ...]
+  'foreign.type $name
+   ...
+   nullable_type $null_name: $name
+   ...'
+
+//==============================================================================
+// Objects whose class we never need to refine.
+
+handle_types:
+  LLVMBasicBlock
+  LLVMBuilder
+  LLVMContext
+  LLVMError
+  LLVMMemoryBuffer
+  LLVMModule
+  LLVMOrcExecutionSession
+  LLVMOrcJITDylib
+  LLVMOrcJITTargetMachineBuilder
+  LLVMOrcLLJIT
+  LLVMOrcLLJITBuilder
+  LLVMOrcThreadSafeContext
+  LLVMOrcThreadSafeModule
+  LLVMPassBuilderOptions
+  LLVMTarget
+  LLVMTargetData
+  LLVMTargetMachine
+  LLVMUse
+
+//==============================================================================
+// Values. The tags follow LLVM's own class hierarchy, restricted to the
+// classes that `pille/llvm` has veneers for. LLVM's hierarchy is a tree, so
+// any part of it still is one.
+
+defn.macro 'subtypes $(parent :: Identifier):
+              $(name :: Identifier)
+              ...':
+  'foreign.type $name:
+     ~extends $parent
+   ...'
+
+foreign.type LLVMValue
+nullable_type LLVMValue_or_null: LLVMValue
+
+subtypes LLVMValue:
+  LLVMArgument
+  LLVMUser
+subtypes LLVMUser:
+  LLVMConstant
+  LLVMInstruction
+subtypes LLVMConstant:
+  LLVMUndefValue
+  LLVMConstantPointerNull
+  LLVMConstantInt
+  LLVMConstantFP
+  LLVMGlobalValue
+subtypes LLVMUndefValue:
+  LLVMPoisonValue
+subtypes LLVMGlobalValue:
+  LLVMGlobalObject
+subtypes LLVMGlobalObject:
+  LLVMFunction
+  LLVMGlobalVariable
+subtypes LLVMInstruction:
+  LLVMReturnInst
+  LLVMBranchInst
+  LLVMUnreachableInst
+  LLVMUnaryInstruction
+  LLVMStoreInst
+  LLVMPHINode
+  LLVMCallInst
+subtypes LLVMUnaryInstruction:
+  LLVMAllocaInst
+  LLVMLoadInst
+  LLVMCastInst
+subtypes LLVMCastInst:
+  LLVMTruncInst
+  LLVMZExtInst
+
+nullable_type LLVMArgument_or_null: LLVMArgument
+nullable_type LLVMConstant_or_null: LLVMConstant
+nullable_type LLVMFunction_or_null: LLVMFunction
+nullable_type LLVMGlobalVariable_or_null: LLVMGlobalVariable
+nullable_type LLVMInstruction_or_null: LLVMInstruction
+
+//==============================================================================
+// Types. Unlike values, every type that reaches Rhombus carries its most
+// specific tag. See `classified_type_t` in "llvm_c.rhm".
+
+foreign.type LLVMType
+
+subtypes LLVMType:
+  LLVMVoidTy
+  LLVMLabelTy
+  LLVMTokenTy
+  LLVMMetadataTy
+  LLVMFunctionTy
+  LLVMSizedTy
+subtypes LLVMSizedTy:
+  LLVMIntTy
+  LLVMFPTy
+  LLVMStructTy
+  LLVMArrayTy
+  LLVMPointerTy
+  LLVMVectorTy
+  LLVMScalableVectorTy
+  LLVMX86AMXTy
+subtypes LLVMFPTy:
+  LLVMHalfTy
+  LLVMFloatTy
+  LLVMDoubleTy
+
+//==============================================================================
+// Strings and numbers.
+
+// A name can be a Symbol, including an uninterned one. `#false` means NULL.
+foreign.type name_t:
+  ~extends string_t
+  ~predicate: fun (v): !v || v is_a ReadableString || v is_a Symbol
+  ~rhombus_to_c: fun (v): if v is_a Symbol | to_string(v) | v
+
+foreign.type real_t:
+  ~extends double_t
+  ~predicate: fun (v): v is_a Real
+  ~rhombus_to_c: fun (v): real_to_flonum(v)
