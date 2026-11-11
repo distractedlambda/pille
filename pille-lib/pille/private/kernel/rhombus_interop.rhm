@@ -58,11 +58,19 @@ meta:
 export pille_expr.macro 'rhombus $(args :: MaybePilleToRhombusArgs) \
                                  $(res_ty :: MaybePilleToRhombusResultType):
                            $(body :: NonemptyMulti)':
+  // Without a result type, the result is `Void`, and the body's value is
+  // discarded.
+  let callback:
+    if res_ty.type
+    | 'fun($args.arg.id, ...): block: $body'
+    | 'fun($args.arg.id, ...):
+         block: $body
+         #void'
   pille_expr_meta.pack_concretize(
     'concretize_embedded_rhombus(
        [$(pille_expr_meta.unpack_concretize(args.arg.init)), ...],
        $((res_ty.type ?> specl_expr_meta.unpack_rhombus_expr) || 'VoidType()'),
-       fun($args.arg.id, ...): block: $body)')
+       $callback)')
 
 fun concretize_embedded_rhombus(
   [arg :: Expr, ...],
