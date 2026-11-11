@@ -22,6 +22,16 @@ export fun resolve_coercer(
   guard !(from_type === to_type)
   | fun(_, val): val
 
+  // `Never` coerces to every type, through the coercion in never.rhm. But
+  // other coercions whose source can be any type, such as broadcasting an
+  // element to a `Simd`, match `Never` too, and they all have automatic
+  // priorities. So we skip overload resolution here instead of reporting
+  // an ambiguity. Lowering a `Never` expression escapes before it produces
+  // a value, so this coercer is never called.
+  guard !(from_type is_a NeverType)
+  | fun(_, _):
+      error(~srcloc, "cannot coerce a value of type 'Never'")
+
   let ovl_concr :~ Overload.Concretized = try:
     ImplicitKey.with_empty_env(_) <| fun():
       resolve_overload(
