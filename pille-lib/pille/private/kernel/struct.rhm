@@ -12,6 +12,7 @@ import:
   "specl_annot.rhm" open
   "specl_annot_forms.rhm" open
   "specl_bind.rhm" open
+  "specl_bind_forms.rhm" open
   "specl_def.rhm" open
   "specl_expr.rhm" open
   "specl_expr_forms.rhm" open
@@ -100,7 +101,10 @@ export defn.macro 'struct $(name :: IdentifierName) $(specl_args :: SpeclArgs) $
 
    $(if specl_args.present
      | let [specl_arg_id, ...] = [Syntax.make_temp_id(specl_args.arg.bind), ...]
-       '«specl.fun $name($specl_arg_id, ...):
+       // The argument patterns also run when the field types are computed,
+       // but checking them here keeps a bad type like `Sized(Int(8), 0)`
+       // from being formed at all.
+       '«specl.fun $name($specl_arg_id && ($specl_args.arg.bind), ...):
            ~name: $display_name
            #%rhombus($specl_arg_id, ...):
              StructType(species, [$specl_arg_id, ...])
