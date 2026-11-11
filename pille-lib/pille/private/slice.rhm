@@ -48,7 +48,7 @@ coercion (src :: SliceOf(α)) :: RawSlice:
   .{src.ptr.raw, src.len * α.byte_stride}
 
 //==============================================================================
-method (s :: AnySplice).$to_rhombus():
+method (s :: AnySlice).$to_rhombus():
    [s.ptr, s.len]
 
 method (specl AnySlice as δ).$from_rhombus(parts) :: δ:
