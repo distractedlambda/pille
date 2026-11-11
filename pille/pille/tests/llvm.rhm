@@ -176,6 +176,14 @@ check:
   b.create_alloca(i32) is_a llvm.AllocaInst
   ~is #true
 
+check:
+  b.create_load(~alignment: 16, i32, p).alignment
+  ~is 16
+
+check:
+  b.create_store(~alignment: 2, x32, p).alignment
+  ~is 2
+
 //==============================================================================
 // Selects, vectors and aggregates
 
@@ -312,14 +320,14 @@ check:
 // A value that comes back from LLVM without a specific tag still satisfies
 // the annotation for its class.
 
-// The checks above that succeeded added one alloca and three calls to
-// `entry`.
+// The checks above that succeeded added one alloca, one load, one store
+// and three calls to `entry`.
 check:
   for values(insts = 0, allocas = 0, calls = 0) (inst in entry.instructions):
     values(insts + (if inst is_a llvm.Instruction | 1 | 0),
            allocas + (if inst is_a llvm.AllocaInst | 1 | 0),
            calls + (if inst is_a llvm.CallInst | 1 | 0))
-  ~is values(10, 1, 3)
+  ~is values(12, 1, 3)
 
 check:
   fn.arguments[6]

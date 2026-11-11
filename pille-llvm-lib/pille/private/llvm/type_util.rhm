@@ -11,6 +11,7 @@ import:
 export:
   Alignment
   AddressSpace
+  alignment_or_false
   max_int_bits
   is_int
   is_int_width
@@ -45,6 +46,10 @@ fun is_alignment(n):
 
 annot.macro 'Alignment':
   'satisfying(is_alignment)'
+
+// `LLVMGetAlignment` returns 0 when a value has no alignment set.
+fun alignment_or_false(n):
+  n != 0 && n
 
 // Address spaces are stored in 24 bits.
 annot.macro 'AddressSpace':

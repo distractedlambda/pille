@@ -14,8 +14,8 @@ export veneer GlobalVariable(this :: satisfying(is_GlobalVariable)):
   constructor ~error
 
   property
-  | alignment :: PosInt:
-      LLVMGetAlignment(this)
+  | alignment :~ maybe(PosInt):
+      alignment_or_false(LLVMGetAlignment(this))
   | alignment := (value :: Alignment):
       LLVMSetAlignment(this, value)
 
