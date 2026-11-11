@@ -304,14 +304,17 @@ method (lhs :: UInt(_) as α).$shr_unchecked(rhs :: BinaryInteger) :: α:
   prim.lshr(lhs, α.cast_exact(rhs))
 
 //==============================================================================
+// The shift amount is reduced modulo the width as an unsigned number,
+// because `%↓` is only defined for `UInt`. The result is less than `w`, so
+// it fits in `α` even when `α` is signed.
 method (lhs :: (Int(w) || UInt(w)) as α).$shl_wrap(rhs :: BinaryInteger) :: α:
-  prim.shl(lhs, α.cast_wrap(rhs) %↓ w)
+  prim.shl(lhs, α.cast_wrap(UInt(w).cast_wrap(rhs) %↓ w))
 
 method (lhs :: Int(w) as α).$shr_wrap(rhs :: BinaryInteger) :: α:
-  prim.ashr(lhs, α.cast_wrap(rhs) %↓ w)
+  prim.ashr(lhs, α.cast_wrap(UInt(w).cast_wrap(rhs) %↓ w))
 
 method (lhs :: UInt(w) as α).$shr_wrap(rhs :: BinaryInteger) :: α:
-  prim.lshr(lhs, α.cast_wrap(rhs) %↓ w)
+  prim.lshr(lhs, α.cast_wrap(UInt(w).cast_wrap(rhs) %↓ w))
 
 //==============================================================================
 method (lhs :: (Int(w) || UInt(w)) as α).$shl(rhs :: BinaryInteger) :: α:
