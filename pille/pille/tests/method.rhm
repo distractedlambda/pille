@@ -122,6 +122,22 @@ test:
   assert((0 :: Int(16)).lower_rank() == 1)
   assert((0 :: UInt(16)).lower_rank() == 0)
 
+// The overload in the middle has an automatic priority, which is unrelated
+// to both of the others. That must not keep `mid` ahead of `low`.
+method (x :: Int(_)).skip_unrelated():
+  ~priority mid
+  2
+
+method (x :: Boolean).skip_unrelated():
+  0
+
+method (x :: Int(_)).skip_unrelated():
+  ~priority low
+  1
+
+test:
+  assert((0 :: Int(8)).skip_unrelated() == 2)
+
 method (x :: Int(_)).ambiguous(): 1
 method (x :: Int(8)).ambiguous(): 2
 

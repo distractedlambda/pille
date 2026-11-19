@@ -37,3 +37,22 @@ fun Priority.new_automatic() :~ Priority:
     ~name: "automatic",
     ~lower_than: Set.by(===){},
     ~higher_than: Set.by(===){Priority.fallback})
+
+// Orders `items` so that nothing comes after an item with a lower priority.
+// `List.sort` can't do that, because it treats unrelated priorities as
+// equal and then doesn't compare everything it would need to. Unrelated
+// items keep their original order.
+fun Priority.sort_by(items :~ List,
+                     get_priority :: Function.of_arity(1)) :~ List:
+  recur loop(items :~ List = items, sorted :~ List = []):
+    if items.is_empty()
+    | sorted
+    | fun is_top(item) :~ Boolean:
+        let priority :~ Priority = get_priority(item)
+        for all (other in items):
+          !(get_priority(other) :~ Priority).is_higher_than(priority)
+      let tops = items.filter(~keep: is_top)
+      // A cycle among hand-made priorities can leave no item at the top.
+      let top = if tops.is_empty() | items.first | tops.first
+      loop(items.filter(~skip: fun (item): item === top),
+           sorted.add(top))

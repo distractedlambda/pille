@@ -73,8 +73,7 @@ class Overload(
 
   fun snapshot_table() :~ Table:
     for Map ((sel, defns) in current_table()):
-      let defns = defns.sort(_) <| fun(fst :~ Overload, snd :~ Overload):
-        fst.priority.is_higher_than(snd.priority)
+      let defns = Priority.sort_by(defns, fun (ovl :~ Overload): ovl.priority)
       values(sel, defns)
 
   fun dispatch(

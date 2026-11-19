@@ -50,8 +50,7 @@ class SpeclOverload(
 
   fun snapshot_table() :~ Table:
     for Map ((sel, defns) in current_table()):
-      let defns = defns.sort(_) <| fun(fst :~ SpeclOverload, snd :~ SpeclOverload):
-        fst.priority.is_higher_than(snd.priority)
+      let defns = Priority.sort_by(defns, fun (ovl :~ SpeclOverload): ovl.priority)
       values(sel, defns)
 
   fun dispatch(
