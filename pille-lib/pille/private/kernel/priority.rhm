@@ -44,6 +44,16 @@ meta:
       field [lower_than, ...] = []
       field [higher_than, ...] = [others, ...]
 
+  // Takes two values stored by `_priority.bridge` and works the same way
+  // as `Priority.is_higher_than`.
+  fun is_higher_than([hi_refl_id, _, [hi_ht_refl_id, ...]],
+                     [lo_refl_id, [lo_lt_refl_id, ...], _]) :~ Boolean:
+    let hi_ht_refl_ids = Set.by(equal_binding){hi_ht_refl_id, ...}
+    let lo_lt_refl_ids = Set.by(equal_binding){lo_lt_refl_id, ...}
+    (lo_refl_id in hi_ht_refl_ids
+       || hi_refl_id in lo_lt_refl_ids
+       || (for any (middle in hi_ht_refl_ids): middle in lo_lt_refl_ids))
+
   syntax_class PriorityClauses:
     kind: ~sequence
     fields: [lower_than, ...] [higher_than, ...]
@@ -59,15 +69,15 @@ export defn.macro 'priority $(name :: IdentifierName) $(clauses :: PriorityClaus
 
   let refl_id = Syntax.make_temp_id(name.name_to_symbol(), ~keep_name: #true)
 
-  let [[lt_refl_id, [lt_lt_refl_id, ...], _], ...]:
-    [syntax_meta.value(clauses.lower_than, _priority_meta.space), ...]
+  let lt_values = [syntax_meta.value(clauses.lower_than, _priority_meta.space), ...]
+  let [[lt_refl_id, [lt_lt_refl_id, ...], _], ...] = lt_values
   let all_lt_refl_id:
     Set.by(equal_binding){
       lt_refl_id, ...,
       lt_lt_refl_id, ..., ...}
 
-  let [[ht_refl_id, _, [ht_ht_refl_id, ...]], ...]:
-    [syntax_meta.value(clauses.higher_than, _priority_meta.space), ...]
+  let ht_values = [syntax_meta.value(clauses.higher_than, _priority_meta.space), ...]
+  let [[ht_refl_id, _, [ht_ht_refl_id, ...]], ...] = ht_values
   let all_ht_refl_id:
     Set.by(equal_binding){
       ht_refl_id, ...,
@@ -80,6 +90,24 @@ export defn.macro 'priority $(name :: IdentifierName) $(clauses :: PriorityClaus
       @str{order contradiction;
             priority would be both lower and higher than '@example'},
       stx)
+
+  // A priority may only go between two that are already ordered. Otherwise
+  // it would order them, but only this priority would know it, and
+  // `Priority.is_higher_than` and the check above would both miss it.
+  // Checking the named priorities is enough, since everything above or
+  // below them is ordered the same way.
+  for:
+    each:
+      above: [clauses.lower_than, ...]
+      above_value: lt_values
+    each:
+      below: [clauses.higher_than, ...]
+      below_value: ht_values
+    unless is_higher_than(above_value, below_value)
+    | syntax_meta.error(
+        @str{cannot place a priority between unrelated priorities;
+              '@(Syntax.to_source_string(above))' is not already higher than '@(Syntax.to_source_string(below))'},
+        stx)
 
   let tracked_refl_id:
     syntax_meta.track_origin(

@@ -21,6 +21,13 @@ class Priority(
   // link to the other, as in `high ~higher_than low` together with
   // `lowest ~lower_than low`. So this priority is also higher when some
   // priority is below it and above `other` at the same time.
+  //
+  // That finds every relation as long as no declaration orders two
+  // priorities that were unrelated before it. The `priority` form rejects
+  // such declarations. Each link is stored by the newer of its two
+  // priorities, so a chain has a link at its oldest priority where the two
+  // directions meet, and following the stored links from either end reaches
+  // that priority.
   method is_higher_than(other :: _Priority) :~ Boolean:
     (other in higher_than
        || this in other.lower_than

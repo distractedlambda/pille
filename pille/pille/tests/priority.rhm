@@ -1,0 +1,65 @@
+#lang rhombus/static
+
+// These tests check errors from the `priority` form, which happen while a
+// module is expanded. So each one declares a fresh module with `eval`.
+fun declare(defns :: Syntax):
+  parameterize { Evaluator.current: Evaluator.make_rhombus() }:
+    eval('module m ~lang pille/testsuite:
+            $defns')
+
+//==============================================================================
+// Contradictions
+
+check:
+  declare('priority low
+           priority high:
+             ~higher_than low
+           priority bad:
+             ~lower_than low
+             ~higher_than high')
+  ~throws "order contradiction"
+
+//==============================================================================
+// Placing a priority between others
+
+check:
+  // `mid` goes between two priorities that are already ordered.
+  declare('priority low
+           priority high:
+             ~higher_than low
+           priority mid:
+             ~lower_than high
+             ~higher_than low')
+  ~is #void
+
+check:
+  // `high` is above `lowest` only through `low`, which neither of them
+  // names directly.
+  declare('priority low
+           priority high:
+             ~higher_than low
+           priority lowest:
+             ~lower_than low
+           priority between:
+             ~lower_than high
+             ~higher_than lowest')
+  ~is #void
+
+check:
+  // `top` and `bottom` aren't ordered, and `middle` would order them.
+  declare('priority top
+           priority bottom
+           priority middle:
+             ~lower_than top
+             ~higher_than bottom')
+  ~throws "cannot place a priority between unrelated priorities"
+
+check:
+  // This is half of a cycle that would otherwise go unnoticed. A later
+  // `~lower_than b ~higher_than a` would complete it.
+  declare('priority a
+           priority b
+           priority m:
+             ~lower_than a
+             ~higher_than b')
+  ~throws "cannot place a priority between unrelated priorities"
